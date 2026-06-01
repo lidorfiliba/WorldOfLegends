@@ -2511,6 +2511,7 @@ window.WOLNet = (function(){
         case 'worldBossDead':  if(this.onBoss) this.onBoss('dead', m); break;
         case 'worldBossGone':  if(this.onBoss) this.onBoss('gone', m); break;
         case 'worldBossReward':if(this.onBoss) this.onBoss('reward', m); break;
+        case 'peerAction': if(m.id!==this.id && this.onPeerAction) this.onPeerAction(m); break;
       }
     },
     send(type,data){ if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify({type,...data})); },
@@ -2524,6 +2525,7 @@ window.WOLNet = (function(){
     monsterHit(mid,damage){ this.send('monsterHit',{mid,damage:Math.round(damage)}); },
     monsterMove(mid,x,y){ this.send('monsterMove',{mid,x:Math.round(x),y:Math.round(y)}); },
     worldBossHit(bid,damage){ this.send('worldBossHit',{bid,damage:Math.round(damage)}); },
+    action(kind,facing,color){ this.send('peerAction',{kind,facing,color}); },
     partyCreate(){ this.send('partyCreate',{}); },
     partyInvite(targetId){ this.send('partyInvite',{targetId}); },
     partyJoin(partyId){ this.send('partyJoin',{partyId}); },
@@ -2979,11 +2981,12 @@ function App(){
     if(worldId==='meadow' && freshStart) log('אתה באזור מוגן. צא החוצה כדי להילחם', 'lg-xp');
     // ── Multiplayer: connect / switch world ──
     try{
+      const wtier = Math.max(1, D.WORLDS.findIndex(w=>w.id===worldId)+1);
       const prof={ name:p.name, cls:p.classId, level:p.level, evoStage:p.evoStage||0,
-        world:worldId, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp) };
+        world:worldId, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp), worldTier:wtier };
       if(window.WOLNet){
         if(!window.WOLNet.connected && !window.WOLNet.ws){ window.WOLNet.connect(prof); }
-        else if(window.WOLNet.connected){ window.WOLNet.changeWorld(worldId, Math.round(p.x), Math.round(p.y)); }
+        else if(window.WOLNet.connected){ window.WOLNet.changeWorld(worldId, Math.round(p.x), Math.round(p.y), wtier); }
         // PvP damage handler: when another player hits me
         window.WOLNet.onPvp=(type,m)=>{
           if(type==='pvpHurt'){
@@ -3027,11 +3030,13 @@ function App(){
         //    so all players fight the SAME ones. Not in town/arena/dungeon. ──
         const NON_SHARED = ['town','arena','forge_dungeon'];
         const tier = Math.max(1, D.WORLDS.findIndex(w=>w.id===worldId)+1);
-        G.sharedWorld = window.WOLNet.isOnline() && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.pvp && !wd.town;
+        // Shared world = a server is configured AND this is a social overworld.
+        // (Don't gate on isOnline() — the socket may still be opening; monsters
+        //  arrive once connected and we suppress local spawns from the start.)
+        const serverConfigured = !!window.WOL_SERVER_URL;
+        G.sharedWorld = serverConfigured && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.pvp && !wd.town;
         G._serverMons = {}; // mid -> local monster object
         if(G.sharedWorld){ G.monsters = []; } // server will populate the shared monsters
-        // re-send world tier so the server scales monsters to this zone
-        if(window.WOLNet.connected){ try{ window.WOLNet.send('changeWorld',{world:worldId,x:Math.round(p.x),y:Math.round(p.y),worldTier:tier}); }catch(e){} }
         window.WOLNet.onMonsters=(kind, m)=>{
           if(!G.sharedWorld) return;
           if(kind==='spawn'){
@@ -3071,6 +3076,17 @@ function App(){
             showToast(`📨 ${pm.fromName} הזמין אותך לקבוצה! פתח 👥 קבוצה כדי להצטרף`, '#5aff8a');
           }
           if(window._onPartyPush) window._onPartyPush(pm);
+        };
+        // ── PEER ACTIONS: show other players' attacks (slash / projectile flash) ──
+        window.WOLNet.onPeerAction=(m)=>{
+          const peer = window.WOLNet.peers.get(m.id); if(!peer) return;
+          if(m.kind==='melee'){
+            G.effects.push({type:'slash', x:peer.x, y:peer.y, dir:m.facing||1, life:0.22, t:0, color:m.color||'#fff', big:true});
+          } else if(m.kind==='ranged'){
+            // a quick visual bolt in the facing direction
+            G.effects.push({type:'cast', x:peer.x, y:peer.y, life:0.18, t:0, color:m.color||'#5affc0'});
+            G.projectiles.push({x:peer.x, y:peer.y-6, vx:(m.facing||1)*600, vy:0, life:0.5, dmg:0, color:m.color||'#5affc0', size:5, hits:[], fx:'arrow', _visual:true});
+          }
         };
         // ── PARTY SHARED XP: the server grants XP to every party member on a kill,
         //    with a bonus for bigger/diverse parties (4 distinct classes = ×1.5). ──
@@ -3724,6 +3740,12 @@ function App(){
       G.effects.push({type:'slash', x:p.x, y:p.y, dir:G.facing, life:0.25, t:0, color:'#ffffff', big:true});
       burst(p.x + G.facing*55, p.y, '#ffffff', 5, 110);
     }
+    // broadcast this attack so other players SEE me attacking
+    if(window.WOLNet && window.WOLNet.isOnline()){
+      const ranged = (cls==='archer'||cls==='mage');
+      const col = cls==='archer'?'#5affc0':cls==='mage'?'#cc66ff':cls==='paladin'?'#ffee88':'#ffffff';
+      window.WOLNet.action(ranged?'ranged':'melee', G.facing, col);
+    }
   }, []);
 
   // ── PvP: damage other players within range (only on PvP maps) ──
@@ -4201,6 +4223,7 @@ function App(){
       if(!pr.hist) pr.hist=[];
       pr.hist.push({x:pr.x,y:pr.y}); if(pr.hist.length>7) pr.hist.shift();
       let dead = pr.life<=0;
+      if(pr._visual){ if(dead) G.projectiles.splice(i,1); continue; } // peer-attack visual: no collision/damage
       for(const m of allM){
         if(m.hp<=0||m._dying) continue;
         if(pr.hits.includes(m.id)) continue;
