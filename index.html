@@ -2500,16 +2500,30 @@ window.WOLNet = (function(){
         case 'pvpHurt': case 'pvpKill': if(this.onPvp) this.onPvp(m.type,m); break;
         case 'partyUpdate': this.party=m; if(this.onParty) this.onParty(m); break;
         case 'partyInvited': if(this.onParty) this.onParty(m); break;
+        // ── Shared monsters (server-owned, fought together) ──
+        case 'monstersSpawn': if(this.onMonsters) this.onMonsters('spawn', m); break;
+        case 'monstersSync':  if(this.onMonsters) this.onMonsters('sync', m); break;
+        case 'monsterHp':     if(this.onMonsters) this.onMonsters('hp', m); break;
+        case 'monsterDead':   if(this.onMonsters) this.onMonsters('dead', m); break;
+        case 'partyXp':       if(this.onPartyXp) this.onPartyXp(m); break;
+        case 'worldBossSpawn': if(this.onBoss) this.onBoss('spawn', m); break;
+        case 'worldBossHp':    if(this.onBoss) this.onBoss('hp', m); break;
+        case 'worldBossDead':  if(this.onBoss) this.onBoss('dead', m); break;
+        case 'worldBossGone':  if(this.onBoss) this.onBoss('gone', m); break;
+        case 'worldBossReward':if(this.onBoss) this.onBoss('reward', m); break;
       }
     },
     send(type,data){ if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify({type,...data})); },
     move(x,y,facing,hp){ const n=Date.now(); if(n-this._lastSent<80)return; this._lastSent=n; this.send('move',{x:Math.round(x),y:Math.round(y),facing,hp:Math.round(hp)}); },
-    changeWorld(world,x,y){ this.send('changeWorld',{world,x,y}); if(this.profile)this.profile.world=world; this.peers.clear(); },
+    changeWorld(world,x,y,tier){ this.send('changeWorld',{world,x,y,worldTier:tier||1}); if(this.profile)this.profile.world=world; this.peers.clear(); },
     chat(text){ this.send('chat',{text}); },
     updateStats(level,evoStage,maxHp){ this.send('stats',{level,evoStage,maxHp}); },
     pvpHit(targetId,damage,kx,ky){ this.send('pvpHit',{targetId,damage,knockX:kx||0,knockY:ky||0}); },
     reportHp(hp){ this.send('pvpHp',{hp:Math.round(hp)}); },
     reportDeath(killerId){ this.send('pvpDeath',{killerId}); },
+    monsterHit(mid,damage){ this.send('monsterHit',{mid,damage:Math.round(damage)}); },
+    monsterMove(mid,x,y){ this.send('monsterMove',{mid,x:Math.round(x),y:Math.round(y)}); },
+    worldBossHit(bid,damage){ this.send('worldBossHit',{bid,damage:Math.round(damage)}); },
     partyCreate(){ this.send('partyCreate',{}); },
     partyInvite(targetId){ this.send('partyInvite',{targetId}); },
     partyJoin(partyId){ this.send('partyJoin',{partyId}); },
@@ -3002,6 +3016,88 @@ function App(){
             showToast(`💬 ${from}: ${text.length>40?text.slice(0,40)+'…':text}`, '#88ccff');
           }
         };
+        // ── SHARED MONSTERS: in social overworld zones, the server owns monsters
+        //    so all players fight the SAME ones. Not in town/arena/dungeon. ──
+        const NON_SHARED = ['town','arena','forge_dungeon'];
+        const tier = Math.max(1, D.WORLDS.findIndex(w=>w.id===worldId)+1);
+        G.sharedWorld = window.WOLNet.isOnline() && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.pvp && !wd.town;
+        G._serverMons = {}; // mid -> local monster object
+        if(G.sharedWorld){ G.monsters = []; } // server will populate the shared monsters
+        // re-send world tier so the server scales monsters to this zone
+        if(window.WOLNet.connected){ try{ window.WOLNet.send('changeWorld',{world:worldId,x:Math.round(p.x),y:Math.round(p.y),worldTier:tier}); }catch(e){} }
+        window.WOLNet.onMonsters=(kind, m)=>{
+          if(!G.sharedWorld) return;
+          if(kind==='spawn'){
+            if(m.full){ // full reset: drop server monsters not in the list
+              const keep=new Set((m.monsters||[]).map(x=>x.mid));
+              for(const mid in G._serverMons){ if(!keep.has(mid)){ const mo=G._serverMons[mid]; if(mo) mo._remove=true; delete G._serverMons[mid]; } }
+            }
+            (m.monsters||[]).forEach(sm=>{
+              if(G._serverMons[sm.mid]) return; // already have it
+              const base = D.MONSTERS[(sm.kind||0)%D.MONSTERS.length] || D.MONSTERS[0];
+              const mo = makeMonster(base, sm.level||1, sm.x, sm.y, 1+(sm.level||1)*0.085, false, wd.xpMul||1);
+              mo.mid = sm.mid; mo._server=true;
+              mo.hp = sm.hp; mo.maxHp = sm.maxHp;
+              G.monsters.push(mo);
+              G._serverMons[sm.mid] = mo;
+            });
+          } else if(kind==='sync'){
+            (m.monsters||[]).forEach(sm=>{ const mo=G._serverMons[sm.mid]; if(mo){ mo.hp=sm.hp; if(!mo.aggro){ mo.x=sm.x; mo.y=sm.y; } } });
+          } else if(kind==='hp'){
+            const mo=G._serverMons[m.mid]; if(mo){ mo.hp=m.hp; mo.hurtT=Date.now()+150; }
+          } else if(kind==='dead'){
+            const mo=G._serverMons[m.mid];
+            if(mo && !mo._dying){
+              mo._dying=true; mo.hp=0;
+              // everyone sees the death + gets credit if THEY landed enough hits
+              if(m.byId===window.WOLNet.id){ /* I got the kill credit below via killMonster */ }
+              killMonsterShared(mo, m.byId===window.WOLNet.id);
+            }
+            delete G._serverMons[m.mid];
+          }
+        };
+        // ── PARTY SHARED XP: the server grants XP to every party member on a kill,
+        //    with a bonus for bigger/diverse parties (4 distinct classes = ×1.5). ──
+        window.WOLNet.onPartyXp=(m)=>{
+          if(!G.player) return;
+          gainXP(m.xp||0, false);
+          if(m.gold){ G.player.gold += m.gold; }
+          const bonusTxt = m.bonus>1 ? ` (×${m.bonus} בונוס קבוצה!)` : '';
+          showToast(`👥 +${(m.xp||0).toLocaleString()} XP${m.gold?` +${m.gold}🪙`:''} משותף${bonusTxt}`, '#88ddff');
+        };
+        // ── WORLD BOSS: a giant shared boss that needs a group to defeat ──
+        window.WOLNet.onBoss=(kind, m)=>{
+          if(kind==='spawn'){
+            if(!G.sharedWorld) return;
+            const base = (D.BOSSES&&D.BOSSES[0]) || D.MONSTERS[0];
+            const wb = makeMonster(base, m.level||50, m.x, m.y, 1+(m.level||50)*0.05, true, 1);
+            wb.bid=m.bid; wb._server=true; wb._worldBoss=true; wb.isBoss=true;
+            wb.hp=m.hp; wb.maxHp=m.maxHp; wb.size=120; wb._bossName=m.name;
+            G.bosses.push(wb); G._worldBoss=wb;
+            G.shake=16;
+            showToast(`⚠️ בוס עולם: ${m.name}! התאגדו!`, '#ff3a3a');
+            log(`⚠️ בוס עולם הופיע: ${m.name} — חזק מאוד, צריך קבוצה!`, 'lg-boss');
+          } else if(kind==='hp'){
+            if(G._worldBoss && G._worldBoss.bid===m.bid){ G._worldBoss.hp=m.hp; G._worldBoss.hurtT=Date.now()+150; }
+          } else if(kind==='dead'){
+            if(G._worldBoss && G._worldBoss.bid===m.bid){
+              deathBurst(G._worldBoss.x, G._worldBoss.y, '#ff3a3a', true);
+              G.bosses = G.bosses.filter(b=>b!==G._worldBoss);
+              G._worldBoss=null; G.shake=20;
+              showToast(`🏆 ${m.byName} הפיל את בוס העולם!`, '#ffd24a');
+            }
+          } else if(kind==='gone'){
+            if(G._worldBoss && G._worldBoss.bid===m.bid){ G.bosses=G.bosses.filter(b=>b!==G._worldBoss); G._worldBoss=null; }
+          } else if(kind==='reward'){
+            const p=G.player; if(!p) return;
+            gainXP(m.xp||0, false); p.gold += (m.gold||0);
+            // bonus: a guaranteed legendary drop for helping kill a world boss
+            if(p.inventory && p.inventory.length<40){ p.inventory.push(E.genItem(p.level,'legendary',2)); }
+            showToast(`🏆 פרס בוס עולם: +${(m.xp||0).toLocaleString()}XP +${(m.gold||0).toLocaleString()}🪙 + חפץ אגדי!`, '#ffd24a');
+            log(`🏆 הבסת את ${m.name}! פרס ענק לכל העוזרים.`, 'lg-leg');
+            checkAchievements();
+          }
+        };
       }
     }catch(e){}
     G.needStart = true;
@@ -3280,9 +3376,24 @@ function App(){
     let dmg = Math.max(1, Math.round(power*mult*combo - mon.def*0.4 + (Math.random()-0.5)*power*0.2));
     const crit = Math.random() < (cs.crit + (critChance||0));
     if(crit) dmg = Math.round(dmg*2);
-    mon.hp -= dmg;
-    mon.hurtT = Date.now()+150;
     pushDmgNum(mon.x, mon.y - mon.size, dmg, crit?'#ffd24a':'#fff', crit);
+    mon.hurtT = Date.now()+150;
+    // ── WORLD BOSS: route damage to the server (shared HP across all players) ──
+    if(mon._worldBoss && mon.bid && window.WOLNet && window.WOLNet.isOnline()){
+      mon.hp -= dmg; // optimistic
+      window.WOLNet.worldBossHit(mon.bid, dmg);
+      return;
+    }
+    // ── SHARED monster: send damage to the server (authoritative HP). The server
+    //    broadcasts the new HP/death to everyone so all players fight it together. ──
+    if(mon._server && mon.mid && window.WOLNet && window.WOLNet.isOnline()){
+      mon.hp -= dmg; // optimistic local update for instant feel; server will correct
+      window.WOLNet.monsterHit(mon.mid, dmg);
+      // do NOT call killMonster here — wait for the server's 'monsterDead' broadcast
+      return;
+    }
+    // local (offline / non-shared) monster
+    mon.hp -= dmg;
     if(mon.hp<=0 && !mon._dying){ mon._dying=true; killMonster(mon); }
   }, []);
 
@@ -3460,7 +3571,9 @@ function App(){
         }
         return;
       }
-      // normal worlds: respawn to keep the map full
+      // normal worlds: respawn to keep the map full (NOT in shared online worlds —
+      // the server owns those monsters and spawns them for everyone)
+      if(G.sharedWorld) return;
       setTimeout(()=>{
         if(!G.running || !G.worldDef) return;
         const wd = G.worldDef;
@@ -3479,7 +3592,44 @@ function App(){
     }
   }, []);
 
-  // ════════ MONSTER ATTACKS PLAYER ════════
+  // Called when the SERVER reports a shared monster died. Everyone sees the death
+  // animation; only the killer (iGotKill) receives XP / gold / loot credit.
+  const killMonsterShared = useCallback((mon, iGotKill)=>{
+    const p = G.player;
+    deathBurst(mon.x, mon.y, (mon.base&&mon.base.color)||'#fff', false);
+    // remove from the active list
+    const idx = G.monsters.indexOf(mon);
+    if(idx>=0) G.monsters.splice(idx,1);
+    if(!iGotKill) return; // others just see it vanish
+    p.kills++;
+    checkAchievements();
+    updateEvoQuests();
+    // XP + gold: if in a party, the server grants shared rewards via 'partyXp' to
+    // everyone (incl. me), so DON'T grant here. Solo → grant now.
+    const inParty = window.WOLNet && window.WOLNet.party && window.WOLNet.party.partyId;
+    let goldAmt = 0;
+    if(!inParty){
+      goldAmt = E.randInt((mon.gold&&mon.gold[0])||5, (mon.gold&&mon.gold[1])||15);
+      p.gold += goldAmt;
+      gainXP(mon.xp||50, true);
+    }
+    log(`💀 ${mon.base?mon.base.name:'מפלצת'}${goldAmt?` +${goldAmt}🪙`:''}`, 'lg-xp');
+    // pet parts (same odds as solo)
+    if(!p.petParts) p.petParts={};
+    const give=(id)=>{ p.petParts[id]=(p.petParts[id]||0)+1; showToast(`${D.PET_PARTS[id].emoji} ${D.PET_PARTS[id].name}!`, '#88ffcc'); };
+    const tile=G.worldDef?.tile;
+    if((tile==='grass'||tile==='forest')&&Math.random()<0.03) give('pet_essence');
+    else if((tile==='forest'||tile==='swamp'||tile==='snow')&&Math.random()<0.02) give('beast_fang');
+    else if((tile==='lava'||tile==='inferno')&&Math.random()<0.02) give('ember_feather');
+    else if((tile==='void'||tile==='astral'||tile==='celestial')&&Math.random()<0.02) give('spirit_dust');
+    // loot drop
+    if(Math.random()<0.35){
+      const it=E.genItem(mon.lv||10, null, 0);
+      G.groundItems.push({x:mon.x+(Math.random()-0.5)*60,y:mon.y+(Math.random()-0.5)*60,item:it,id:Math.random(),bob:Math.random()*6,t:Date.now()});
+      if(['legendary','mythic','epic'].includes(it.rarity)) showToast(`${it.emoji} <b style="color:${D.RARITY[it.rarity].color}">${it.name}</b>`, D.RARITY[it.rarity].color);
+    }
+    if(Math.random()<0.5) G.groundItems.push({x:mon.x,y:mon.y,gold:goldAmt,id:Math.random(),bob:0,t:Date.now()});
+  }, []);
   const monsterHitPlayer = useCallback((mon)=>{
     const p = G.player, cs = G.cs;
     if(G.shield || G.godMode){ return; }
@@ -3912,13 +4062,16 @@ function App(){
       [...G.monsters, ...G.bosses].forEach(m=>{
         if(m.hp>0 && !m._dying && m.dotT && now<m.dotT){
           const dd = m.dotDmg||3;
-          m.hp -= dd;
           pushDmgNum(m.x, m.y-m.size*0.5, dd, m.dotColor||'#88ff00', false);
+          // server-owned: send the tick to the server, let it manage HP/death
+          if(m._worldBoss && m.bid && window.WOLNet && window.WOLNet.isOnline()){ m.hp-=dd; window.WOLNet.worldBossHit(m.bid, dd); return; }
+          if(m._server && m.mid && window.WOLNet && window.WOLNet.isOnline()){ m.hp-=dd; window.WOLNet.monsterHit(m.mid, dd); return; }
+          m.hp -= dd;
           if(m.hp<=0 && !m._dying){ m._dying=true; killMonster(m); }
         }
       });
     }
-    if(G.frame%180===0) G.monsters = G.monsters.filter(m=>m.hp>0);
+    if(G.frame%180===0) G.monsters = G.monsters.filter(m=>!m._remove && (m._server ? !m._dying : m.hp>0));
 
     // HUD refresh ~10fps
     if(G.frame%6===0) setHudTick(t=>(t+1)%1000000);
