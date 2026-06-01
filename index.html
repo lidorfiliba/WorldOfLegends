@@ -3009,9 +3009,16 @@ function App(){
           opts=opts||{};
           window._chatInbox.push({who:from,txt:text,sys:opts.sys,me:opts.me,lv:opts.level,t:Date.now()});
           if(window._chatInbox.length>60) window._chatInbox.shift();
-          // let an open ChatPanel refresh
           if(window._onChatPush) window._onChatPush();
-          // if no chat panel is open, show a quick toast for non-self messages
+          // ── floating chat bubble above the speaker's head (a few seconds) ──
+          if(!opts.sys){
+            const bubble = { txt:text.length>60?text.slice(0,60)+'…':text, until:Date.now()+5000 };
+            if(opts.me){ if(G.player) G._myBubble=bubble; }
+            else if(opts.fromId!=null && window.WOLNet.peers){
+              const peer = window.WOLNet.peers.get(opts.fromId);
+              if(peer) peer._bubble = bubble;
+            }
+          }
           if(!window._chatOpen && !opts.me && !opts.sys){
             showToast(`💬 ${from}: ${text.length>40?text.slice(0,40)+'…':text}`, '#88ccff');
           }
@@ -3042,7 +3049,7 @@ function App(){
               G._serverMons[sm.mid] = mo;
             });
           } else if(kind==='sync'){
-            (m.monsters||[]).forEach(sm=>{ const mo=G._serverMons[sm.mid]; if(mo){ mo.hp=sm.hp; if(!mo.aggro){ mo.x=sm.x; mo.y=sm.y; } } });
+            (m.monsters||[]).forEach(sm=>{ const mo=G._serverMons[sm.mid]; if(mo){ mo.hp=sm.hp; mo._tx=sm.x; mo._ty=sm.y; } });
           } else if(kind==='hp'){
             const mo=G._serverMons[m.mid]; if(mo){ mo.hp=m.hp; mo.hurtT=Date.now()+150; }
           } else if(kind==='dead'){
@@ -3055,6 +3062,15 @@ function App(){
             }
             delete G._serverMons[m.mid];
           }
+        };
+        // ── ALWAYS-ON party handler: invites must arrive even if the party panel
+        //    is closed. Store the invite + show a toast; the panel reads it too. ──
+        window.WOLNet.onParty=(pm)=>{
+          if(pm.type==='partyInvited'){
+            window._partyInvite = pm;
+            showToast(`📨 ${pm.fromName} הזמין אותך לקבוצה! פתח 👥 קבוצה כדי להצטרף`, '#5aff8a');
+          }
+          if(window._onPartyPush) window._onPartyPush(pm);
         };
         // ── PARTY SHARED XP: the server grants XP to every party member on a kill,
         //    with a bonus for bigger/diverse parties (4 distinct classes = ×1.5). ──
@@ -4085,9 +4101,61 @@ function App(){
   // The loop (loopRef.current) calls G._loopBody so it never gets stale after a React re-render.
   G._loopBody = loopBody;
 
+  function drawChatBubble(ctx, cx, topY, txt){
+    ctx.save();
+    ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+    const w = Math.min(220, ctx.measureText(txt).width + 18);
+    const h = 22, x = cx - w/2, y = topY - h;
+    ctx.fillStyle='rgba(12,8,22,0.9)'; ctx.strokeStyle='rgba(180,150,255,0.6)'; ctx.lineWidth=1.5;
+    if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(x,y,w,h,8); ctx.fill(); ctx.stroke(); }
+    else { ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h); }
+    // little tail
+    ctx.fillStyle='rgba(12,8,22,0.9)'; ctx.beginPath();
+    ctx.moveTo(cx-5, y+h-1); ctx.lineTo(cx+5, y+h-1); ctx.lineTo(cx, y+h+6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#e8e0ff'; ctx.fillText(txt, cx, y+15);
+    ctx.textAlign='left'; ctx.restore();
+  }
+
   function updateMonsterAI(m, dt, now, playerInSafe){
     if(now < m.stunT) return;
     const p = G.player;
+    // ── SHARED (server-owned) monster ──
+    if(m._server){
+      // Smoothly move toward the server's authoritative position so all players
+      // see it in the same place. The closest player "hosts" the AI and reports.
+      if(m._tx!=null){
+        m.x += (m._tx - m.x) * Math.min(1, dt*8);
+        m.y += (m._ty - m.y) * Math.min(1, dt*8);
+      }
+      // am I the host? (closest player among me + peers)
+      let iAmClosest = true;
+      const myD = Math.hypot(p.x-m.x, p.y-m.y);
+      if(window.WOLNet && window.WOLNet.peers){
+        for(const peer of window.WOLNet.peers.values()){
+          if(Math.hypot(peer.x-m.x, peer.y-m.y) < myD){ iAmClosest=false; break; }
+        }
+      }
+      // host runs the chase logic and pushes the position to the server
+      if(iAmClosest){
+        const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
+        const gap=m.lv-p.level; const aggroR=m.isBoss?400:(gap>15?0:gap>10?120:300);
+        const atkR=m.isBoss?80:54; const sp=m.spd*52*(now<m.slowT?0.5:1);
+        if((d<aggroR||m.aggro) && !playerInSafe){
+          m.aggro=true;
+          if(d>atkR){ m.x+=dx/d*sp*dt; m.y+=dy/d*sp*dt; m.state='chase'; }
+          else { m.state='attack'; if(now>m.atkT){ m.atkT=now+(m.isBoss?1100:1400)+Math.random()*400; monsterHitPlayer(m); } }
+          if(d>aggroR*3) m.aggro=false;
+        } else { m.state='idle'; }
+        // report ~5x/sec
+        if(!m._lastRep || now-m._lastRep>200){ m._lastRep=now; if(window.WOLNet) window.WOLNet.monsterMove(m.mid, m.x, m.y); }
+      } else {
+        // non-host: still allow it to attack me if it's right on top of me
+        const d=Math.hypot(p.x-m.x,p.y-m.y);
+        if(d < (m.isBoss?80:54) && !playerInSafe && now>m.atkT){ m.atkT=now+(m.isBoss?1100:1400); monsterHitPlayer(m); m.state='attack'; }
+        else m.state = m.aggro?'chase':'idle';
+      }
+      return;
+    }
     // keep out of safe zone
     const dsafe = Math.hypot(m.x-WW/2, m.y-WH/2);
     if(dsafe < SAFE_R){
@@ -4547,6 +4615,8 @@ function App(){
           ctx.fillStyle=isParty?'#5aff8a':'#ff4444'; ctx.fillRect(px-bw/2, py-38, bw*hpPct, 5);
         }
         ctx.textAlign='left';
+        // floating chat bubble above this peer
+        if(peer._bubble && now < peer._bubble.until){ drawChatBubble(ctx, px, py-52, peer._bubble.txt); }
       });
     }
     // mount (drawn under the player when riding)
@@ -4564,6 +4634,8 @@ function App(){
       ctx.restore();
     }
     SP.drawPlayer(ctx, p.x-cam.x, p.y-cam.y, p.classId, G._moving, now, G.facing, p.evoStage||0);
+    // my own floating chat bubble
+    if(G._myBubble && now < G._myBubble.until){ drawChatBubble(ctx, p.x-cam.x, p.y-cam.y-52, G._myBubble.txt); }
     // shield ring
     if(G.shield){
       ctx.save(); ctx.strokeStyle=`rgba(255,238,136,${0.5+Math.sin(now/100)*0.4})`;
@@ -6293,12 +6365,13 @@ function BranchChoice({player, showToast, rerender, setModal}){
 // ════════════════════════════════════════════════
 function PartyPanel({player, showToast}){
   const [,setT]=useState(0); const refresh=()=>setT(n=>n+1);
-  const [invite,setInvite]=useState(null);
+  const [invite,setInvite]=useState(()=>window._partyInvite||null);
   const online = window.WOLNet && window.WOLNet.isOnline();
   useEffect(()=>{
     if(!online) return;
-    window.WOLNet.onParty=(m)=>{ if(m.type==='partyInvited'){ setInvite(m); } refresh(); };
-    return ()=>{ if(window.WOLNet) window.WOLNet.onParty=null; };
+    // subscribe to the always-on party handler's pushes (don't override it)
+    window._onPartyPush=(pm)=>{ if(pm.type==='partyInvited'){ setInvite(pm); } refresh(); };
+    return ()=>{ window._onPartyPush=null; };
   },[online]);
   if(!online){
     return <div style={{textAlign:'center',padding:20,color:'#9a8aa8',fontSize:'0.8rem',lineHeight:1.6}}>
@@ -6313,8 +6386,8 @@ function PartyPanel({player, showToast}){
         <div className="bs-recipe" style={{borderColor:'#5aff8a'}}>
           <div className="bs-r-desc">📨 {invite.fromName} הזמין אותך לקבוצה</div>
           <div style={{display:'flex',gap:6}}>
-            <button className="bs-craft" onClick={()=>{ window.WOLNet.partyJoin(invite.partyId); setInvite(null); showToast('הצטרפת לקבוצה!','#5aff8a'); refresh(); }}>✓ הצטרף</button>
-            <button className="bs-craft" style={{background:'#5a2a2a'}} onClick={()=>setInvite(null)}>✕ דחה</button>
+            <button className="bs-craft" onClick={()=>{ window.WOLNet.partyJoin(invite.partyId); setInvite(null); window._partyInvite=null; showToast('הצטרפת לקבוצה!','#5aff8a'); refresh(); }}>✓ הצטרף</button>
+            <button className="bs-craft" style={{background:'#5a2a2a'}} onClick={()=>{ setInvite(null); window._partyInvite=null; }}>✕ דחה</button>
           </div>
         </div>
       )}
@@ -6597,6 +6670,7 @@ function ChatPanel({player, showToast}){
     if(online){
       window.WOLNet.chat(t); // server will echo back to everyone incl. me
     } else {
+      if(window.G && window.G.player) window.G._myBubble={txt:t.length>60?t.slice(0,60)+'…':t, until:Date.now()+5000};
       setMsgs(m=>[...m.slice(-40),{who:player.name||'אני',txt:t,me:true,lv:player.level}]);
       if(Math.random()<0.5) setTimeout(()=>{
         const who=BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)];
