@@ -109,8 +109,13 @@ canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;image
 
 /* ── BOTTOM CONTROLS ── */
 .btm{position:absolute;bottom:calc(8px + env(safe-area-inset-bottom));left:0;right:0;padding:6px 8px;z-index:38;pointer-events:none;}
-.btn-bar{display:grid;grid-template-columns:repeat(4,auto);gap:5px;pointer-events:all;justify-content:center;padding-bottom:2px;width:max-content;margin:0 auto;}
-.mini-btn{background:rgba(10,5,16,0.8);border:2px solid var(--border2);border-radius:8px;color:var(--gold);font-family:'Cinzel',serif;font-weight:700;font-size:0.66rem;padding:7px 11px;cursor:pointer;backdrop-filter:blur(6px);transition:transform .1s;}
+/* Horizontal scrollable strip of menu buttons, kept clear of the joystick (left)
+   and attack button (right) so nothing overlaps on small iPhones. */
+.btn-bar{display:flex;flex-wrap:nowrap;gap:6px;pointer-events:all;overflow-x:auto;overflow-y:hidden;
+  padding:4px calc(132px + env(safe-area-inset-right,0px)) 4px calc(132px + env(safe-area-inset-left,0px));
+  -webkit-overflow-scrolling:touch;scrollbar-width:none;mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent);}
+.btn-bar::-webkit-scrollbar{display:none;}
+.mini-btn{background:rgba(10,5,16,0.85);border:2px solid var(--border2);border-radius:8px;color:var(--gold);font-family:'Cinzel',serif;font-weight:700;font-size:0.64rem;padding:7px 10px;cursor:pointer;backdrop-filter:blur(6px);transition:transform .1s;flex:0 0 auto;white-space:nowrap;}
 .mini-btn:active{transform:scale(0.92);}
 
 /* joystick */
@@ -2983,6 +2988,20 @@ function App(){
             p.pvpKills=(p.pvpKills||0)+1; checkAchievements();
           }
         };
+        // ALWAYS-ON chat receiver: store every message globally and (if the chat
+        // panel is closed) flash a toast, so players see chat without opening it.
+        if(!window._chatInbox) window._chatInbox=[];
+        window.WOLNet.onChat=(from,text,opts)=>{
+          opts=opts||{};
+          window._chatInbox.push({who:from,txt:text,sys:opts.sys,me:opts.me,lv:opts.level,t:Date.now()});
+          if(window._chatInbox.length>60) window._chatInbox.shift();
+          // let an open ChatPanel refresh
+          if(window._onChatPush) window._onChatPush();
+          // if no chat panel is open, show a quick toast for non-self messages
+          if(!window._chatOpen && !opts.me && !opts.sys){
+            showToast(`💬 ${from}: ${text.length>40?text.slice(0,40)+'…':text}`, '#88ccff');
+          }
+        };
       }
     }catch(e){}
     G.needStart = true;
@@ -4848,9 +4867,14 @@ function App(){
     const ku = e=>{ G.keys[e.key.toLowerCase()]=false; };
     window.addEventListener('keydown', kd);
     window.addEventListener('keyup', ku);
-    const rs = ()=>{ const cv=canvasRef.current; if(cv){ const w=window.innerWidth,h=window.innerHeight; cv.width=w; cv.height=h; cv.style.width=w+"px"; cv.style.height=h+"px"; } };
+    const rs = ()=>{ const cv=canvasRef.current; if(cv){
+      const w = window.innerWidth, h = (window.visualViewport && window.visualViewport.height) ? Math.round(window.visualViewport.height) : window.innerHeight;
+      cv.width=w; cv.height=h; cv.style.width=w+"px"; cv.style.height=h+"px";
+    } };
     window.addEventListener('resize', rs);
-    return ()=>{ window.removeEventListener('keydown',kd); window.removeEventListener('keyup',ku); window.removeEventListener('resize',rs); };
+    window.addEventListener('orientationchange', ()=>setTimeout(rs,200));
+    if(window.visualViewport) window.visualViewport.addEventListener('resize', rs);
+    return ()=>{ window.removeEventListener('keydown',kd); window.removeEventListener('keyup',ku); window.removeEventListener('resize',rs); if(window.visualViewport) window.visualViewport.removeEventListener('resize',rs); };
   }, []);
 
   // joystick touch
@@ -4883,10 +4907,35 @@ function App(){
     if(stick) stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
   };
   const onJoyEnd = (e)=>{
+    // Only clear if the joystick's own touch ended (or no id tracking).
+    if(e && e.changedTouches && G.joy.id!==-1){
+      let mine=false;
+      for(let i=0;i<e.changedTouches.length;i++){ if(e.changedTouches[i].identifier===G.joy.id){ mine=true; break; } }
+      if(!mine) return; // a different finger lifted — keep moving
+    }
     G.joy.active=false; G.joy.dx=0; G.joy.dy=0; G.joy.id=-1;
     const stick = joyRef.current && joyRef.current.querySelector('.joy-stick');
     if(stick) stick.style.transform = 'translate(-50%,-50%)';
   };
+  // iOS SAFETY NET: Safari sometimes drops touchend on the joystick element when
+  // the finger slides off. Listen on window so a release ANYWHERE stops movement.
+  useEffect(()=>{
+    const stop = (e)=>{
+      if(!G.joy.active) return;
+      // if the tracked finger is gone from the active touch list, stop
+      if(e.touches && G.joy.id!==-1){
+        let still=false;
+        for(let i=0;i<e.touches.length;i++){ if(e.touches[i].identifier===G.joy.id){ still=true; break; } }
+        if(still) return;
+      }
+      G.joy.active=false; G.joy.dx=0; G.joy.dy=0; G.joy.id=-1;
+      const stick = joyRef.current && joyRef.current.querySelector('.joy-stick');
+      if(stick) stick.style.transform='translate(-50%,-50%)';
+    };
+    window.addEventListener('touchend', stop, {passive:true});
+    window.addEventListener('touchcancel', stop, {passive:true});
+    return ()=>{ window.removeEventListener('touchend', stop); window.removeEventListener('touchcancel', stop); };
+  }, []);
 
   const respawn = ()=>{
     const p = G.player;
@@ -6130,17 +6179,20 @@ function PartyPanel({player, showToast}){
         </div>
       ) : (
         <div>
-          <div className="bs-guide">👥 צור קבוצה והזמן שחקנים שנמצאים איתך באותה מפה.</div>
-          <button className="btn btn-main" style={{width:'100%',marginBottom:10}} onClick={()=>{ window.WOLNet.partyCreate(); showToast('יצרת קבוצה!','#5aff8a'); refresh(); }}>➕ צור קבוצה</button>
-          <div style={{fontSize:'0.72rem',color:'#c8bce0',marginBottom:6}}>שחקנים בקרבתך:</div>
-          {peers.length===0 && <div style={{textAlign:'center',color:'#9a8aa8',fontSize:'0.7rem',padding:14}}>אין שחקנים אחרים במפה כרגע</div>}
+          <div className="bs-guide">👥 צור קבוצה, ואז הזמן שחקנים שנמצאים איתך באותו עולם. אפשר להילחם יחד ולהתאמן בלי לפגוע זה בזה.</div>
+          <button className="btn btn-main" style={{width:'100%',marginBottom:10}} onClick={()=>{ window.WOLNet.partyCreate(); showToast('יצרת קבוצה! עכשיו הזמן שחקנים','#5aff8a'); setTimeout(refresh,300); }}>➕ צור קבוצה</button>
+          <div style={{fontSize:'0.72rem',color:'#c8bce0',marginBottom:6}}>שחקנים בקרבתך ({peers.length}):</div>
+          {peers.length===0 && <div style={{textAlign:'center',color:'#9a8aa8',fontSize:'0.68rem',padding:14,lineHeight:1.5}}>אין כרגע שחקנים אחרים באותו עולם.<br/>שתף את כתובת המשחק עם חבר, היכנסו לאותו עולם, ותראו זה את זה כאן.</div>}
           {peers.map(pe=>(
             <div key={pe.id} className="bs-recipe">
               <div className="bs-r-head"><span className="bs-r-emoji">⚔️</span>
                 <span className="bs-r-name">{pe.name}</span>
-                <span style={{marginInlineStart:'auto',fontSize:'0.66rem',color:'#9a8aa8'}}>רמה {pe.level}</span></div>
-              <button className="bs-craft" disabled={!party||!party.partyId} onClick={()=>{ window.WOLNet.partyInvite(pe.id); showToast('הזמנה נשלחה','#5aff8a'); }}>
-                {party&&party.partyId?'📨 הזמן':'צור קבוצה קודם'}</button>
+                <span style={{marginInlineStart:'auto',fontSize:'0.66rem',color:'#9a8aa8'}}>רמה {pe.level||1}</span></div>
+              <button className="bs-craft" onClick={()=>{
+                if(!party||!party.partyId){ window.WOLNet.partyCreate(); setTimeout(()=>{ window.WOLNet.partyInvite(pe.id); },400); }
+                else window.WOLNet.partyInvite(pe.id);
+                showToast(`📨 הזמנה נשלחה ל${pe.name}`,'#5aff8a');
+              }}>📨 הזמן לקבוצה</button>
             </div>
           ))}
         </div>
@@ -6361,30 +6413,30 @@ const BOT_LINES = [
   'GG','חחח מת לבוס','עוד טיפה ואני באוקליבן','מוכר חפצים אגדיים זול'];
 function ChatPanel({player, showToast}){
   const online = window.WOLNet && window.WOLNet.isOnline();
-  const [msgs,setMsgs]=useState(()=> window._chatLog || [
-    {who:'מערכת',txt: (window.WOLNet&&window.WOLNet.isOnline())?'ברוך הבא לצ׳אט העולמי החי! 🟢':'ברוך הבא לצ׳אט (מצב לא-מקוון — בוטים. הפעל שרת לצ׳אט אמיתי)',sys:true},
-  ]);
+  const [msgs,setMsgs]=useState(()=> (window._chatInbox && window._chatInbox.length ? window._chatInbox.slice(-40) : (window._chatLog || [
+    {who:'מערכת',txt: online?'ברוך הבא לצ׳אט העולמי החי! 🟢':'ברוך הבא לצ׳אט (מצב לא-מקוון — בוטים. הפעל שרת לצ׳אט אמיתי)',sys:true},
+  ])));
   const [txt,setTxt]=useState('');
   const endRef=useRef(null);
   useEffect(()=>{ window._chatLog=msgs; if(endRef.current) endRef.current.scrollTop=endRef.current.scrollHeight; },[msgs]);
-  // ONLINE: receive real chat from the server
+  // Mark chat open (so the global handler won't toast), and subscribe to pushes.
   useEffect(()=>{
-    if(online){
-      window.WOLNet.onChat=(from,text,opts)=>{
-        setMsgs(m=>[...m.slice(-40),{who:from,txt:text,sys:opts.sys,me:opts.me,lv:opts.level}]);
-      };
-      return ()=>{ if(window.WOLNet) window.WOLNet.onChat=null; };
-    } else {
-      // OFFLINE: bot chatter
-      const iv=setInterval(()=>{
-        if(Math.random()<0.7){
-          const who=BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)];
-          const t=BOT_LINES[Math.floor(Math.random()*BOT_LINES.length)];
-          setMsgs(m=>[...m.slice(-40),{who,txt:t,lv:50+Math.floor(Math.random()*200)}]);
-        }
-      },4000);
-      return ()=>clearInterval(iv);
-    }
+    window._chatOpen = true;
+    window._onChatPush = ()=>{ setMsgs((window._chatInbox||[]).slice(-40)); };
+    return ()=>{ window._chatOpen=false; window._onChatPush=null; };
+  },[]);
+  // ONLINE messages arrive via the always-on global handler → _chatInbox → _onChatPush.
+  // OFFLINE: generate bot chatter locally.
+  useEffect(()=>{
+    if(online) return; // online handled globally
+    const iv=setInterval(()=>{
+      if(Math.random()<0.7){
+        const who=BOT_NAMES[Math.floor(Math.random()*BOT_NAMES.length)];
+        const t=BOT_LINES[Math.floor(Math.random()*BOT_LINES.length)];
+        setMsgs(m=>[...m.slice(-40),{who,txt:t,lv:50+Math.floor(Math.random()*200)}]);
+      }
+    },4000);
+    return ()=>clearInterval(iv);
   },[online]);
   const send=()=>{
     const t=txt.trim(); if(!t) return;
