@@ -2398,9 +2398,9 @@ return {drawMonster, drawPlayer, lighten, darken, drawGround, withAlpha, drawPro
 //  Set the two values below after creating your Supabase project.
 //  Leave URL empty to stay fully local (offline) — the game still works.
 // ════════════════════════════════════════════════════════════════
-window.WOL_SERVER_URL = ""; // multiplayer WebSocket server, e.g. "wss://your-app.onrender.com" (empty = offline/bots)
-window.SUPABASE_URL = "";      // e.g. "https://xxxx.supabase.co"
-window.SUPABASE_ANON_KEY = ""; // your project's anon/public key
+window.WOL_SERVER_URL = "wss://wol-server-heww.onrender.com"; // multiplayer WebSocket server (empty = offline/bots)
+window.SUPABASE_URL = "https://rgdwphwhomzuurolouwu.supabase.co";      // Supabase project URL
+window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnZHdwaHdob216dXVyb2xvdXd1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzMzAwMDgsImV4cCI6MjA5NTkwNjAwOH0.xj93m0bcWkUNQMJBsfMjh3muWqkIgvEWHZqv-_4BKRQ"; // anon/public key
 window.WOLCloud = (function(){
   const C = {
     get on(){ return !!(window.SUPABASE_URL && window.SUPABASE_ANON_KEY); },
