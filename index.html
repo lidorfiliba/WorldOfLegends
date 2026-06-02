@@ -2929,7 +2929,7 @@ function App(){
     p.gm = isAdmin; // GM flag mirrors the verified account status only
     G.player = p;
     E.save(p); // persist into the account slot
-    enterWorld('meadow', true);
+    enterWorld('town', true); // new heroes begin in the main town hub
   };
 
   const continueGame = (slot)=>{
@@ -3536,6 +3536,9 @@ function App(){
   // players must use skills & combos to bring a boss down (Dragon-Nest philosophy).
   const hitMonster = useCallback((mon, mult, critChance, isBasic)=>{
     const p = G.player, cs = G.cs;
+    // ANTI-EXPLOIT: can't deal damage while standing in the safe zone. This stops
+    // "snipe monsters from inside the protected area" cheese.
+    if((G.worldDef && G.worldDef.town) && Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R){ return; }
     const isMagic = (p.classId==='mage') || (p.classId==='paladin' && Math.random()<0.5);
     const power = isMagic ? Math.max(cs.atk, cs.matk) : cs.atk;
     const comboActive = (G._comboMult && Date.now()<(G.comboExpire||0));
@@ -3868,6 +3871,8 @@ function App(){
   const doBasicAttack = useCallback(()=>{
     const p = G.player, cs = G.cs, now = Date.now();
     if(now < G.atkCd) return;
+    // no attacking while in the town safe zone
+    if((G.worldDef && G.worldDef.town) && Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R) return;
     const cls = p.classId;
     // ── Class attack profiles ──
     // archer: fast ranged arrows, medium dmg.  mage: ranged elemental, a bit slower/shorter than archer but strong.
@@ -4206,7 +4211,7 @@ function App(){
     if(window.WOLNet && window.WOLNet.connected){ window.WOLNet.move(p.x, p.y, G.facing, p.hp); }
 
     // ── AI ──
-    const inSafe = Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R;
+    const inSafe = (G.worldDef && G.worldDef.town) && Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R;
     const updRange = 700;
     [...G.monsters, ...G.bosses].forEach(m=>{
       if(m.hp<=0||m._dying) return;
@@ -4391,15 +4396,16 @@ function App(){
   function updateMonsterAI(m, dt, now, playerInSafe){
     if(now < m.stunT) return;
     const p = G.player;
-    // ── keep ALL monsters (shared or local) out of the safe zone ──
-    const _dsafe = Math.hypot(m.x-WW/2, m.y-WH/2);
-    if(_dsafe < SAFE_R){
-      const a = Math.atan2(m.y-WH/2, m.x-WW/2) || 0;
-      m.x = WW/2 + Math.cos(a)*(SAFE_R+14);
-      m.y = WH/2 + Math.sin(a)*(SAFE_R+14);
-      m.aggro=false;
-      if(m._server && (!m._lastRep || now-m._lastRep>180)){ m._lastRep=now; if(window.WOLNet) window.WOLNet.monsterMove(m.mid, m.x, m.y); }
-      return;
+    // ── safe zone exists ONLY in town (the hub). In combat worlds monsters roam
+    //    freely — no center bubble that pushes them away or blocks attacks. ──
+    if(G.worldDef && G.worldDef.town){
+      const _dsafe = Math.hypot(m.x-WW/2, m.y-WH/2);
+      if(_dsafe < SAFE_R){
+        const a = Math.atan2(m.y-WH/2, m.x-WW/2) || 0;
+        m.x = WW/2 + Math.cos(a)*(SAFE_R+14);
+        m.y = WH/2 + Math.sin(a)*(SAFE_R+14);
+        m.aggro=false; return;
+      }
     }
     // ── SHARED (server-owned) monster ──
     if(m._server){
@@ -4446,14 +4452,6 @@ function App(){
         else m.state = 'chase';
       }
       return;
-    }
-    // keep out of safe zone
-    const dsafe = Math.hypot(m.x-WW/2, m.y-WH/2);
-    if(dsafe < SAFE_R){
-      const a = Math.atan2(m.y-WH/2, m.x-WW/2);
-      m.x = WW/2 + Math.cos(a)*(SAFE_R+12);
-      m.y = WH/2 + Math.sin(a)*(SAFE_R+12);
-      m.aggro=false; return;
     }
     const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
     let aggroR = m.isBoss?440:360;  // monsters notice & chase the player
@@ -5582,7 +5580,6 @@ function App(){
           {loginMode==='login'
             ? <button className="btn btn-main" onClick={doLogin}>🔓 התחבר</button>
             : <button className="btn btn-main" onClick={doRegister}>✨ צור חשבון</button>}
-          <div className="login-hint">החשבונות נשמרים במכשיר זה. למשחק מקוון בין מכשירים צריך שרת.</div>
         </div>
       </div>
     );
