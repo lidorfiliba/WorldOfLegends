@@ -2602,7 +2602,7 @@ function makeWorldEntities(worldDef, playerLevel){
   // wander the open space. Scales with map size so huge maps stay populated.
   const areaRatio = (ww * wh) / (WW_DEFAULT * WH_DEFAULT);
   const cageCount = Math.max(3, Math.round((worldDef.endgame ? 4 : 3) * Math.sqrt(areaRatio)));
-  const perCage = worldDef.endgame ? 10 : 7;
+  const perCage = worldDef.endgame ? 16 : 12;
   const lonerCount = Math.round((worldDef.endgame ? 16 : 12) * Math.sqrt(areaRatio));
 
   const tooCloseToSafe = (x,y)=> Math.hypot(x-ww/2, y-wh/2) < SAFE_R+200;
@@ -2619,7 +2619,8 @@ function makeWorldEntities(worldDef, playerLevel){
     const gateSide = Math.floor(Math.random()*4); // 0=top 1=right 2=bottom 3=left
     cages.push({x:cx, y:cy, half:CAGE_HALF, gateSide, dmgMult:1.4});
   }
-  // fill each pen with a dense pack of mixed monsters (bound inside the fence)
+  // fill each pen with a dense pack of mixed monsters (bound inside the fence).
+  // ~40% are RANGED (attack from afar), the rest melee — a mixed pack.
   cages.forEach(c=>{
     for(let i=0;i<perCage;i++){
       const x=E.clamp(c.x+(Math.random()*2-1)*(c.half-50), 100, ww-100);
@@ -2629,6 +2630,7 @@ function makeWorldEntities(worldDef, playerLevel){
       const lv=E.randInt(minL,maxL);
       const mo=makeMonster(base, lv, x, y, 1+lv*0.085, false, xpMul);
       mo._cage=c; mo._cageDmg=c.dmgMult; // bound to pen + hits harder
+      mo._ranged = Math.random()<0.4;    // some shoot from range, some melee
       monsters.push(mo);
     }
   });
@@ -3162,6 +3164,7 @@ function App(){
               const base = D.MONSTERS[(sm.kind||0)%D.MONSTERS.length] || D.MONSTERS[0];
               const mo = makeMonster(base, sm.level||1, sm.x, sm.y, 1+(sm.level||1)*0.085, false, wd.xpMul||1);
               mo.mid = sm.mid; mo._server=true;
+              mo._ranged = (parseInt(String(sm.mid).replace(/\D/g,''),10)||0) % 5 < 2; // ~40% ranged (stable per mid)
               mo.hp = sm.hp; mo.maxHp = sm.maxHp;
               G.monsters.push(mo);
               G._serverMons[sm.mid] = mo;
@@ -4192,9 +4195,41 @@ function App(){
     const spd = cs.spd * 56 * mountMul * (G.spdBuff && Date.now()<G.spdBuffEnd ? (1+G.spdBuff) : 1);
     // NaN guard: if player position is corrupt, reset to world center
     if(!isFinite(p.x) || !isFinite(p.y)){ p.x = WW/2; p.y = WH/2; }
-    p.x = E.clamp(p.x + mx*spd*dt, 30, WW-30);
-    p.y = E.clamp(p.y + my*spd*dt, 30, WH-30);
+    let nx = E.clamp(p.x + mx*spd*dt, 30, WW-30);
+    let ny = E.clamp(p.y + my*spd*dt, 30, WH-30);
+    // ── CAGE FENCE COLLISION: walls are solid; you may only pass through the gate gap ──
+    if(G._cages && G._cages.length){
+      const GAP=110, TH=18; // gate width, fence thickness
+      for(const c of G._cages){
+        const L=c.x-c.half, R=c.x+c.half, T=c.y-c.half, B=c.y+c.half;
+        // only consider cages we're near
+        if(nx < L-60 || nx > R+60 || ny < T-60 || ny > B+60) continue;
+        const inGapX = Math.abs(nx-c.x) < GAP/2; // aligned with a horizontal gate
+        const inGapY = Math.abs(ny-c.y) < GAP/2; // aligned with a vertical gate
+        // For each wall: block crossing it unless moving through this wall's gate gap.
+        // top wall (y=T): gate only if gateSide===0 and x within gap
+        const crossTop    = (p.y < T && ny >= T) || (p.y > T && ny <= T);
+        const crossBottom = (p.y < B && ny >= B) || (p.y > B && ny <= B);
+        const crossLeft   = (p.x < L && nx >= L) || (p.x > L && nx <= L);
+        const crossRight  = (p.x < R && nx >= R) || (p.x > R && nx <= R);
+        // only block if we're within the wall's span
+        if(crossTop    && nx>L && nx<R && !(c.gateSide===0 && inGapX)){ ny = (p.y<T)? T-2 : T+2; }
+        if(crossBottom && nx>L && nx<R && !(c.gateSide===2 && inGapX)){ ny = (p.y<B)? B-2 : B+2; }
+        if(crossLeft   && ny>T && ny<B && !(c.gateSide===3 && inGapY)){ nx = (p.x<L)? L-2 : L+2; }
+        if(crossRight  && ny>T && ny<B && !(c.gateSide===1 && inGapY)){ nx = (p.x<R)? R-2 : R+2; }
+      }
+    }
+    p.x = nx; p.y = ny;
     G._moving = moving;
+
+    // track which cage (if any) the player is currently INSIDE — used to gate
+    // caged-monster aggro so they don't attack while you're still outside.
+    G._playerCage = null;
+    if(G._cages){
+      for(const c of G._cages){
+        if(Math.abs(p.x-c.x) < c.half && Math.abs(p.y-c.y) < c.half){ G._playerCage = c; break; }
+      }
+    }
 
     // auto-attack while held
     if(G.atkHeld) doBasicAttack();
@@ -4423,6 +4458,22 @@ function App(){
         m.aggro=false; return;
       }
     }
+    // ── CAGE GATING: a monster standing inside a fenced pen only engages once the
+    //    player has ENTERED that pen (no attacking through the fence from outside). ──
+    let cagedMon = m._cage || null;
+    if(!cagedMon && G._cages){
+      for(const c of G._cages){ if(Math.abs(m.x-c.x)<c.half && Math.abs(m.y-c.y)<c.half){ cagedMon=c; break; } }
+    }
+    if(cagedMon){
+      const playerInThisCage = G._playerCage===cagedMon ||
+        (Math.abs(p.x-cagedMon.x)<cagedMon.half && Math.abs(p.y-cagedMon.y)<cagedMon.half);
+      if(!playerInThisCage){
+        // player is outside this pen → monster stays put, no aggro, no attack
+        m.aggro=false; m.state='idle';
+        return;
+      }
+      m._cageDmg = m._cageDmg || cagedMon.dmgMult || 1.4; // caged monsters hit harder
+    }
     // ── SHARED (server-owned) monster ──
     if(m._server){
       const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
@@ -4439,7 +4490,19 @@ function App(){
       if(iAmClosest){
         // HOST: chase + own the position.
         const sp=m.spd*52*(now<m.slowT?0.5:1);
-        if((d<aggroR||m.aggro)){
+        if(m._ranged && !m.isBoss){
+          // RANGED: hover at distance, kite if too close
+          const shootR=340+(m.size||30), tooClose=150;
+          if(d<aggroR||m.aggro){
+            m.aggro=true;
+            if(d>shootR){ m.x+=dx/d*sp*dt; m.y+=dy/d*sp*dt; m.state='chase'; }
+            else if(d<tooClose){ m.x-=dx/d*sp*dt; m.y-=dy/d*sp*dt; m.state='flee'; }
+            else m.state='attack';
+            if(d>aggroR*4) m.aggro=false;
+          } else { m.state='idle'; m.wt=(m.wt||0)-dt*1000;
+            if(m.wt<=0){ m.wt=2000+Math.random()*2000; const a=Math.random()*Math.PI*2; m.wx=Math.cos(a); m.wy=Math.sin(a); }
+            m.x+=(m.wx||0)*16*dt; m.y+=(m.wy||0)*16*dt; }
+        } else if((d<aggroR||m.aggro)){
           m.aggro=true;
           if(m.isBoss || m._worldBoss){ updateBossSpecials(m, now, p); }
           if(d>atkR){ m.x+=dx/d*sp*dt; m.y+=dy/d*sp*dt; m.state='chase'; }
@@ -4457,8 +4520,20 @@ function App(){
         m.x += (m._tx - m.x) * Math.min(1, dt*10);
         m.y += (m._ty - m.y) * Math.min(1, dt*10);
       }
-      // ATTACK: monsters within reach hit the player — but cap how many land per
-      // frame so a big cluster can't delete you instantly (anti-swarm).
+      // ── RANGED server monster: fire a projectile at the player ──
+      if(m._ranged && !m.isBoss){
+        const shootR=340+(m.size||30);
+        if(d<shootR+80 && !playerInSafe && now>m.atkT && (G._atkThisFrame||0)<3){
+          m.atkT=now+1500+Math.random()*500; G._atkThisFrame=(G._atkThisFrame||0)+1;
+          const ang=Math.atan2(dy,dx);
+          G.projectiles.push({ x:m.x, y:m.y, vx:Math.cos(ang)*360, vy:Math.sin(ang)*360,
+            size:8, life:2.2, enemy:true, dmg:m.atk, color:'#ff7a3a', _cageDmg:m._cageDmg||1, hits:[] });
+          m.state='attack';
+        }
+        return;
+      }
+      // ATTACK (melee): monsters within reach hit the player — but cap how many land
+      // per frame so a big cluster can't delete you instantly (anti-swarm).
       if(d < atkR && !playerInSafe && now>m.atkT && (G._atkThisFrame||0) < 3){
         m.atkT = now + (m.isBoss?1100:1200) + Math.random()*200;
         G._atkThisFrame = (G._atkThisFrame||0) + 1;
@@ -4469,12 +4544,41 @@ function App(){
     }
     const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
     let aggroR = m.isBoss?520:440;  // moderate aggro
-    const atkR = (m.isBoss?100:80) + (m.size||30) + 24; // reach includes body size
     const slowF = now<m.slowT?0.5:1;
     const sp = m.spd*52*slowF;
 
     if(playerInSafe){ m.aggro=false; }
 
+    // RANGED monsters hover at a distance and shoot; MELEE close in.
+    if(m._ranged && !m.isBoss){
+      const shootR = 340 + (m.size||30);     // preferred firing distance
+      const tooClose = 150;                   // back off if player gets too near
+      if((d<aggroR||m.aggro) && !playerInSafe){
+        m.aggro=true;
+        if(d > shootR){ m.x += dx/d*sp*dt; m.y += dy/d*sp*dt; m.state='chase'; }     // approach to range
+        else if(d < tooClose){ m.x -= dx/d*sp*dt; m.y -= dy/d*sp*dt; m.state='flee'; } // kite away
+        else { m.state='attack'; }
+        // fire a projectile on cooldown
+        if(d < shootR+80 && now>m.atkT && (G._atkThisFrame||0) < 3){
+          m.atkT = now + 1500 + Math.random()*500;
+          G._atkThisFrame = (G._atkThisFrame||0) + 1;
+          const ang=Math.atan2(dy,dx);
+          G.projectiles.push({ x:m.x, y:m.y, vx:Math.cos(ang)*360, vy:Math.sin(ang)*360,
+            size:8, life:2.2, enemy:true, dmg:m.atk, color:'#ff7a3a', _cageDmg:m._cageDmg||1, hits:[] });
+        }
+        if(d>aggroR*3) m.aggro=false;
+      } else { m.state='idle'; m.wt -= dt*1000;
+        if(m.wt<=0){ m.wt=2000+Math.random()*2500; const a=Math.random()*Math.PI*2; m.wx=Math.cos(a); m.wy=Math.sin(a); }
+        if(m._cage){ const c=m._cage;
+          if(m.x<c.x-c.half+30||m.x>c.x+c.half-30)m.wx=-m.wx;
+          if(m.y<c.y-c.half+30||m.y>c.y+c.half-30)m.wy=-m.wy;
+          m.x=E.clamp(m.x+m.wx*16*dt,c.x-c.half+30,c.x+c.half-30); m.y=E.clamp(m.y+m.wy*16*dt,c.y-c.half+30,c.y+c.half-30);
+        } else { m.x=E.clamp(m.x+(m.wx||0)*16*dt,50,WW-50); m.y=E.clamp(m.y+(m.wy||0)*16*dt,50,WH-50); }
+      }
+      return;
+    }
+
+    const atkR = (m.isBoss?100:80) + (m.size||30) + 24; // melee reach includes body size
     if((d<aggroR||m.aggro) && !playerInSafe){
       m.aggro=true;
       // ── BOSS SPECIAL ATTACKS (telegraphed, Dragon-Nest style) ──
@@ -4514,6 +4618,23 @@ function App(){
       pr.hist.push({x:pr.x,y:pr.y}); if(pr.hist.length>7) pr.hist.shift();
       let dead = pr.life<=0;
       if(pr._visual){ if(dead) G.projectiles.splice(i,1); continue; } // peer-attack visual: no collision/damage
+      // ── ENEMY projectile (from a ranged monster) → damages the PLAYER ──
+      if(pr.enemy){
+        const pl=G.player;
+        if(Math.hypot(pl.x-pr.x, pl.y-pr.y) < (pr.size||pr.r||8)+22){
+          if(!(G.shield||G.godMode) && (G._atkThisFrame||0) < 3){
+            G._atkThisFrame=(G._atkThisFrame||0)+1;
+            const cs=G.cs; const mit=Math.min(0.75,(cs.def||0)/((cs.def||0)+200+pl.level*12));
+            let dmg=Math.max(1, Math.round((pr.dmg||10)*(1-mit)*(0.9+Math.random()*0.2)*(pr._cageDmg||1)));
+            pl.hp=Math.max(0, pl.hp-dmg); pushDmgNum(pl.x, pl.y-40, dmg, '#ff7a3a', false);
+            if(pl.hp<=0){ G.running=false; setTimeout(()=>setDead(true),400); }
+          }
+          dead=true;
+        }
+        if(dead) G.projectiles.splice(i,1);
+        continue; // enemy projectiles never hit monsters
+      }
+      if(!pr.hits) pr.hits=[];
       for(const m of allM){
         if(m.hp<=0||m._dying) continue;
         if(pr.hits.includes(m.id)) continue;
