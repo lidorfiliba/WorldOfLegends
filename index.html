@@ -3837,10 +3837,15 @@ function App(){
   const monsterHitPlayer = useCallback((mon)=>{
     const p = G.player, cs = G.cs;
     if(G.shield || G.godMode){ return; }
-    let dmg = Math.max(0, Math.round(mon.atk - cs.def*0.45 + (Math.random()-0.5)*mon.atk*0.2));
+    // Defense gives PERCENTAGE mitigation (diminishing), not flat subtraction —
+    // so high defense never makes you fully immune. A monster always lands at
+    // least ~20% of its attack. mitigation caps at ~75%.
+    const mitigation = Math.min(0.75, (cs.def||0) / ((cs.def||0) + 200 + p.level*12));
+    let dmg = mon.atk * (1 - mitigation);
+    dmg = Math.max(1, Math.round(dmg * (0.9 + Math.random()*0.2))); // ±10% variance, min 1
     if(mon._cageDmg) dmg = Math.round(dmg * mon._cageDmg); // pen monsters hit harder
     p.hp = Math.max(0, p.hp - dmg);
-    if(dmg>0) pushDmgNum(p.x, p.y-40, dmg, '#ff5a5a', false);
+    pushDmgNum(p.x, p.y-40, dmg, '#ff5a5a', false);
     if(p.hp<=0){
       G.running=false;
       setTimeout(()=>setDead(true), 400);
