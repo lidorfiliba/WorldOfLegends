@@ -1282,12 +1282,32 @@ function claimWeeklyPending(account){
   return null;
 }
 
+// Names that impersonate staff are forbidden (checked as substrings, case-insensitive,
+// also catching leet-speak like 4dmin / 0wner and spaced/underscored variants).
+const RESERVED_NAME_PATTERNS = [
+  /g\s*m\b/i, /\bgm\b/i, /game\s*master/i,
+  /a\s*d\s*m\s*i\s*n/i, /4dm[i1]n/i,
+  /m\s*o\s*d\b/i, /moderat/i,
+  /o\s*w\s*n\s*e\s*r/i, /0wner/i,
+  /staff/i, /support/i, /official/i, /system/i, /server/i,
+  /lidor/i, /developer/i, /\bdev\b/i, /root/i, /administrator/i,
+];
+function isReservedName(name){
+  const n = (name||'').trim();
+  // strip common separators/leet to catch evasions like "A_d_m_i_n" / "G.M"
+  const norm = n.toLowerCase().replace(/[\s._\-|]/g,'').replace(/0/g,'o').replace(/1/g,'i').replace(/3/g,'e').replace(/4/g,'a').replace(/5/g,'s').replace(/7/g,'t');
+  if(/(^|[^a-z])(gm|admin|owner|mod|staff|support|official|system|server|root|developer|dev|administrator|moderator|gamemaster|lidor)([^a-z]|$)/.test(norm)) return true;
+  if(/(gm|admin|owner|mod|staff|owner|root|gamemaster)/.test(norm) && norm.length<=12) return true;
+  return RESERVED_NAME_PATTERNS.some(re=>re.test(n));
+}
 function registerAccount(username, password){
   username=(username||'').trim();
   if(username.length<2) return {ok:false, reason:'שם משתמש קצר מדי'};
   if((password||'').length<3) return {ok:false, reason:'סיסמה קצרה מדי (לפחות 3 תווים)'};
+  if(isReservedName(username)) return {ok:false, reason:'שם זה שמור ואינו זמין (אסור להתחזות לצוות)'};
   const accts=loadAccounts();
   if(accts[username]) return {ok:false, reason:'שם המשתמש כבר תפוס'};
+  // NEW accounts are ALWAYS non-admin. GM is granted only via the external tool.
   accts[username]={ pw:hashPw(password), characters:[null,null,null,null], isAdmin:false, banned:false, created:Date.now() };
   saveAccounts(accts);
   return {ok:true};
@@ -1353,7 +1373,7 @@ function craftUnique(recipe, playerLevel){
 }
 
 return {genItem, genSetPiece, craftUnique, canEquip, computeStats, xpForLevel, createPlayer, applyLevelGrowth, rollRarity, save, load, clearSave, pick, randInt, clamp,
-  ADMIN_CODE, registerAccount, loginAccount, setAdmin, isAdmin, listAccounts, deleteAccount, banAccount, adminGrant, loadAccounts, saveAccounts, currentWeekId, loadWeekly, saveWeekly, resolveWeekly, claimWeeklyPending, hashPw};
+  ADMIN_CODE, registerAccount, loginAccount, setAdmin, isAdmin, isReservedName, listAccounts, deleteAccount, banAccount, adminGrant, loadAccounts, saveAccounts, currentWeekId, loadWeekly, saveWeekly, resolveWeekly, claimWeeklyPending, hashPw};
 })();
 
 </script>
@@ -2512,6 +2532,8 @@ window.WOLNet = (function(){
         case 'worldBossGone':  if(this.onBoss) this.onBoss('gone', m); break;
         case 'worldBossReward':if(this.onBoss) this.onBoss('reward', m); break;
         case 'peerAction': if(m.id!==this.id && this.onPeerAction) this.onPeerAction(m); break;
+        case 'charState': if(this.onCharState) this.onCharState(m); break;
+        case 'kicked': if(this.onKicked) this.onKicked(m); this.connected=false; break;
       }
     },
     send(type,data){ if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify({type,...data})); },
@@ -2739,8 +2761,9 @@ function App(){
       admin = E.isAdmin(uname);
     }
     setAccount(uname);
-    if(loginPw === E.ADMIN_CODE){ E.setAdmin(uname, true); admin = true; }
-    setIsAdmin(admin);
+    // GM/admin status comes ONLY from the verified account flag (cloud is_admin,
+    // set via the external admin tool). There is no password code to become GM.
+    setIsAdmin(!!admin);
     setAdminPanel(false);
     setLoginPw('');
     setLoginMsg('');
@@ -2839,10 +2862,13 @@ function App(){
   const startNew = ()=>{
     if(!selClass){ alert('בחר מחלקה!'); return; }
     if(!charName.trim()){ alert('הזן שם!'); return; }
+    // block impersonator character names (GM/Admin/Owner/...) unless this is a
+    // verified admin account (so a real GM can still use a "GM" tag if they want)
+    if(!isAdmin && E.isReservedName(charName)){ alert('שם זה שמור ואינו זמין — אסור להתחזות לצוות'); return; }
     const p = E.createPlayer(selClass, charName.trim());
     p.account = account;
     p.charSlot = charSlot; // which of the 4 slots
-    p.gm = isAdmin;
+    p.gm = isAdmin; // GM flag mirrors the verified account status only
     G.player = p;
     E.save(p); // persist into the account slot
     enterWorld('meadow', true);
@@ -2983,7 +3009,8 @@ function App(){
     try{
       const wtier = Math.max(1, D.WORLDS.findIndex(w=>w.id===worldId)+1);
       const prof={ name:p.name, cls:p.classId, level:p.level, evoStage:p.evoStage||0,
-        world:worldId, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp), worldTier:wtier };
+        world:worldId, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp), worldTier:wtier,
+        account:p.account||'', slot:p.charSlot||0, gold:Math.round(p.gold||0) };
       if(window.WOLNet){
         if(!window.WOLNet.connected && !window.WOLNet.ws){ window.WOLNet.connect(prof); }
         else if(window.WOLNet.connected){ window.WOLNet.changeWorld(worldId, Math.round(p.x), Math.round(p.y), wtier); }
@@ -3088,6 +3115,21 @@ function App(){
             G.projectiles.push({x:peer.x, y:peer.y-6, vx:(m.facing||1)*600, vy:0, life:0.5, dmg:0, color:m.color||'#5affc0', size:5, hits:[], fx:'arrow', _visual:true});
           }
         };
+        // ── Stage 1: SERVER-AUTHORITATIVE economy. The server sends the true
+        //    gold/xp/level; the client just displays them. ──
+        window.WOLNet.onCharState=(m)=>{
+          const p=G.player; if(!p) return;
+          p.gold = m.gold;
+          p.level = m.level;
+          p.xp = m.xp;
+          p.xpNext = Math.floor(100 * Math.pow(m.level, 1.5));
+          if(m.gainXp || m.gainGold){
+            const bonusTxt = m.bonus>1 ? ` (×${m.bonus})` : '';
+            showToast(`+${(m.gainXp||0).toLocaleString()} XP +${(m.gainGold||0).toLocaleString()}🪙${bonusTxt}`, '#88ddff');
+          }
+          if(m.leveled){ showToast(`⬆️ עלית לרמה ${m.level}!`, '#ffd24a'); G.shake=10; }
+        };
+        window.WOLNet.onKicked=(m)=>{ showToast(`⛔ ${m.reason||'נותקת מהשרת'}`, '#ff5a5a'); };
         // ── PARTY SHARED XP: the server grants XP to every party member on a kill,
         //    with a bonus for bigger/diverse parties (4 distinct classes = ×1.5). ──
         window.WOLNet.onPartyXp=(m)=>{
@@ -3440,15 +3482,16 @@ function App(){
       if(acc) window.WOLCloud.saveCharacters(p.account, acc.characters || [p]);
       // 2) upsert this character's public leaderboard row
       const wk = E.currentWeekId();
+      const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,Math.round(v||0)));
       window.WOLCloud.pushScore({
         username: p.account,
-        slot: p.charSlot||0,
-        name: p.name,
+        slot: clamp(p.charSlot,0,3),
+        name: String(p.name||'').slice(0,16),
         class_id: p.classId,
-        level: p.level,
-        kills: p.kills||0,
-        gold: p.gold||0,
-        weekly_xp: (p.weekId===wk ? (p.weeklyXp||0) : 0),
+        level: clamp(p.level,1,250),
+        kills: clamp(p.kills,0,99999999),
+        gold: clamp(p.gold,0,9999999999),
+        weekly_xp: clamp(p.weekId===wk ? (p.weeklyXp||0) : 0, 0, 999999999),
         week_id: wk,
         is_gm: !!p.gm,
         updated_at: new Date().toISOString(),
