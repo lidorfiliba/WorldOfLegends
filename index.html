@@ -4409,47 +4409,44 @@ function App(){
     }
     // ── SHARED (server-owned) monster ──
     if(m._server){
-      // Determine host first (closest player runs the AI; others mirror position).
+      const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
+      const aggroR = m.isBoss?440:360;
+      const atkR = (m.isBoss?100:80) + (m.size||30) + 24;
+      // Determine host (closest player runs the chase movement; others mirror).
       let iAmClosest = true;
-      const myD = Math.hypot(p.x-m.x, p.y-m.y);
       if(window.WOLNet && window.WOLNet.peers){
         for(const peer of window.WOLNet.peers.values()){
-          if(Math.hypot(peer.x-m.x, peer.y-m.y) < myD){ iAmClosest=false; break; }
+          if(peer.x==null) continue;
+          if(Math.hypot(peer.x-m.x, peer.y-m.y) < d){ iAmClosest=false; break; }
         }
       }
       if(iAmClosest){
-        // HOST: run real chase AI and OWN the position (no smoothing pull-back).
-        const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
-        const aggroR = m.isBoss?440:360;  // monsters notice & chase the player
-        // attack reach includes the monster's body size + player radius, so a
-        // monster crowded at the edge of a pile can still land hits.
-        const atkR = (m.isBoss?100:80) + (m.size||30) + 24;
+        // HOST: chase + own the position.
         const sp=m.spd*52*(now<m.slowT?0.5:1);
-        if((d<aggroR||m.aggro) && !playerInSafe){
+        if((d<aggroR||m.aggro)){
           m.aggro=true;
           if(m.isBoss || m._worldBoss){ updateBossSpecials(m, now, p); }
           if(d>atkR){ m.x+=dx/d*sp*dt; m.y+=dy/d*sp*dt; m.state='chase'; }
-          else { m.state='attack'; if(now>m.atkT){ m.atkT=now+(m.isBoss?1100:1200)+Math.random()*300; monsterHitPlayer(m); } }
+          else m.state='attack';
           if(d>aggroR*4) m.aggro=false;
         } else {
-          // idle wander so the world feels alive
           m.state='idle';
           m.wt=(m.wt||0)-dt*1000;
           if(m.wt<=0){ m.wt=2000+Math.random()*2000; const a=Math.random()*Math.PI*2; m.wx=Math.cos(a); m.wy=Math.sin(a); }
           m.x += (m.wx||0)*16*dt; m.y += (m.wy||0)*16*dt;
         }
         if(!m._lastRep || now-m._lastRep>180){ m._lastRep=now; if(window.WOLNet) window.WOLNet.monsterMove(m.mid, m.x, m.y); }
-      } else {
-        // NON-HOST: mirror the server's authoritative position (smooth), and still
-        // take a hit if the monster is near me.
-        if(m._tx!=null){
-          m.x += (m._tx - m.x) * Math.min(1, dt*10);
-          m.y += (m._ty - m.y) * Math.min(1, dt*10);
-        }
-        const d=Math.hypot(p.x-m.x,p.y-m.y);
-        const atkR=(m.isBoss?100:80)+(m.size||30)+24;
-        if(d < atkR && !playerInSafe && now>m.atkT){ m.atkT=now+(m.isBoss?1100:1200); monsterHitPlayer(m); m.state='attack'; }
-        else m.state = 'chase';
+      } else if(m._tx!=null){
+        // NON-HOST: mirror the server's position.
+        m.x += (m._tx - m.x) * Math.min(1, dt*10);
+        m.y += (m._ty - m.y) * Math.min(1, dt*10);
+      }
+      // ATTACK: any monster within reach of THIS player hits them — independent of
+      // host status, so the player always gets attacked when a monster is on them.
+      if(d < atkR && !playerInSafe && now>m.atkT){
+        m.atkT = now + (m.isBoss?1100:1200) + Math.random()*200;
+        monsterHitPlayer(m);
+        m.state='attack';
       }
       return;
     }
