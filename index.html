@@ -2537,6 +2537,7 @@ window.WOLNet = (function(){
         case 'monstersSync':  if(this.onMonsters) this.onMonsters('sync', m); break;
         case 'monsterHp':     if(this.onMonsters) this.onMonsters('hp', m); break;
         case 'monsterDead':   if(this.onMonsters) this.onMonsters('dead', m); break;
+        case 'cages':         if(this.onCages) this.onCages(m.cages||[]); break;
         case 'partyXp':       if(this.onPartyXp) this.onPartyXp(m); break;
         case 'worldBossSpawn': if(this.onBoss) this.onBoss('spawn', m); break;
         case 'worldBossHp':    if(this.onBoss) this.onBoss('hp', m); break;
@@ -2550,7 +2551,7 @@ window.WOLNet = (function(){
     },
     send(type,data){ if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify({type,...data})); },
     move(x,y,facing,hp){ const n=Date.now(); if(n-this._lastSent<80)return; this._lastSent=n; this.send('move',{x:Math.round(x),y:Math.round(y),facing,hp:Math.round(hp)}); },
-    changeWorld(world,x,y,tier){ this.send('changeWorld',{world,x,y,worldTier:tier||1}); if(this.profile)this.profile.world=world; this.peers.clear(); },
+    changeWorld(world,x,y,tier,ww,wh){ this.send('changeWorld',{world,x,y,worldTier:tier||1,worldW:ww,worldH:wh}); if(this.profile){this.profile.world=world;this.profile.worldW=ww;this.profile.worldH=wh;} this.peers.clear(); },
     chat(text){ this.send('chat',{text}); },
     updateStats(level,evoStage,maxHp){ this.send('stats',{level,evoStage,maxHp}); },
     pvpHit(targetId,damage,kx,ky){ this.send('pvpHit',{targetId,damage,knockX:kx||0,knockY:ky||0}); },
@@ -3074,10 +3075,11 @@ function App(){
       const wtier = Math.max(1, D.WORLDS.findIndex(w=>w.id===worldId)+1);
       const prof={ name:p.name, cls:p.classId, level:p.level, evoStage:p.evoStage||0,
         world:worldId, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp), worldTier:wtier,
+        worldW:WW, worldH:WH,
         account:p.account||'', slot:p.charSlot||0, gold:Math.round(p.gold||0) };
       if(window.WOLNet){
         if(!window.WOLNet.connected && !window.WOLNet.ws){ window.WOLNet.connect(prof); }
-        else if(window.WOLNet.connected){ window.WOLNet.changeWorld(worldId, Math.round(p.x), Math.round(p.y), wtier); }
+        else if(window.WOLNet.connected){ window.WOLNet.changeWorld(worldId, Math.round(p.x), Math.round(p.y), wtier, WW, WH); }
         // PvP damage handler: when another player hits me
         window.WOLNet.onPvp=(type,m)=>{
           if(type==='pvpHurt'){
@@ -3127,6 +3129,11 @@ function App(){
         const serverConfigured = !!window.WOL_SERVER_URL;
         G.sharedWorld = serverConfigured && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.pvp && !wd.town;
         G._serverMons = {}; // mid -> local monster object
+        // server tells us where the cage clusters are → draw fenced pens there
+        window.WOLNet.onCages = (cages)=>{
+          if(!G.sharedWorld) return;
+          G._cages = (cages||[]).map((c,i)=>({ x:c.x, y:c.y, half:340, gateSide:i%4, dmgMult:1.4 }));
+        };
         if(G.sharedWorld){
           G.monsters = []; // server will populate the shared monsters
           // FALLBACK: if the server is asleep/slow and no monsters arrive within
@@ -4296,7 +4303,7 @@ function App(){
     // ── pickup ground items (auto when close) ──
     for(let i=G.groundItems.length-1;i>=0;i--){
       const gi = G.groundItems[i];
-      if(Math.hypot(gi.x-p.x, gi.y-p.y) < 50){
+      if(Math.hypot(gi.x-p.x, gi.y-p.y) < 70){
         if(gi.gold!=null){
           p.gold += gi.gold;
           G.groundItems.splice(i,1);
@@ -4304,6 +4311,9 @@ function App(){
           p.inventory.push(gi.item);
           log(`🎒 אספת ${gi.item.emoji} ${gi.item.name}`, D.RARITY[gi.item.rarity].color==='#ff8000'?'lg-leg':'lg-item');
           G.groundItems.splice(i,1);
+        } else if(!G._bagFullWarned || Date.now()-G._bagFullWarned>5000){
+          G._bagFullWarned = Date.now();
+          showToast('🎒 התיק מלא! פנה מקום כדי לאסוף', '#ff5a5a');
         }
       }
     }
