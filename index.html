@@ -4212,7 +4212,7 @@ function App(){
 
     // ── AI ──
     const inSafe = (G.worldDef && G.worldDef.town) && Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R;
-    const updRange = 700;
+    const updRange = 1300;
     [...G.monsters, ...G.bosses].forEach(m=>{
       if(m.hp<=0||m._dying) return;
       const d = Math.hypot(m.x-p.x, m.y-p.y);
@@ -4410,7 +4410,7 @@ function App(){
     // ── SHARED (server-owned) monster ──
     if(m._server){
       const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
-      const aggroR = m.isBoss?440:360;
+      const aggroR = m.isBoss?1400:1100;  // large — monsters notice and close in from across the area
       const atkR = (m.isBoss?100:80) + (m.size||30) + 24;
       // Determine host (closest player runs the chase movement; others mirror).
       let iAmClosest = true;
@@ -4451,7 +4451,7 @@ function App(){
       return;
     }
     const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
-    let aggroR = m.isBoss?440:360;  // monsters notice & chase the player
+    let aggroR = m.isBoss?1400:1100;  // large aggro so monsters always engage
     const atkR = (m.isBoss?100:80) + (m.size||30) + 24; // reach includes body size
     const slowF = now<m.slowT?0.5:1;
     const sp = m.spd*52*slowF;
