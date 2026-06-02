@@ -803,7 +803,7 @@ const BOSSES = [
 
 // ── WORLDS / MAPS (teleport targets, each has min level) ──
 const WORLDS = [
-  {id:'meadow',   name:'אחו הירוק',      emoji:'🌿', reqLv:1,   monLv:[1,8],    bg:'#1a3d1a', accent:'#3a7a35', tile:'grass',      ww:8160,  wh:8160,  xpMul:1.0, monsters:['slime','bat','spider','goblin'],             boss:'goblin_king',  desc:'מישורי ירק עם יצורים חלשים — מושלם למתחילים'},
+  {id:'meadow',   name:'אחו הירוק',      emoji:'🌿', reqLv:1,   monLv:[1,5],    bg:'#1a3d1a', accent:'#3a7a35', tile:'grass',      ww:8160,  wh:8160,  xpMul:1.0, monsters:['slime','bat','spider','goblin'],             boss:'goblin_king',  desc:'מישורי ירק עם יצורים חלשים — מושלם למתחילים'},
   {id:'forest',   name:'יער האופל',      emoji:'🌲', reqLv:8,   monLv:[8,18],   bg:'#10200a', accent:'#1c3a14', tile:'forest',     ww:9520,  wh:9520,  xpMul:1.2, monsters:['wolf','goblin','spider','skeleton'],          boss:'goblin_king',  desc:'יער צפוף עם ברנות ושלדים'},
   {id:'swamp',    name:'ביצת הרעל',      emoji:'🌿', reqLv:14,  monLv:[14,26],  bg:'#0f1a0c', accent:'#2a3d15', tile:'swamp',      ww:8840,  wh:10880,  xpMul:1.3, monsters:['troll','vampire','spider','goblin'],          boss:'lich_lord',    desc:'ביצה רעילה עם יצורים מחלישים'},
   {id:'crypt',    name:'מרתף המתים',     emoji:'⚰️', reqLv:22,  monLv:[22,35],  bg:'#140f1a', accent:'#22183a', tile:'stone',      ww:7480,  wh:7480,  xpMul:1.4, monsters:['skeleton','wraith','orc','demon'],            boss:'lich_lord',    desc:'קטקומבות עם מתים-חיים'},
@@ -2668,11 +2668,11 @@ function makeMonster(base, lv, x, y, scale, isBoss, xpMul){
   const atkScale = isBoss ? Math.min(scale,8) : Math.min(scale,6);
   const rawSize = base.size * 26 * (isBoss ? Math.min(scale, 2.2) : Math.min(scale, 1.6));
   const size = Math.min(rawSize, isBoss ? 110 : 58);
-  // ── HP balance: player damage grows ~linearly with level (atk ≈ 30 + lv*3),
-  //    so monster HP must too. levelHp ≈ atk × ~7 hits. Linear keeps every zone
-  //    at a fun 4-10 hits for an at-level player; base.hp only nudges variety. ──
+  // ── HP balance: gentle at low levels (new players), tanky at high levels.
+  //    A small flat base + level scaling; the per-level term ramps up so early
+  //    monsters die fast and end-game monsters are real damage sponges. ──
   const variety = Math.min(1.35, Math.max(0.75, 0.8 + 0.4 * ((base.hp||250) / 300)));
-  const levelHp = 90 + lv*42;                         // higher HP — basics alone are slow
+  const levelHp = 35 + lv*lv*0.5 + lv*16;             // ~50 at lv1, ramps with level
   let hp = Math.round(levelHp * variety * (isBoss ? 11 : 1));
   // ── XP balance: derive from the LEVEL so progression is steady everywhere
   //    (~10-14 normal kills per level; bosses worth ~40 kills). Based on the
@@ -3206,7 +3206,13 @@ function App(){
             const bonusTxt = m.bonus>1 ? ` (×${m.bonus})` : '';
             showToast(`+${(m.gainXp||0).toLocaleString()} XP +${(m.gainGold||0).toLocaleString()}🪙${bonusTxt}`, '#88ddff');
           }
-          if(m.leveled){ showToast(`⬆️ עלית לרמה ${m.level}!`, '#ffd24a'); G.shake=10; }
+          if(m.leveled){
+            // grant the per-level stat points + growth for each level gained
+            for(let i=0;i<m.leveled;i++) E.applyLevelGrowth(p);
+            G.cs = E.computeStats(p);
+            p.hp = G.cs.maxHp; p.mp = G.cs.maxMp;
+            showToast(`⬆️ עלית לרמה ${m.level}! (+${m.leveled*5} נקודות)`, '#ffd24a'); G.shake=10;
+          }
         };
         window.WOLNet.onKicked=(m)=>{ showToast(`⛔ ${m.reason||'נותקת מהשרת'}`, '#ff5a5a'); };
         // ── PARTY SHARED XP: the server grants XP to every party member on a kill,
@@ -4385,6 +4391,16 @@ function App(){
   function updateMonsterAI(m, dt, now, playerInSafe){
     if(now < m.stunT) return;
     const p = G.player;
+    // ── keep ALL monsters (shared or local) out of the safe zone ──
+    const _dsafe = Math.hypot(m.x-WW/2, m.y-WH/2);
+    if(_dsafe < SAFE_R){
+      const a = Math.atan2(m.y-WH/2, m.x-WW/2) || 0;
+      m.x = WW/2 + Math.cos(a)*(SAFE_R+14);
+      m.y = WH/2 + Math.sin(a)*(SAFE_R+14);
+      m.aggro=false;
+      if(m._server && (!m._lastRep || now-m._lastRep>180)){ m._lastRep=now; if(window.WOLNet) window.WOLNet.monsterMove(m.mid, m.x, m.y); }
+      return;
+    }
     // ── SHARED (server-owned) monster ──
     if(m._server){
       // Determine host first (closest player runs the AI; others mirror position).
