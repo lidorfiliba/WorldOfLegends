@@ -2601,8 +2601,8 @@ function makeWorldEntities(worldDef, playerLevel){
   // wander the open space. Scales with map size so huge maps stay populated.
   const areaRatio = (ww * wh) / (WW_DEFAULT * WH_DEFAULT);
   const cageCount = Math.max(3, Math.round((worldDef.endgame ? 4 : 3) * Math.sqrt(areaRatio)));
-  const perCage = worldDef.endgame ? 14 : 10;
-  const lonerCount = Math.round((worldDef.endgame ? 30 : 22) * Math.sqrt(areaRatio));
+  const perCage = worldDef.endgame ? 10 : 7;
+  const lonerCount = Math.round((worldDef.endgame ? 16 : 12) * Math.sqrt(areaRatio));
 
   const tooCloseToSafe = (x,y)=> Math.hypot(x-ww/2, y-wh/2) < SAFE_R+200;
   // place fenced CAGE PENS — square arenas with a fence and ONE entrance gap.
@@ -4218,6 +4218,7 @@ function App(){
     // ── AI ──
     const inSafe = (G.worldDef && G.worldDef.town) && Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R;
     const updRange = 1300;
+    G._atkThisFrame = 0; // cap how many monsters can land a hit per frame (anti-swarm)
     [...G.monsters, ...G.bosses].forEach(m=>{
       if(m.hp<=0||m._dying) return;
       const d = Math.hypot(m.x-p.x, m.y-p.y);
@@ -4415,7 +4416,7 @@ function App(){
     // ── SHARED (server-owned) monster ──
     if(m._server){
       const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
-      const aggroR = m.isBoss?1400:1100;  // large — monsters notice and close in from across the area
+      const aggroR = m.isBoss?520:440;  // moderate — only nearby monsters engage
       const atkR = (m.isBoss?100:80) + (m.size||30) + 24;
       // Determine host (closest player runs the chase movement; others mirror).
       let iAmClosest = true;
@@ -4446,17 +4447,18 @@ function App(){
         m.x += (m._tx - m.x) * Math.min(1, dt*10);
         m.y += (m._ty - m.y) * Math.min(1, dt*10);
       }
-      // ATTACK: any monster within reach of THIS player hits them — independent of
-      // host status, so the player always gets attacked when a monster is on them.
-      if(d < atkR && !playerInSafe && now>m.atkT){
+      // ATTACK: monsters within reach hit the player — but cap how many land per
+      // frame so a big cluster can't delete you instantly (anti-swarm).
+      if(d < atkR && !playerInSafe && now>m.atkT && (G._atkThisFrame||0) < 3){
         m.atkT = now + (m.isBoss?1100:1200) + Math.random()*200;
+        G._atkThisFrame = (G._atkThisFrame||0) + 1;
         monsterHitPlayer(m);
         m.state='attack';
       }
       return;
     }
     const dx=p.x-m.x, dy=p.y-m.y, d=Math.hypot(dx,dy);
-    let aggroR = m.isBoss?1400:1100;  // large aggro so monsters always engage
+    let aggroR = m.isBoss?520:440;  // moderate aggro
     const atkR = (m.isBoss?100:80) + (m.size||30) + 24; // reach includes body size
     const slowF = now<m.slowT?0.5:1;
     const sp = m.spd*52*slowF;
@@ -4471,7 +4473,7 @@ function App(){
         m.x += dx/d*sp*dt; m.y += dy/d*sp*dt; m.state='chase';
       } else {
         m.state='attack';
-        if(now>m.atkT){ m.atkT = now + (m.isBoss?1100:1400) + Math.random()*400; monsterHitPlayer(m); }
+        if(now>m.atkT && (G._atkThisFrame||0) < 3){ m.atkT = now + (m.isBoss?1100:1400) + Math.random()*400; G._atkThisFrame=(G._atkThisFrame||0)+1; monsterHitPlayer(m); }
       }
       if(d>aggroR*3) m.aggro=false;
     } else {
