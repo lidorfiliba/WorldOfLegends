@@ -1248,6 +1248,8 @@ function createPlayer(classId, name){
     unlockedWorlds:['meadow'],
     materials:{},          // crafting materials: matId -> count
     craftedUniques:[],     // ids of unique items already crafted (so they stay unique)
+    nestKeys:{},           // key_<nestId> -> count (needed to enter a nest)
+    nestData:{},           // nestId -> {day, entries} for the 3/day limit + drop decay
     dungeonKey:false,      // has the rare drop that unlocks the forge dungeon
     lastDungeonEntry:0,    // timestamp for the 3-day free-entry cooldown
     mounts:['horse'],      // owned mounts (horse free to start)
@@ -3025,6 +3027,8 @@ function App(){
     // migrate older saves missing newer fields (prevents crashes)
     if(!saved.materials) saved.materials = {};
     if(!saved.craftedUniques) saved.craftedUniques = [];
+    if(!saved.nestKeys) saved.nestKeys = {};   // key_<nestId> -> count
+    if(!saved.nestData) saved.nestData = {};    // nestId -> {day, entries}
     // AWAKENING: characters already at lv60+ get the power surge applied on load
     if(saved.awakened===undefined) saved.awakened = (saved.level>=60);
     if(!saved.mounts) saved.mounts = ['horse'];
@@ -3269,7 +3273,7 @@ function App(){
         // (Don't gate on isOnline() — the socket may still be opening; monsters
         //  arrive once connected and we suppress local spawns from the start.)
         const serverConfigured = !!window.WOL_SERVER_URL;
-        G.sharedWorld = serverConfigured && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.pvp && !wd.town;
+        G.sharedWorld = serverConfigured && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.nest && !wd.pvp && !wd.town;
         G._serverMons = {}; // mid -> local monster object
         // server tells us where the cage clusters are → draw fenced pens there
         window.WOLNet.onCages = (cages)=>{
@@ -3465,6 +3469,33 @@ function App(){
   const teleport = (worldId)=>{
     const wd = D.WORLDS.find(w=>w.id===worldId);
     if(G.player.level < wd.reqLv){ showToast(`דרושה רמה ${wd.reqLv}`, '#ff5a5a'); return; }
+    // ── NEST ENTRY RULES: needs a key, max 3 entries/day, drop% decays per entry ──
+    if(wd.nest){
+      const p = G.player;
+      const today = new Date().toDateString();
+      if(!p.nestData) p.nestData = {};
+      if(!p.nestData[worldId] || p.nestData[worldId].day !== today){
+        p.nestData[worldId] = { day: today, entries: 0 };
+      }
+      const nd = p.nestData[worldId];
+      const keyId = 'key_'+worldId;
+      const haveKey = (p.nestKeys && p.nestKeys[keyId]) > 0;
+      if(!haveKey){
+        showToast(`🗝️ צריך ${wd.emoji} מפתח ${wd.name} כדי להיכנס! נופל ממפלצות.`, '#ff5a5a');
+        return;
+      }
+      if(nd.entries >= 3){
+        showToast('⛔ נכנסת 3 פעמים היום לנסט הזה. חזור מחר!', '#ff5a5a');
+        return;
+      }
+      // consume one key + count the entry
+      p.nestKeys[keyId]--;
+      nd.entries++;
+      // drop multiplier: 1st entry 100%, 2nd 60%, 3rd 30%
+      G._nestDropMult = [1, 0.6, 0.3][nd.entries-1] || 0.3;
+      showToast(`${wd.emoji} כניסה ${nd.entries}/3 היום • סיכוי דרופ ×${Math.round(G._nestDropMult*100)}%`, '#ffd24a');
+      E.save(p);
+    }
     // Stop current loop, rebuild world, then restart the loop on next frame.
     G.running = false;
     enterWorld(worldId, false);
@@ -3953,6 +3984,20 @@ function App(){
     if(mon.isBoss || Math.random()<0.5){
       G.groundItems.push({x:mon.x+(Math.random()-0.5)*40, y:mon.y+(Math.random()-0.5)*40, gold:goldAmt, id:Math.random(), bob:0, t:Date.now()});
     }
+    // ── NEST KEY DROP: monsters can drop a key to the nest that matches their level ──
+    // (gives players a way in; higher nests' keys also drop from their final boss)
+    if(!G.worldDef?.nest && !G.worldDef?.dungeon && Math.random()<0.04){
+      const p2=G.player;
+      // pick the highest-tier nest the player is high enough level for
+      const elig = D.WORLDS.filter(w=>w.nest && p2.level>=w.reqLv);
+      if(elig.length){
+        const nest = elig[Math.floor(Math.random()*elig.length)];
+        if(!p2.nestKeys) p2.nestKeys={};
+        const kid='key_'+nest.id; p2.nestKeys[kid]=(p2.nestKeys[kid]||0)+1;
+        showToast(`🗝️ ${nest.emoji} מפתח ${nest.name} נפל!`, '#ffd24a');
+        log(`🗝️ קיבלת מפתח ל${nest.name}! היכנס דרך מפת העולמות.`, 'lg-leg');
+      }
+    }
 
     // ── FORGE DUNGEON: rare material drops ──
     if(G.worldDef && G.worldDef.dungeon){
@@ -4014,19 +4059,25 @@ function App(){
           // FINAL BOSS — big staged-raid reward: pile of loot + guaranteed legendary,
           // mythic chance, materials, and bonus XP/gold. Then return to town.
           G._nestClear = true;
-          const drops = 5 + Math.floor(Math.random()*3); // 5-7 items
+          const dm = G._nestDropMult || 1;  // drop% decays per daily entry (1 / 0.6 / 0.3)
+          const drops = Math.max(1, Math.round((5 + Math.floor(Math.random()*3)) * dm)); // fewer drops on repeat entries
           for(let i=0;i<drops;i++){
-            const rar = i===0 ? 'legendary' : (Math.random()<0.3?'legendary':'epic');
+            const rar = i===0 ? 'legendary' : (Math.random()<0.3*dm?'legendary':'epic');
             const it=E.genItem(blv, rar, i===0?2:1);
             const a=Math.random()*Math.PI*2, r=30+Math.random()*80;
             G.groundItems.push({x:bx+Math.cos(a)*r, y:by+Math.sin(a)*r, item:it, id:Math.random(), bob:Math.random()*6, t:Date.now()});
           }
-          // mythic chance scales with nest level
-          const mythicChance = wd.reqLv>=90 ? 0.6 : wd.reqLv>=50 ? 0.3 : 0.12;
+          // mythic chance scales with nest level — and decays with repeat entries
+          const mythicChance = (wd.reqLv>=90 ? 0.6 : wd.reqLv>=50 ? 0.3 : 0.12) * dm;
           if(Math.random()<mythicChance){ const it=E.genItem(blv,'mythic',3); G.groundItems.push({x:bx,y:by-25,item:it,id:Math.random(),bob:0,t:Date.now()}); showToast('🌟 חפץ מיתי נדפל מהבוס!','#ff66ff'); }
+          // BONUS: chance to drop a KEY for the NEXT-tier nest (progression)
+          if(Math.random()<0.5){
+            const nextNest = D.WORLDS.find(w=>w.nest && w.reqLv>wd.reqLv);
+            if(nextNest){ if(!p.nestKeys)p.nestKeys={}; const kid='key_'+nextNest.id; p.nestKeys[kid]=(p.nestKeys[kid]||0)+1; showToast(`🗝️ קיבלת מפתח ${nextNest.name}!`,'#ffd24a'); }
+          }
           // crafting materials + gold pile
           if(typeof giveMaterial==='function'){ const mats=['ember_shard','frost_core','void_essence','titan_ore']; giveMaterial(E.pick(mats), 3); }
-          G.groundItems.push({x:bx, y:by+15, gold: 3000+blv*60, id:Math.random(), bob:0, t:Date.now()});
+          G.groundItems.push({x:bx, y:by+15, gold: Math.round((3000+blv*60)*dm), id:Math.random(), bob:0, t:Date.now()});
           gainXP(Math.round(E.xpForLevel(p.level)*0.4), false);
           G.shake=22;
           showToast(`🏆 השלמת את ${wd.name}! שלל ענק נפל!`, '#ffd24a');
@@ -6874,6 +6925,7 @@ function Modals(props){
               <div className="world-info">
                 <div className="world-nm" style={{color:isHere?'#5aff8a':unlocked?'inherit':'#6a5a7a'}}>{w.name} {w.nest&&<span style={{color:'#ff66ff',fontSize:'0.6rem'}}>⚔️ נסט</span>} {isHere&&'◀'}</div>
                 <div className="world-lv">{w.nest?'3 שלבים • ':''}מפלצות {w.monLv[0]}-{w.monLv[1]} • מינ׳ {w.reqLv} • <span style={{color:'#ffd24a'}}>{xpBonus}</span></div>
+                {w.nest && (()=>{ const keys=(p.nestKeys&&p.nestKeys['key_'+w.id])||0; const nd=p.nestData&&p.nestData[w.id]; const today=new Date().toDateString(); const ent=(nd&&nd.day===today)?nd.entries:0; return <div style={{fontSize:'0.55rem',color:keys>0?'#5aff8a':'#ff8888',marginTop:1}}>🗝️ מפתחות: {keys} • כניסות היום: {ent}/3</div>; })()}
                 {w.desc&&<div style={{fontSize:'0.55rem',color:'#8a7a9a',marginTop:1}}>{w.desc}</div>}
               </div>
               {isHere ? <span className="world-go">📍 כאן</span> :
