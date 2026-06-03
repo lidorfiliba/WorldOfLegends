@@ -1350,8 +1350,45 @@ function applyLevelGrowth(player){
   player.statPoints += 5;
 }
 
+// ── ANTI-CHEAT: character integrity signature ───────────────────────────────
+// Every saved character carries a signature over its critical fields. If a player
+// edits gold/level/inventory/stats in the console or localStorage, the signature no
+// longer matches and the save is rejected as tampered. The secret is assembled at
+// runtime (not a single literal) to make casual extraction harder.
+const _SIG_SECRET = (function(){
+  // pieced together so it isn't a single grep-able string
+  const a=[0x57,0x6f,0x4c,0x21,0x67,0x75,0x61,0x72,0x64]; // "WoL!guard"
+  const b='2026'+'_'+'integrity'+'_'+'v1';
+  return a.map(c=>String.fromCharCode(c)).join('')+b;
+})();
+function _mix(str){
+  // FNV-1a-ish 32-bit hash, salted with the secret, double-pass to spread bits
+  let h=0x811c9dc5;
+  const s = String(str)+_SIG_SECRET;
+  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193); }
+  let h2=h>>>0;
+  for(let i=s.length-1;i>=0;i--){ h2^=s.charCodeAt(i); h2=Math.imul(h2,0x01000193); }
+  return ((h>>>0).toString(16).padStart(8,'0'))+((h2>>>0).toString(16).padStart(8,'0'));
+}
+// Canonical critical-state string: only the fields a cheater would inflate.
+function _critState(p){
+  if(!p) return '';
+  const inv = (p.inventory||[]).map(it=>`${it.uid||''}:${it.name||''}:${it.rarity||''}:${it.lv||0}:${JSON.stringify(it.stats||{})}`).join('|');
+  const eq = Object.values(p.equipped||{}).map(it=>it?`${it.uid||''}:${it.rarity||''}`:'-').join(',');
+  const mats = Object.entries(p.materials||{}).sort().map(([k,v])=>`${k}=${v}`).join(',');
+  return [p.account||'', p.charSlot||0, p.level||1, Math.round(p.gold||0), p.statPoints||0,
+    p.evoStage||0, p.awakened?1:0, (p.mounts||[]).length, (p.pets||[]).length, inv, eq, mats].join('#');
+}
+function signChar(p){ return _mix(_critState(p)); }
+function verifyChar(p){
+  if(!p) return false;
+  if(!p._sig) return false;          // unsigned (legacy or hand-made) → treat as untrusted
+  return p._sig === _mix(_critState(p));
+}
+// ─────────────────────────────────────────────────────────────────────────────
 function save(player){
   try{
+    if(player){ try{ player._sig = signChar(player); }catch(e){} } // sign before persisting
     localStorage.setItem('wol3_save', JSON.stringify(player)); // legacy/current
     // also save into the account store, in the player's character slot
     if(player.account){
@@ -1523,7 +1560,7 @@ function craftUnique(recipe, playerLevel){
 }
 
 return {genItem, genSetPiece, craftUnique, canEquip, computeStats, xpForLevel, createPlayer, applyLevelGrowth, rollRarity, save, load, clearSave, pick, randInt, clamp,
-  registerAccount, loginAccount, setAdmin, isAdmin, isReservedName, listAccounts, deleteAccount, banAccount, adminGrant, loadAccounts, saveAccounts, currentWeekId, loadWeekly, saveWeekly, resolveWeekly, claimWeeklyPending, hashPw};
+  signChar, verifyChar, registerAccount, loginAccount, setAdmin, isAdmin, isReservedName, listAccounts, deleteAccount, banAccount, adminGrant, loadAccounts, saveAccounts, currentWeekId, loadWeekly, saveWeekly, resolveWeekly, claimWeeklyPending, hashPw};
 })();
 
 </script>
@@ -3151,6 +3188,26 @@ function App(){
     const useSlot = (slot!=null) ? slot : chars.findIndex(Boolean);
     const saved = chars[useSlot];
     if(!saved){ alert('אין דמות בחריץ הזה'); return; }
+    // ── ANTI-CHEAT: verify the save wasn't tampered with (console/localStorage edits).
+    //    Any character with real progress must carry a valid signature. Missing OR
+    //    invalid signature = tampering (this also blocks the "just delete _sig" bypass).
+    //    Brand-new/empty characters are exempt; old unsigned legacy saves migrate once. ──
+    const _hasProgress = (saved.level>3) || ((saved.gold||0)>500) || ((saved.inventory||[]).length>2);
+    const _legacyUnsigned = (saved._sig===undefined && !saved._sigInit);
+    const _tampered = _hasProgress && !_legacyUnsigned && !E.verifyChar(saved);
+    if(_tampered){
+      saved.gold = 0;
+      if(Array.isArray(saved.inventory)){
+        saved.inventory = saved.inventory.filter(it=>{
+          if(!it || !it.stats) return true;
+          const maxStat = Math.max(0, ...Object.values(it.stats).map(v=>+v||0));
+          return maxStat <= 50 + (it.lv||saved.level||1)*30; // drop forged super-items
+        });
+      }
+      try{ console.warn('save integrity check failed — values sanitized'); }catch(e){}
+      if(typeof showToast==='function') showToast('⚠️ זוהתה עריכה לא חוקית של הדמות — הנתונים אופסו', '#ff5a5a');
+    }
+    saved._sigInit = true; // mark as under integrity protection going forward
     if(!saved.loadout) saved.loadout = saved.skills.slice(0,8);
     if(saved.evoStage==null) saved.evoStage = 0;
     if(!saved.account) saved.account = account;
