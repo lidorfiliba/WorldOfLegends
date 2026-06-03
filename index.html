@@ -2758,7 +2758,9 @@ function makeMonster(base, lv, x, y, scale, isBoss, xpMul){
   //    monsters die fast and end-game monsters are real damage sponges. ──
   const variety = Math.min(1.35, Math.max(0.75, 0.8 + 0.4 * ((base.hp||250) / 300)));
   const levelHp = 35 + lv*lv*0.5 + lv*16;             // ~50 at lv1, ramps with level
-  let hp = Math.round(levelHp * variety * (isBoss ? 11 : 1));
+  // tougher monsters: ×2.2 HP so they survive several hits (matches server). Bosses
+  // keep their big multiplier.
+  let hp = Math.round(levelHp * variety * (isBoss ? 11 : 2.2));
   // ── XP balance: a monster's XP is tied to ITS OWN LEVEL and grows sub-exponentially
   //    (8 + lv^1.5 * 0.55). The level-up requirement grows much faster (xpForLevel),
   //    so each level needs progressively MORE kills: ~10 at low levels, ~80 mid-game,
