@@ -3310,6 +3310,7 @@ function App(){
         const serverConfigured = !!window.WOL_SERVER_URL;
         G.sharedWorld = serverConfigured && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.nest && !wd.pvp && !wd.town;
         G._serverMons = {}; // mid -> local monster object
+        G._enterWorldT = Date.now(); G._lastServerMonT = 0; G._usingFallbackMons = false; G._everGotServerMons = false;
         // server tells us where the cage clusters are → draw fenced pens there
         window.WOLNet.onCages = (cages)=>{
           if(!G.sharedWorld) return;
@@ -3324,19 +3325,22 @@ function App(){
         if(G.sharedWorld){
           G.monsters = []; // server will populate the shared monsters
           // FALLBACK: if the server is asleep/slow and no monsters arrive within
-          // a few seconds, populate LOCAL monsters so the player always has
-          // something to fight (prevents "empty map" when the server is waking).
+          // a few seconds, switch to FULL LOCAL mode so the player always has
+          // monsters AND they respawn normally (the offline respawn path runs only
+          // when G.sharedWorld is false).
           G._sharedFallbackT = setTimeout(()=>{
             if(G.sharedWorld && Object.keys(G._serverMons).length===0 && G.running){
+              G.sharedWorld = false;          // ← go fully offline so respawns work
+              G._usingFallbackMons = true;
               const ents = makeWorldEntities(wd, p.level);
               G.monsters = ents.monsters; G.bosses = ents.bosses;
-              G._usingFallbackMons = true;
-              showToast('⚠️ השרת מתעורר — מפלצות מקומיות זמנית', '#ffcc66');
+              showToast('⚠️ שרת לא זמין — משחק מקומי (מפלצות יחזרו כרגיל)', '#ffcc66');
             }
-          }, 6000);
+          }, 5000);
         }
         window.WOLNet.onMonsters=(kind, m)=>{
           if(!G.sharedWorld) return;
+          if(G._usingFallbackMons) return; // we already went local — ignore late server data
           // server monsters arrived — clear any local fallback monsters
           if(G._usingFallbackMons){ G.monsters = []; G.bosses = []; G._usingFallbackMons=false; }
           if(kind==='spawn'){
@@ -4857,6 +4861,25 @@ function App(){
       });
     }
     if(G.frame%180===0) G.monsters = G.monsters.filter(m=>!m._remove && (m._server ? !m._dying : m.hp>0));
+
+    // ── SHARED-WORLD WATCHDOG: if we're in shared mode but the server has given us
+    //    no monsters for a while (asleep / disconnected / dropped), fall back to a
+    //    FULL LOCAL world so the map is never empty and monsters respawn normally. ──
+    if(G.sharedWorld && !G._usingFallbackMons && G.worldDef && !G.worldDef.nest && !G.worldDef.dungeon){
+      const haveServerMons = G._serverMons && Object.keys(G._serverMons).length>0;
+      const online = window.WOLNet && window.WOLNet.isOnline && window.WOLNet.isOnline();
+      if(haveServerMons){ G._lastServerMonT = now; G._everGotServerMons = true; }
+      // Fall back to local if EITHER: (a) the server never delivered since we entered
+      // (asleep on arrival), OR (b) we're disconnected and the map has gone empty.
+      const neverDelivered = !G._everGotServerMons && now - (G._enterWorldT||now) > 5000;
+      const lostConnEmpty   = !online && !haveServerMons && now - (G._enterWorldT||now) > 5000;
+      if(neverDelivered || lostConnEmpty){
+        G.sharedWorld = false; G._usingFallbackMons = true;
+        const ents = makeWorldEntities(G.worldDef, G.player.level);
+        G.monsters = ents.monsters; G.bosses = ents.bosses;
+        showToast('⚠️ שרת לא זמין — משחק מקומי (מפלצות יחזרו כרגיל)', '#ffcc66');
+      }
+    }
 
     // ── NEST WATCHDOG: reliably open the stage portal once the wave is cleared,
     //    no matter how the monsters died (melee, DOT, status, off-screen). ──
