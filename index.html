@@ -3358,7 +3358,35 @@ function App(){
               G._serverMons[sm.mid] = mo;
             });
           } else if(kind==='sync'){
-            (m.monsters||[]).forEach(sm=>{ const mo=G._serverMons[sm.mid]; if(mo){ mo.hp=sm.hp; mo._tx=sm.x; mo._ty=sm.y; } });
+            const list = m.monsters||[];
+            if(m.reconcile){
+              // full reconciliation — heals any client/server desync
+              const seen = new Set();
+              list.forEach(sm=>{
+                seen.add(sm.mid);
+                let mo = G._serverMons[sm.mid];
+                if(mo){
+                  // update existing
+                  mo.hp = sm.hp; mo._tx = sm.x; mo._ty = sm.y;
+                  if(mo._dying && sm.hp>0){ mo._dying=false; mo._remove=false; } // server says it's alive
+                } else {
+                  // MISSING on client → recreate it (this is the self-heal)
+                  const base = D.MONSTERS[(sm.kind||0)%D.MONSTERS.length] || D.MONSTERS[0];
+                  const nmo = makeMonster(base, sm.level||1, sm.x, sm.y, 1+(sm.level||1)*0.085, false, (G.worldDef&&G.worldDef.xpMul)||1);
+                  nmo.mid = sm.mid; nmo._server=true; nmo.hp=sm.hp; nmo.maxHp=sm.maxHp||sm.hp;
+                  nmo._cageIdx = (sm.cage>=0 ? sm.cage : -1);
+                  if(nmo._cageIdx>=0 && G._cages && G._cages[nmo._cageIdx]){ nmo._cage=G._cages[nmo._cageIdx]; nmo._cageDmg=G._cages[nmo._cageIdx].dmgMult||1.4; }
+                  nmo._ranged = (parseInt(String(sm.mid).replace(/\D/g,''),10)||0)%5<2;
+                  G.monsters.push(nmo); G._serverMons[sm.mid]=nmo;
+                }
+              });
+              // remove client monsters the server no longer has (unless mid-death anim)
+              for(const mid in G._serverMons){
+                if(!seen.has(mid)){ const mo=G._serverMons[mid]; if(mo && !mo._dying){ mo._remove=true; } delete G._serverMons[mid]; }
+              }
+            } else {
+              list.forEach(sm=>{ const mo=G._serverMons[sm.mid]; if(mo){ mo.hp=sm.hp; mo._tx=sm.x; mo._ty=sm.y; } });
+            }
           } else if(kind==='hp'){
             const mo=G._serverMons[m.mid]; if(mo){ mo.hp=m.hp; mo.hurtT=Date.now()+150; }
           } else if(kind==='dead'){
