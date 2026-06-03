@@ -3299,6 +3299,12 @@ function App(){
         window.WOLNet.onCages = (cages)=>{
           if(!G.sharedWorld) return;
           G._cages = (cages||[]).map((c,i)=>({ x:c.x, y:c.y, half:340, gateSide:i%4, dmgMult:1.4 }));
+          // re-bind any already-spawned server monsters to their cage (messages can
+          // arrive out of order — monsters before cages)
+          for(const mid in (G._serverMons||{})){
+            const mo=G._serverMons[mid];
+            if(mo && mo._cageIdx>=0 && G._cages[mo._cageIdx]){ mo._cage=G._cages[mo._cageIdx]; mo._cageDmg=G._cages[mo._cageIdx].dmgMult; }
+          }
         };
         if(G.sharedWorld){
           G.monsters = []; // server will populate the shared monsters
@@ -3331,7 +3337,8 @@ function App(){
               mo._ranged = (parseInt(String(sm.mid).replace(/\D/g,''),10)||0) % 5 < 2; // ~40% ranged (stable per mid)
               mo.hp = sm.hp; mo.maxHp = sm.maxHp;
               // bind to the matching client-side cage so it's contained in the pen
-              if(sm.cage>=0 && G._cages && G._cages[sm.cage]){ mo._cage = G._cages[sm.cage]; mo._cageDmg = G._cages[sm.cage].dmgMult||1.4; }
+              mo._cageIdx = (sm.cage>=0 ? sm.cage : -1);
+              if(mo._cageIdx>=0 && G._cages && G._cages[mo._cageIdx]){ mo._cage = G._cages[mo._cageIdx]; mo._cageDmg = G._cages[mo._cageIdx].dmgMult||1.4; }
               G.monsters.push(mo);
               G._serverMons[sm.mid] = mo;
             });
@@ -4977,11 +4984,19 @@ function App(){
             if(m.wt<=0){ m.wt=2000+Math.random()*2000; const a=Math.random()*Math.PI*2; m.wx=Math.cos(a); m.wy=Math.sin(a); }
             m.x+=(m.wx||0)*16*dt; m.y+=(m.wy||0)*16*dt; }
         } else if((d<aggroR||m.aggro)){
-          m.aggro=true;
-          if(m.isBoss || m._worldBoss){ updateBossSpecials(m, now, p); }
-          if(d>atkR){ m.x+=dx/d*sp*dt; m.y+=dy/d*sp*dt; m.state='chase'; }
-          else m.state='attack';
-          if(d>aggroR*4) m.aggro=false;
+          // a boss that hasn't been attacked yet just idles (no unprovoked attacks).
+          // World-event bosses (_worldBoss) are always aggressive (raid target).
+          if(m.isBoss && !m._worldBoss && m._passive){
+            m.state='idle'; m.wt=(m.wt||0)-dt*1000;
+            if(m.wt<=0){ m.wt=2600+Math.random()*2600; const a=Math.random()*Math.PI*2; m.wx=Math.cos(a); m.wy=Math.sin(a); }
+            m.x+=(m.wx||0)*10*dt; m.y+=(m.wy||0)*10*dt;
+          } else {
+            m.aggro=true;
+            if(m.isBoss || m._worldBoss){ updateBossSpecials(m, now, p); }
+            if(d>atkR){ m.x+=dx/d*sp*dt; m.y+=dy/d*sp*dt; m.state='chase'; }
+            else m.state='attack';
+            if(d>aggroR*4) m.aggro=false;
+          }
         } else {
           m.state='idle';
           m.wt=(m.wt||0)-dt*1000;
@@ -5007,8 +5022,8 @@ function App(){
         return;
       }
       // ATTACK (melee): normal monsters & boss BASIC attacks hit instantly (with a
-      // quick lunge animation). Bosses use telegraphed WINDUP only for SPECIAL moves
-      // (handled in updateBossSpecials via danger zones).
+      // quick lunge animation). A passive boss (not yet attacked) never hits.
+      if(m.isBoss && !m._worldBoss && m._passive){ return; }
       if(d < atkR && !playerInSafe && now>m.atkT && (G._atkThisFrame||0) < 3){
         m.atkT = now + (m.isBoss?1100:1200) + Math.random()*200;
         m.state='attack'; m._strikeFx = now + 180;  // lunge animation
