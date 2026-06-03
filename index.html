@@ -2587,7 +2587,7 @@ window.WOLCloud = (function(){
 window.WOLNet = (function(){
   const Net = {
     ws:null, id:null, connected:false, peers:new Map(), profile:null,
-    onChat:null, onPvp:null, onParty:null, party:null,
+    onChat:null, onPvp:null, onParty:null, onTrade:null, party:null,
     _lastSent:0, _reconnectT:null,
     connect(profile){
       this.profile=profile;
@@ -2627,6 +2627,14 @@ window.WOLNet = (function(){
         case 'worldBossReward':if(this.onBoss) this.onBoss('reward', m); break;
         case 'peerAction': if(m.id!==this.id && this.onPeerAction) this.onPeerAction(m); break;
         case 'charState': if(this.onCharState) this.onCharState(m); break;
+        // ── Player trade (relayed) ──
+        case 'tradeRequested': if(this.onTrade) this.onTrade('requested', m); break;
+        case 'tradeStart':     if(this.onTrade) this.onTrade('start', m); break;
+        case 'tradeUpdate':    if(this.onTrade) this.onTrade('update', m); break;
+        case 'tradeComplete':  if(this.onTrade) this.onTrade('complete', m); break;
+        case 'tradeCancelled': if(this.onTrade) this.onTrade('cancelled', m); break;
+        case 'tradeDeclined':  if(this.onTrade) this.onTrade('declined', m); break;
+        case 'tradeBusy':      if(this.onTrade) this.onTrade('busy', m); break;
         case 'kicked': if(this.onKicked) this.onKicked(m); this.connected=false; break;
       }
     },
@@ -2646,6 +2654,13 @@ window.WOLNet = (function(){
     partyInvite(targetId){ this.send('partyInvite',{targetId}); },
     partyJoin(partyId){ this.send('partyJoin',{partyId}); },
     partyLeave(){ this.send('partyLeave',{}); },
+    // ── trade methods ──
+    tradeRequest(targetId){ this.send('tradeRequest',{targetId}); },
+    tradeAccept(fromId){ this.send('tradeAccept',{fromId}); },
+    tradeDecline(fromId){ this.send('tradeDecline',{fromId}); },
+    tradeOffer(items,gold){ this.send('tradeOffer',{items,gold}); },
+    tradeConfirm(){ this.send('tradeConfirm',{}); },
+    tradeCancel(){ this.send('tradeCancel',{}); },
     isOnline(){ return this.connected; },
   };
   return Net;
@@ -2662,6 +2677,20 @@ const SP = window.SPRITES;
 // WORLD GENERATION & GAME STATE (refs, not React state for perf)
 // ═══════════════════════════════════════════════════════════════
 const WW_DEFAULT = 4800, WH_DEFAULT = 4800, SAFE_R = 360;
+// SPAWN_SAFE_R: a smaller protected "outpost" at the center of every COMBAT world.
+// The player spawns here and steps out to fight; monsters can't enter it. Town uses
+// the bigger SAFE_R. Dungeons/nests/pvp have no spawn bubble (their own flow).
+const SPAWN_SAFE_R = 280;
+// Returns the active protective-zone radius (centered at WW/2,WH/2) for the current
+// world, or 0 if this world has none. Centralizes the safe-zone rule so every check
+// stays consistent.
+function activeSafeR(){
+  const wd = (window.G) ? window.G.worldDef : null;
+  if(!wd) return 0;
+  if(wd.town) return SAFE_R;
+  if(wd.dungeon || wd.nest || wd.pvp) return 0;
+  return SPAWN_SAFE_R; // normal combat world → small spawn outpost
+}
 // WW/WH are now world-specific — accessed via G.WW / G.WH in the loop.
 // We keep globals for legacy references that run before enterWorld.
 let WW = WW_DEFAULT, WH = WH_DEFAULT;
@@ -2845,6 +2874,9 @@ function App(){
   const [loginMsg, setLoginMsg] = useState('');
   // PWA install: capture the browser's install prompt so we can offer an in-app button
   const [installPrompt, setInstallPrompt] = useState(null);
+  // ── Player trade state ──
+  const [tradeReq, setTradeReq] = useState(null);     // incoming request {fromId,fromName}
+  const [trade, setTrade] = useState(null);           // active trade {withId,withName,mine,theirs}
   useEffect(()=>{
     const onBip = (e)=>{ e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', onBip);
@@ -3431,6 +3463,29 @@ function App(){
           if(pm.type==='partyDisband' || pm.disbanded){ G._partyId = null; }
           if(window._onPartyPush) window._onPartyPush(pm);
         };
+        // ── TRADE handler: drive the trade UI from server relay messages ──
+        window.WOLNet.onTrade=(kind, m)=>{
+          if(kind==='requested'){ setTradeReq({fromId:m.fromId, fromName:m.fromName, level:m.level}); showToast(`🤝 ${m.fromName} רוצה לסחור איתך`, '#5aff8a'); }
+          else if(kind==='start'){ setTradeReq(null); setTrade({withId:m.withId, withName:m.withName, mine:{items:[],gold:0,confirm:false}, theirs:{items:[],gold:0,confirm:false}}); showToast(`🤝 מסחר עם ${m.withName} התחיל`, '#5aff8a'); }
+          else if(kind==='update'){ setTrade(t=> t ? {...t, mine:m.mine, theirs:m.theirs} : t); }
+          else if(kind==='complete'){
+            // apply the swap: remove given items, add received items + gold
+            const p=G.player;
+            const give=m.give||{items:[],gold:0}, recv=m.receive||{items:[],gold:0};
+            const giveUids=new Set((give.items||[]).map(it=>it.uid));
+            p.inventory = p.inventory.filter(it=>!giveUids.has(it.uid));
+            p.gold = Math.max(0, (p.gold||0) - (give.gold||0));
+            (recv.items||[]).forEach(it=>{ if(p.inventory.length<40) p.inventory.push(it); });
+            p.gold = (p.gold||0) + (recv.gold||0);
+            E.save(p); cloudSync(p);
+            setTrade(null);
+            showToast('✅ המסחר הושלם!', '#5aff8a'); log('🤝 מסחר הושלם בהצלחה', 'lg-leg');
+            rerender();
+          }
+          else if(kind==='cancelled'){ setTrade(null); setTradeReq(null); showToast('המסחר בוטל', '#ffaa3a'); }
+          else if(kind==='declined'){ setTradeReq(null); showToast('הבקשה נדחתה', '#ffaa3a'); }
+          else if(kind==='busy'){ showToast('השחקן עסוק במסחר אחר', '#ff5a5a'); }
+        };
         // ── PEER ACTIONS: show other players' attacks (slash / projectile flash) ──
         window.WOLNet.onPeerAction=(m)=>{
           const peer = window.WOLNet.peers.get(m.id); if(!peer) return;
@@ -3858,9 +3913,10 @@ function App(){
   // players must use skills & combos to bring a boss down (Dragon-Nest philosophy).
   const hitMonster = useCallback((mon, mult, critChance, isBasic, skillEl)=>{
     const p = G.player, cs = G.cs;
-    // ANTI-EXPLOIT: can't deal damage while standing in the safe zone. This stops
-    // "snipe monsters from inside the protected area" cheese.
-    if((G.worldDef && G.worldDef.town) && Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R){ return; }
+    // ANTI-EXPLOIT: can't deal damage while standing in the safe zone (town hub OR
+    // a combat world's spawn outpost). Stops "snipe from inside the protected area".
+    const _sr = activeSafeR();
+    if(_sr > 0 && Math.hypot(p.x-WW/2, p.y-WH/2) < _sr){ return; }
     const isMagic = (p.classId==='mage') || (p.classId==='paladin' && Math.random()<0.5);
     const power = isMagic ? Math.max(cs.atk, cs.matk) : cs.atk;
     const comboActive = (G._comboMult && Date.now()<(G.comboExpire||0));
@@ -4369,8 +4425,9 @@ function App(){
   const doBasicAttack = useCallback(()=>{
     const p = G.player, cs = G.cs, now = Date.now();
     if(now < G.atkCd) return;
-    // no attacking while in the town safe zone
-    if((G.worldDef && G.worldDef.town) && Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R) return;
+    // no attacking while in the safe zone (town hub OR combat-world spawn outpost)
+    const _sr = activeSafeR();
+    if(_sr > 0 && Math.hypot(p.x-WW/2, p.y-WH/2) < _sr) return;
     const cls = p.classId;
     // ── Class attack profiles ──
     // archer: fast ranged arrows, medium dmg.  mage: ranged elemental, a bit slower/shorter than archer but strong.
@@ -4724,6 +4781,17 @@ function App(){
       }
     }
 
+    // ── nearest peer (for the trade button) — only when online & not already trading ──
+    G._nearPeer = null;
+    if(window.WOLNet && window.WOLNet.isOnline() && !G.worldDef?.pvp){
+      let bd = 180;
+      for(const peer of window.WOLNet.peers.values()){
+        if(peer.x==null) continue;
+        const d = Math.hypot(peer.x-p.x, peer.y-p.y);
+        if(d < bd){ bd=d; G._nearPeer = peer; }
+      }
+    }
+
     // auto-attack while held
     if(G.atkHeld) doBasicAttack();
 
@@ -4752,7 +4820,8 @@ function App(){
     if(window.WOLNet && window.WOLNet.connected){ window.WOLNet.move(p.x, p.y, G.facing, p.hp); }
 
     // ── AI ──
-    const inSafe = (G.worldDef && G.worldDef.town) && Math.hypot(p.x-WW/2, p.y-WH/2) < SAFE_R;
+    const _safeRnow = activeSafeR();
+    const inSafe = _safeRnow > 0 && Math.hypot(p.x-WW/2, p.y-WH/2) < _safeRnow;
     const updRange = 1300;
     G._atkThisFrame = 0; // cap how many monsters can land a hit per frame (anti-swarm)
     [...G.monsters, ...G.bosses].forEach(m=>{
@@ -5015,14 +5084,16 @@ function App(){
       m.y=E.clamp(m.y+(m.wy||0)*10*dt, 80, WH-80);
       return;
     }
-    // ── safe zone exists ONLY in town (the hub). In combat worlds monsters roam
-    //    freely — no center bubble that pushes them away or blocks attacks. ──
-    if(G.worldDef && G.worldDef.town){
+    // ── SAFE ZONE: town has a big protected hub; every combat world has a small
+    //    spawn "outpost" at its center. Monsters can't enter it — they're pushed to
+    //    its edge and lose aggro, so the player always has a safe place to return to. ──
+    const _safeR = activeSafeR();
+    if(_safeR > 0){
       const _dsafe = Math.hypot(m.x-WW/2, m.y-WH/2);
-      if(_dsafe < SAFE_R){
+      if(_dsafe < _safeR){
         const a = Math.atan2(m.y-WH/2, m.x-WW/2) || 0;
-        m.x = WW/2 + Math.cos(a)*(SAFE_R+14);
-        m.y = WH/2 + Math.sin(a)*(SAFE_R+14);
+        m.x = WW/2 + Math.cos(a)*(_safeR+14);
+        m.y = WH/2 + Math.sin(a)*(_safeR+14);
         m.aggro=false; return;
       }
     }
@@ -5403,24 +5474,39 @@ function App(){
     }
     ctx.restore();
 
-    // safe zone (only in meadow) — subtle ground tint + thin ring
+    // SAFE ZONE — town hub OR a combat world's spawn outpost. Subtle tint + ring +
+    // label so the player can always see where the protected area is.
+    const _renderSafeR = activeSafeR();
+    if(_renderSafeR > 0 && !wd.town){  // town draws its own elaborate hub elsewhere
+      const ssx = WW/2-cam.x, ssy = WH/2-cam.y;
+      if(isFinite(ssx) && isFinite(ssy)){
+        const g = ctx.createRadialGradient(ssx,ssy,_renderSafeR*0.6,ssx,ssy,_renderSafeR);
+        g.addColorStop(0,'rgba(90,200,255,0)'); g.addColorStop(1,'rgba(90,200,255,0.06)');
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ssx,ssy,_renderSafeR,0,Math.PI*2); ctx.fill();
+        // a soft stone "platform" so it reads as an outpost
+        ctx.save(); ctx.globalAlpha=0.10; ctx.fillStyle='#8a9ab0';
+        ctx.beginPath(); ctx.arc(ssx,ssy,_renderSafeR*0.92,0,Math.PI*2); ctx.fill(); ctx.restore();
+        ctx.save();
+        ctx.setLineDash([10,14]); ctx.lineDashOffset=-(now/40)%24;
+        ctx.strokeStyle=`rgba(120,200,255,${0.25+Math.sin(now/800)*0.08})`; ctx.lineWidth=2.5;
+        ctx.beginPath(); ctx.arc(ssx,ssy,_renderSafeR,0,Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.restore();
+      }
+      if(Math.hypot(p.x-WW/2,p.y-WH/2)<_renderSafeR+250){
+        ctx.font='600 13px Heebo'; ctx.textAlign='center';
+        ctx.fillStyle=`rgba(150,210,255,${0.6+Math.sin(now/500)*0.2})`;
+        ctx.fillText('🛡️ מוצב מוגן — צא להילחם', ssx, ssy-_renderSafeR-10);
+        ctx.textAlign='left';
+      }
+    }
+    // legacy meadow tint (kept for the starter world's green theme)
     if(wd.id==='meadow'){
       const ssx = WW/2-cam.x, ssy = WH/2-cam.y;
       if(isFinite(ssx) && isFinite(ssy)){
       const g = ctx.createRadialGradient(ssx,ssy,SAFE_R*0.7,ssx,ssy,SAFE_R);
       g.addColorStop(0,'rgba(90,220,130,0)'); g.addColorStop(1,'rgba(90,220,130,0.05)');
       ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ssx,ssy,SAFE_R,0,Math.PI*2); ctx.fill();
-      ctx.save();
-      ctx.setLineDash([10,14]); ctx.lineDashOffset=-(now/40)%24;
-      ctx.strokeStyle=`rgba(120,255,160,${0.18+Math.sin(now/800)*0.07})`; ctx.lineWidth=2;
-      ctx.beginPath(); ctx.arc(ssx,ssy,SAFE_R,0,Math.PI*2); ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.restore();
-      }
-      if(Math.hypot(p.x-WW/2,p.y-WH/2)<SAFE_R+250){
-        ctx.font='600 12px Heebo'; ctx.textAlign='center';
-        ctx.fillStyle=`rgba(120,255,160,${0.5+Math.sin(now/500)*0.2})`;
-        ctx.fillText('🌿 אזור מוגן', ssx, ssy-SAFE_R-10);
       }
     }
 
@@ -6628,6 +6714,14 @@ function App(){
         </div>
       </div>
 
+      {/* TRADE BUTTON — appears when standing near another player */}
+      {!trade && !tradeReq && G._nearPeer && window.WOLNet && window.WOLNet.isOnline() && (
+        <button style={{position:'absolute',bottom:'34%',left:'50%',transform:'translateX(-50%)',zIndex:60,background:'linear-gradient(135deg,#2a5a3a,#1a3a28)',border:'2px solid #5aff8a',borderRadius:12,color:'#5aff8a',fontWeight:700,fontSize:'0.85rem',padding:'8px 16px',boxShadow:'0 4px 16px rgba(0,0,0,0.5)',pointerEvents:'all'}}
+          onClick={()=>{ if(G._nearPeer){ window.WOLNet.tradeRequest(G._nearPeer.id); showToast(`🤝 שלחת בקשת מסחר ל${G._nearPeer.name}`, '#5aff8a'); } }}>
+          🤝 סחר עם {G._nearPeer.name}
+        </button>
+      )}
+
       {/* COMBO QUEST PROMPT (level 30) */}
       {comboPrompt && (
         <div style={{position:'absolute',inset:0,zIndex:95,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.7)',backdropFilter:'blur(4px)'}}
@@ -6653,6 +6747,71 @@ function App(){
           </div>
         </div>
       )}
+
+      {/* TRADE REQUEST PROMPT */}
+      {tradeReq && !trade && (
+        <div style={{position:'absolute',top:80,left:'50%',transform:'translateX(-50%)',zIndex:97,background:'linear-gradient(160deg,#1a2a3a,#0e1828)',border:'2px solid #5aff8a',borderRadius:14,padding:'14px 18px',maxWidth:320,textAlign:'center',boxShadow:'0 6px 30px rgba(0,0,0,0.6)'}}>
+          <div style={{fontSize:'0.95rem',color:'#e8dcc8',marginBottom:10}}>🤝 <b style={{color:'#5aff8a'}}>{tradeReq.fromName}</b> (רמה {tradeReq.level}) רוצה לסחור איתך</div>
+          <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+            <button className="btn btn-main" style={{flex:1}} onClick={()=>{ window.WOLNet.tradeAccept(tradeReq.fromId); }}>✅ קבל</button>
+            <button className="btn" style={{flex:1,background:'#3a2030'}} onClick={()=>{ window.WOLNet.tradeDecline(tradeReq.fromId); setTradeReq(null); }}>✖ דחה</button>
+          </div>
+        </div>
+      )}
+
+      {/* TRADE WINDOW */}
+      {trade && (()=>{
+        const p = G.player;
+        const mine = trade.mine||{items:[],gold:0,confirm:false};
+        const theirs = trade.theirs||{items:[],gold:0,confirm:false};
+        const myOfferUids = new Set((mine.items||[]).map(it=>it.uid));
+        const avail = (p.inventory||[]).filter(it=>!myOfferUids.has(it.uid));
+        const pushOffer = (items,gold)=>{ window.WOLNet.tradeOffer(items.map(it=>({uid:it.uid,name:it.name,emoji:it.emoji,rarity:it.rarity,type:it.type,slot:it.slot,stats:it.stats,lv:it.lv,setId:it.setId})), gold); };
+        const addItem = (it)=>{ if((mine.items||[]).length>=12) return; pushOffer([...(mine.items||[]), it], mine.gold||0); };
+        const removeItem = (it)=>{ pushOffer((mine.items||[]).filter(x=>x.uid!==it.uid), mine.gold||0); };
+        const setGold = (g)=>{ pushOffer(mine.items||[], Math.max(0, Math.min(p.gold||0, g))); };
+        return (
+        <div style={{position:'absolute',inset:0,zIndex:97,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.8)',backdropFilter:'blur(5px)'}}>
+          <div style={{background:'linear-gradient(160deg,#1a1428,#0e0a18)',border:'2px solid #7a5aff',borderRadius:14,padding:14,width:'min(94vw,560px)',maxHeight:'90vh',overflowY:'auto'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:10}}>
+              <b style={{color:'#b89aff',fontSize:'1rem'}}>🤝 מסחר עם {trade.withName}</b>
+              <button className="modal-x" onClick={()=>{ window.WOLNet.tradeCancel(); setTrade(null); }}>✕</button>
+            </div>
+            <div style={{display:'flex',gap:8}}>
+              {/* MY OFFER */}
+              <div style={{flex:1,background:'rgba(90,255,138,0.06)',border:'1px solid #2a5a3a',borderRadius:10,padding:8}}>
+                <div style={{color:'#5aff8a',fontSize:'0.8rem',fontWeight:700,marginBottom:6}}>ההצעה שלך {mine.confirm&&'✅'}</div>
+                <div style={{minHeight:60,display:'flex',flexWrap:'wrap',gap:4}}>
+                  {(mine.items||[]).map(it=>(<button key={it.uid} onClick={()=>removeItem(it)} style={{fontSize:'1.2rem',background:'#1a2a1e',border:'1px solid #3a5a44',borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</button>))}
+                </div>
+                <div style={{marginTop:6,fontSize:'0.75rem',color:'#ffd24a'}}>💰 <input type="number" min="0" max={p.gold||0} value={mine.gold||0} onChange={e=>setGold(e.target.value|0)} style={{width:80,background:'#0e0a18',border:'1px solid #3a5a44',borderRadius:5,color:'#ffd24a',padding:'2px 4px'}}/> / {p.gold||0}</div>
+              </div>
+              {/* THEIR OFFER */}
+              <div style={{flex:1,background:'rgba(122,90,255,0.06)',border:'1px solid #3a2a5a',borderRadius:10,padding:8}}>
+                <div style={{color:'#b89aff',fontSize:'0.8rem',fontWeight:700,marginBottom:6}}>{trade.withName} {theirs.confirm&&'✅'}</div>
+                <div style={{minHeight:60,display:'flex',flexWrap:'wrap',gap:4}}>
+                  {(theirs.items||[]).map(it=>(<span key={it.uid} style={{fontSize:'1.2rem',background:'#1e1a2a',border:'1px solid #443a5a',borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</span>))}
+                </div>
+                <div style={{marginTop:6,fontSize:'0.75rem',color:'#ffd24a'}}>💰 {theirs.gold||0}</div>
+              </div>
+            </div>
+            {/* MY INVENTORY to add from */}
+            <div style={{marginTop:10}}>
+              <div style={{fontSize:'0.72rem',color:'#9a8aba',marginBottom:4}}>התיק שלך (לחץ להוספה):</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:4,maxHeight:120,overflowY:'auto'}}>
+                {avail.length===0 && <span style={{fontSize:'0.7rem',color:'#6a5a7a'}}>אין חפצים פנויים</span>}
+                {avail.map(it=>(<button key={it.uid} onClick={()=>addItem(it)} style={{fontSize:'1.1rem',background:'#15101e',border:'1px solid #2a2038',borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</button>))}
+              </div>
+            </div>
+            <div style={{display:'flex',gap:8,marginTop:12}}>
+              <button className="btn btn-main" style={{flex:1,opacity:mine.confirm?0.6:1}} disabled={mine.confirm} onClick={()=>window.WOLNet.tradeConfirm()}>{mine.confirm?'✅ אישרת':'אשר מסחר'}</button>
+              <button className="btn" style={{flex:1,background:'#3a2030'}} onClick={()=>{ window.WOLNet.tradeCancel(); setTrade(null); }}>ביטול</button>
+            </div>
+            <div style={{fontSize:'0.65rem',color:'#9a8aba',marginTop:6,textAlign:'center'}}>שינוי הצעה מאפס את האישורים של שני הצדדים</div>
+          </div>
+        </div>
+        );
+      })()}
 
       {/* AWAKENING ANNOUNCEMENT (level 60) */}
       {awakenPrompt && (
