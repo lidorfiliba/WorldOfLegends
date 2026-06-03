@@ -2742,6 +2742,7 @@ function makeWorldEntities(worldDef, playerLevel){
       const scale = 0.9 + lv*0.05;
       const b = makeMonster(bossBase, lv, E.clamp(p[0],200,ww-200), E.clamp(p[1],200,wh-200), scale, true, xpMul);
       b._passive = true; // roaming map boss: won't attack until the player hits it first
+      b._spawnX = b.x; b._spawnY = b.y; // remember spawn point for respawn
       return b;
     });
   }
@@ -2777,6 +2778,7 @@ function makeMonster(base, lv, x, y, scale, isBoss, xpMul){
     elemental:'thunder', world_eater_spawn:'dark' };
   return {
     id: Math.random(), base, lv, x, y, isBoss,
+    _spawnX: x, _spawnY: y,   // fixed spawn point — monster respawns here when killed
     hp, maxHp: hp,
     atk: Math.round(base.atk*atkScale), def: Math.round(base.def*Math.min(scale,5)),
     spd: base.spd, xp: xpVal, gold: [goldLo, goldHi],
@@ -3241,13 +3243,24 @@ function App(){
     // ── Multiplayer: connect / switch world ──
     try{
       const wtier = Math.max(1, D.WORLDS.findIndex(w=>w.id===worldId)+1);
+      // NEST INSTANCING: a nest is a private instance. Solo → unique per player;
+      // in a party → shared by the whole party. We encode this by appending an
+      // instance tag to the world id ("nest_goblin#solo:Hero" or "#party:<id>").
+      // The server's existing per-world peer/monster routing then isolates it,
+      // so 100 players each get their own (or their group's) copy.
+      let netWorld = worldId;
+      if(wd.nest){
+        const inst = (G._partyId) ? ('party:'+G._partyId) : ('solo:'+(p.account||p.name||'me')+':'+(p.charSlot||0));
+        netWorld = worldId + '#' + inst;
+        G._nestInstanceWorld = netWorld;
+      } else { G._nestInstanceWorld = null; }
       const prof={ name:p.name, cls:p.classId, level:p.level, evoStage:p.evoStage||0,
-        world:worldId, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp), worldTier:wtier,
+        world:netWorld, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp), worldTier:wtier,
         worldW:WW, worldH:WH,
         account:p.account||'', slot:p.charSlot||0, gold:Math.round(p.gold||0) };
       if(window.WOLNet){
         if(!window.WOLNet.connected && !window.WOLNet.ws){ window.WOLNet.connect(prof); }
-        else if(window.WOLNet.connected){ window.WOLNet.changeWorld(worldId, Math.round(p.x), Math.round(p.y), wtier, WW, WH); }
+        else if(window.WOLNet.connected){ window.WOLNet.changeWorld(netWorld, Math.round(p.x), Math.round(p.y), wtier, WW, WH); }
         // PvP damage handler: when another player hits me
         window.WOLNet.onPvp=(type,m)=>{
           if(type==='pvpHurt'){
@@ -3366,6 +3379,9 @@ function App(){
             window._partyInvite = pm;
             showToast(`📨 ${pm.fromName} הזמין אותך לקבוצה! פתח 👥 קבוצה כדי להצטרף`, '#5aff8a');
           }
+          // track the active party id so nests instance correctly (party shares one instance)
+          if(pm.type==='partyUpdate' || pm.id){ G._partyId = (pm.members && pm.members.length>0) ? (pm.id||pm.partyId) : null; }
+          if(pm.type==='partyDisband' || pm.disbanded){ G._partyId = null; }
           if(window._onPartyPush) window._onPartyPush(pm);
         };
         // ── PEER ACTIONS: show other players' attacks (slash / projectile flash) ──
@@ -4156,11 +4172,16 @@ function App(){
           return;
         }
       }
-      // normal boss: respawn after 60s
+      // roaming map boss: respawns after 30 minutes, back at its spawn point and
+      // passive again (won't attack until provoked).
+      const spawnX = mon._spawnX!=null ? mon._spawnX : mon.x;
+      const spawnY = mon._spawnY!=null ? mon._spawnY : mon.y;
       setTimeout(()=>{
+        if(!G.running) return;
         mon._dying=false; mon.aggro=false; mon.state='idle';
-        mon.hp = mon.maxHp;
-      }, 60000);
+        mon.hp = mon.maxHp; mon._passive=true; mon._enraged=false;
+        mon.x = spawnX; mon.y = spawnY;
+      }, 30*60*1000);
     } else {
       // remove the monster
       const idx = G.monsters.indexOf(mon);
@@ -4194,31 +4215,30 @@ function App(){
       // the server owns those monsters and spawns them for everyone)
       if(G.sharedWorld) return;
       const deadCage = mon._cage; // remember if it was a caged monster
+      const spawnX = mon._spawnX!=null ? mon._spawnX : mon.x;
+      const spawnY = mon._spawnY!=null ? mon._spawnY : mon.y;
       const wasRanged = mon._ranged;
       setTimeout(()=>{
         if(!G.running || !G.worldDef) return;
         const wd = G.worldDef;
-        if(wd.dungeon) return;
+        if(wd.dungeon || wd.nest) return;
         const monId = E.pick(wd.monsters);
         const base = D.MONSTERS.find(m=>m.id===monId);
         if(!base) return;
         const lv = E.randInt(wd.monLv[0], wd.monLv[1]);
         const scale = 1 + lv*0.085;
         const ww = G.WW||WW, wh = G.WH||WH;
-        let x,y;
+        // respawn at the SAME spawn point the dead monster used (infinite, stable)
+        let x = E.clamp(spawnX, 100, ww-100), y = E.clamp(spawnY, 100, wh-100);
         if(deadCage){
-          // respawn inside the SAME pen so cleared cages refill
           x=E.clamp(deadCage.x+(Math.random()*2-1)*(deadCage.half-50), 100, ww-100);
           y=E.clamp(deadCage.y+(Math.random()*2-1)*(deadCage.half-50), 100, wh-100);
-        } else {
-          let tries=0;
-          do{ x=120+Math.random()*(ww-240); y=120+Math.random()*(wh-240); tries++; }
-          while(Math.hypot(x-ww/2,y-wh/2)<SAFE_R+120 && tries<30);
         }
         const nm = makeMonster(base, lv, x, y, scale, false, wd.xpMul||1);
+        nm._ranged = wasRanged;
         if(deadCage){ nm._cage=deadCage; nm._cageDmg=deadCage.dmgMult; nm._ranged=Math.random()<0.4; }
         G.monsters.push(nm);
-      }, 6000);
+      }, 5000);
     }
   }, []);
 
