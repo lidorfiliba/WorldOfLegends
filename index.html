@@ -1054,6 +1054,16 @@ const QUESTS = [
 ];
 
 const _gd = {CLASSES, SKILLS, EVOLUTIONS, RARITY, ITEM_BASES, CONSUMABLES, SHOP_SETS, MONSTERS, BOSSES, WORLDS, QUESTS, ITEM_PREFIXES, ITEM_SUFFIXES, MATERIALS, CRAFT_RECIPES, MOUNTS, PETS, PET_PARTS, ACHIEVEMENTS, EVO_BRANCHES, EVO_QUESTS, ELEMENTS, STATUS_FX, SKILL_ELEMENT, skillElement, ULT_BY_CLASS};
+// SECURITY: deep-freeze all game-balance data so a tamperer can't rewrite item
+// prices, set bonuses, skill damage, drop tables, etc. from the console. (Frozen
+// objects silently reject writes; functions are left callable.)
+(function deepFreeze(o, seen){
+  seen = seen || new Set();
+  if(!o || (typeof o!=='object' && typeof o!=='function') || seen.has(o)) return;
+  seen.add(o);
+  try{ Object.freeze(o); }catch(e){}
+  for(const k of Object.keys(o)){ try{ deepFreeze(o[k], seen); }catch(e){} }
+})(_gd);
 window.GAME_DATA = _gd;
 return _gd;
 })();
@@ -2803,8 +2813,8 @@ function makeWorldEntities(worldDef, playerLevel){
     const lv=E.randInt(minL,maxL);
     monsters.push(makeMonster(base, lv, x, y, 1+lv*0.085, false, xpMul));
   }
-  // expose cages for the minimap + renderer
-  worldDef._cages = cages;
+  // expose cages for the minimap + renderer (stored on game state, not on the
+  // frozen world definition)
   G._cages = cages;
   // spawn bosses — only if the world defines one
   const bossBase = worldDef.boss ? D.BOSSES.find(b=>b.id===worldDef.boss) : null;
