@@ -781,21 +781,67 @@ const CONSUMABLES = [
 
 // ── SHOP GEAR SETS (buyable complete gear) ──
 const SHOP_SETS = [
-  {id:'iron_set', name:'סט ברזל', emoji:'⚙️', reqLv:1, price:300, rarity:'uncommon',
+  {id:'iron_set', name:'סט ברזל', emoji:'⚙️', reqLv:1, price:200, rarity:'uncommon', src:'shop',
+   bonus:{atk:0.05, hp:0.05, crit:0.02, desc:'+5% נזק, +5% חיים, +2% קריטי'},
    pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10}]},
-  {id:'ranger_set', name:'סט יער', emoji:'🌲', reqLv:10, price:1200, rarity:'rare',
-   pieces:[{slot:'weapon',baseIdx:4},{slot:'chest',baseIdx:7},{slot:'boots',baseIdx:13}]},
-  {id:'arcane_set', name:'סט ארקני', emoji:'🔯', reqLv:18, price:3000, rarity:'rare',
-   pieces:[{slot:'weapon',baseIdx:5},{slot:'chest',baseIdx:9},{slot:'helm',baseIdx:12}]},
-  {id:'dragon_set', name:'סט דרקון', emoji:'🐲', reqLv:30, price:9000, rarity:'epic',
-   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14}]},
-  {id:'titan_set', name:'סט הטיטאן', emoji:'⚡', reqLv:50, price:28000, rarity:'legendary',
+  {id:'leather_set', name:'סט עור', emoji:'🟤', reqLv:10, price:360, rarity:'uncommon', src:'shop',
+   bonus:{atk:0.062, hp:0.062, crit:0.026, desc:'+6% נזק, +6% חיים, +3% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10}]},
+  {id:'bronze_set', name:'סט ברונזה', emoji:'🥉', reqLv:20, price:648, rarity:'rare', src:'shop',
+   bonus:{atk:0.074, hp:0.074, crit:0.032, desc:'+7% נזק, +7% חיים, +3% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14}]},
+  {id:'silver_set', name:'סט כסף', emoji:'🥈', reqLv:30, price:1166, rarity:'rare', src:'shop',
+   bonus:{atk:0.086, hp:0.086, crit:0.038, desc:'+9% נזק, +9% חיים, +4% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14}]},
+  {id:'forest_set', name:'סט יער', emoji:'🌲', reqLv:40, price:-1, rarity:'rare', src:'drop', dropOnly:true,
+   bonus:{atk:0.098, hp:0.098, crit:0.044, desc:'+10% נזק, +10% חיים, +4% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14}]},
+  {id:'arcane_set', name:'סט ארקנה', emoji:'🔯', reqLv:50, price:-1, rarity:'epic', src:'drop', dropOnly:true,
+   bonus:{atk:0.11, hp:0.11, crit:0.05, desc:'+11% נזק, +11% חיים, +5% קריטי'},
    pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16}]},
-  // ENDGAME set — NOT buyable, only drops piece-by-piece in the Inferno (lv200+)
-  {id:'infernal_set', name:'סט התהום', emoji:'💀', reqLv:200, price:-1, rarity:'mythic', dropOnly:true, world:'inferno',
-   bonus:{atk:0.25, hp:0.25, crit:0.15, desc:'+25% נזק, +25% חיים, +15% קריטי'},
-   pieces:[{slot:'weapon',baseIdx:3},{slot:'chest',baseIdx:9},{slot:'helm',baseIdx:11},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
-];
+  {id:'steel_set', name:'סט פלדה', emoji:'⚔️', reqLv:60, price:-1, rarity:'epic', src:'drop', dropOnly:true,
+   bonus:{atk:0.122, hp:0.122, crit:0.056, desc:'+12% נזק, +12% חיים, +6% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16}]},
+  {id:'flame_set', name:'סט להבה', emoji:'🔥', reqLv:70, price:-1, rarity:'epic', src:'drop', dropOnly:true,
+   bonus:{atk:0.134, hp:0.134, crit:0.062, desc:'+13% נזק, +13% חיים, +6% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16}]},
+  {id:'frost_set', name:'סט קרח', emoji:'❄️', reqLv:80, price:-1, rarity:'epic', src:'drop', dropOnly:true,
+   bonus:{atk:0.146, hp:0.146, crit:0.068, desc:'+15% נזק, +15% חיים, +7% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16}]},
+  {id:'storm_set', name:'סט סער', emoji:'🌩️', reqLv:90, price:-1, rarity:'epic', src:'drop', dropOnly:true,
+   bonus:{atk:0.158, hp:0.158, crit:0.074, desc:'+16% נזק, +16% חיים, +7% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16}]},
+  {id:'dragon_set', name:'סט דרקון', emoji:'🐲', reqLv:100, price:-1, rarity:'legendary', src:'nest', dropOnly:true,
+   bonus:{atk:0.17, hp:0.17, crit:0.08, desc:'+17% נזק, +17% חיים, +8% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'shadow_set', name:'סט צללים', emoji:'🌑', reqLv:110, price:-1, rarity:'legendary', src:'nest', dropOnly:true,
+   bonus:{atk:0.182, hp:0.182, crit:0.086, desc:'+18% נזק, +18% חיים, +9% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'doom_set', name:'סט אבדון', emoji:'💀', reqLv:120, price:-1, rarity:'legendary', src:'nest', dropOnly:true,
+   bonus:{atk:0.194, hp:0.194, crit:0.092, desc:'+19% נזק, +19% חיים, +9% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'titan_set', name:'סט טיטאן', emoji:'⚡', reqLv:130, price:-1, rarity:'legendary', src:'nest', dropOnly:true,
+   bonus:{atk:0.206, hp:0.206, crit:0.098, desc:'+21% נזק, +21% חיים, +10% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'legend_set', name:'סט אגדה', emoji:'📜', reqLv:140, price:-1, rarity:'legendary', src:'nest', dropOnly:true,
+   bonus:{atk:0.218, hp:0.218, crit:0.104, desc:'+22% נזק, +22% חיים, +10% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'ancient_set', name:'סט עתיק', emoji:'🏛️', reqLv:150, price:-1, rarity:'legendary', src:'nest', dropOnly:true,
+   bonus:{atk:0.23, hp:0.23, crit:0.11, desc:'+23% נזק, +23% חיים, +11% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'heaven_set', name:'סט שמיים', emoji:'☁️', reqLv:160, price:-1, rarity:'mythic', src:'nest', dropOnly:true,
+   bonus:{atk:0.242, hp:0.242, crit:0.116, desc:'+24% נזק, +24% חיים, +12% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'abyss_set', name:'סט תהום', emoji:'🕳️', reqLv:170, price:-1, rarity:'mythic', src:'nest', dropOnly:true,
+   bonus:{atk:0.254, hp:0.254, crit:0.122, desc:'+25% נזק, +25% חיים, +12% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'divine_set', name:'סט אלים', emoji:'✨', reqLv:180, price:-1, rarity:'mythic', src:'nest', dropOnly:true,
+   bonus:{atk:0.266, hp:0.266, crit:0.128, desc:'+27% נזק, +27% חיים, +13% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'genesis_set', name:'סט בריאה', emoji:'🌌', reqLv:190, price:-1, rarity:'mythic', src:'nest', dropOnly:true,
+   bonus:{atk:0.278, hp:0.278, crit:0.134, desc:'+28% נזק, +28% חיים, +13% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+]
 
 // ── MONSTERS — each with unique appearance type ──
 // shape determines how it's drawn on canvas (custom per type)
@@ -2587,7 +2633,7 @@ window.WOLCloud = (function(){
 window.WOLNet = (function(){
   const Net = {
     ws:null, id:null, connected:false, peers:new Map(), profile:null,
-    onChat:null, onPvp:null, onParty:null, onTrade:null, party:null,
+    onChat:null, onPvp:null, onParty:null, onTrade:null, onPartyHeal:null, onWhisper:null, party:null,
     _lastSent:0, _reconnectT:null,
     connect(profile){
       this.profile=profile;
@@ -2610,6 +2656,7 @@ window.WOLNet = (function(){
         case 'peerParty': { const p=this.peers.get(m.id); if(p){p.partyId=m.partyId;} break; }
         case 'peerDeath': { const p=this.peers.get(m.id); if(p){p.hp=0;p._dead=true; setTimeout(()=>{if(p)p._dead=false;},3000);} break; }
         case 'chat': if(this.onChat) this.onChat(m.from,m.text,{sys:m.sys,level:m.level,fromId:m.fromId,me:m.fromId===this.id}); break;
+        case 'whisper': if(this.onWhisper) this.onWhisper(m); break;
         case 'pvpHurt': case 'pvpKill': if(this.onPvp) this.onPvp(m.type,m); break;
         case 'partyUpdate': this.party=m; if(this.onParty) this.onParty(m); break;
         case 'partyInvited': if(this.onParty) this.onParty(m); break;
@@ -2620,6 +2667,7 @@ window.WOLNet = (function(){
         case 'monsterDead':   if(this.onMonsters) this.onMonsters('dead', m); break;
         case 'cages':         if(this.onCages) this.onCages(m.cages||[]); break;
         case 'partyXp':       if(this.onPartyXp) this.onPartyXp(m); break;
+        case 'partyHealed':   if(this.onPartyHeal) this.onPartyHeal(m); break;
         case 'worldBossSpawn': if(this.onBoss) this.onBoss('spawn', m); break;
         case 'worldBossHp':    if(this.onBoss) this.onBoss('hp', m); break;
         case 'worldBossDead':  if(this.onBoss) this.onBoss('dead', m); break;
@@ -2642,6 +2690,7 @@ window.WOLNet = (function(){
     move(x,y,facing,hp){ const n=Date.now(); if(n-this._lastSent<80)return; this._lastSent=n; this.send('move',{x:Math.round(x),y:Math.round(y),facing,hp:Math.round(hp)}); },
     changeWorld(world,x,y,tier,ww,wh){ this.send('changeWorld',{world,x,y,worldTier:tier||1,worldW:ww,worldH:wh}); if(this.profile){this.profile.world=world;this.profile.worldW=ww;this.profile.worldH=wh;} this.peers.clear(); },
     chat(text){ this.send('chat',{text}); },
+    whisper(targetId, text){ this.send('whisper',{targetId, text}); },
     updateStats(level,evoStage,maxHp){ this.send('stats',{level,evoStage,maxHp}); },
     pvpHit(targetId,damage,kx,ky){ this.send('pvpHit',{targetId,damage,knockX:kx||0,knockY:ky||0}); },
     reportHp(hp){ this.send('pvpHp',{hp:Math.round(hp)}); },
@@ -2879,6 +2928,10 @@ function App(){
   // ── Player trade state ──
   const [tradeReq, setTradeReq] = useState(null);     // incoming request {fromId,fromName}
   const [trade, setTrade] = useState(null);           // active trade {withId,withName,mine,theirs}
+  const [peerMenu, setPeerMenu] = useState(null);      // tapped-player menu {id,name,level}
+  const [privateChatWith, setPrivateChatWith] = useState(null); // {id,name} for private chat
+  const [whispers, setWhispers] = useState([]); // [{fromId,fromName,text,mine}]
+  const [whisperText, setWhisperText] = useState('');
   // ── New-player tutorial (null = not showing; 0..N = current step) ──
   const [tutorialStep, setTutorialStep] = useState(null);
   useEffect(()=>{
@@ -3532,6 +3585,18 @@ function App(){
           const bonusTxt = m.bonus>1 ? ` (×${m.bonus} בונוס קבוצה!)` : '';
           showToast(`👥 +${(m.xp||0).toLocaleString()} XP${m.gold?` +${m.gold}🪙`:''} משותף${bonusTxt}`, '#88ddff');
         };
+        // ── HEALER PALADIN ally heal: restore HP when a party healer hits ──
+        window.WOLNet.onPartyHeal=(m)=>{
+          if(!G.player||!G.cs) return;
+          const h=Math.max(0,m.amount|0);
+          G.player.hp=Math.min(G.cs.maxHp, G.player.hp+h);
+          if(Math.random()<0.3) pushDmgNum(G.player.x, G.player.y-50, '+'+h, '#88ffcc', false);
+        };
+        // ── PRIVATE CHAT (whisper) ──
+        window.WOLNet.onWhisper=(m)=>{
+          setWhispers(prev=>[...prev.slice(-30), {fromId:m.fromId, fromName:m.fromName, text:m.text, mine:m.mine}]);
+          if(!m.mine){ showToast(`💬 ${m.fromName}: ${m.text.slice(0,30)}`, '#cc88ff'); }
+        };
         // ── WORLD BOSS: a giant shared boss that needs a group to defeat ──
         window.WOLNet.onBoss=(kind, m)=>{
           if(kind==='spawn'){
@@ -3922,6 +3987,13 @@ function App(){
     // a combat world's spawn outpost). Stops "snipe from inside the protected area".
     const _sr = activeSafeR();
     if(_sr > 0 && Math.hypot(p.x-WW/2, p.y-WH/2) < _sr){ return; }
+    // ANTI-EXPLOIT: a monster inside a fenced pen can only be damaged by a player who
+    // is INSIDE the same pen. Stops "stand outside the cage and snipe" cheese.
+    const _mc = mon._cage || mon._cageRef;
+    if(_mc){
+      const meInPen = Math.abs(p.x-_mc.x) < _mc.half && Math.abs(p.y-_mc.y) < _mc.half;
+      if(!meInPen) return;
+    }
     const isMagic = (p.classId==='mage') || (p.classId==='paladin' && Math.random()<0.5);
     const power = isMagic ? Math.max(cs.atk, cs.matk) : cs.atk;
     const comboActive = (G._comboMult && Date.now()<(G.comboExpire||0));
@@ -3953,6 +4025,9 @@ function App(){
     pushDmgNum(mon.x, mon.y - mon.size, dmg, crit?'#ffd24a':(el!=='physical'?D.ELEMENTS[el].color:'#fff'), crit);
     mon.hurtT = Date.now()+150;
     if(mon._passive){ mon._passive=false; mon.aggro=true; } // attacking it wakes it up
+    // mark that THIS local player engaged this boss — a roaming boss only attacks
+    // players who actually hit it, never innocent passers-by.
+    if(mon.isBoss && !mon._worldBoss && !mon._nestFinal){ mon._engagedByMe = true; }
     // apply a stacking status effect from this element's hit
     if(el!=='physical'){ applyStatus(mon, D.ELEMENTS[el].status, power); }
     // ── WORLD BOSS: route damage to the server (shared HP across all players) ──
@@ -3969,6 +4044,19 @@ function App(){
     // local (offline / non-shared) monster
     mon.hp -= dmg;
     if(mon.hp<=0 && !mon._dying){ mon._dying=true; killMonster(mon); }
+    // ── HEALER PALADIN: landing hits restores HP to you and nearby party members
+    //    (the healer's combos sustain the group, per the chosen evolution path). ──
+    if(p.classId==='paladin' && p.evoBranch==='healer'){
+      const heal = Math.max(2, Math.round(dmg*0.12));
+      p.hp = Math.min(cs.maxHp, p.hp + heal);
+      // pulse a heal to party members in the same area
+      if(window.WOLNet && window.WOLNet.connected && window.WOLNet.party && window.WOLNet.party.partyId){
+        if(!G._lastPartyHeal || Date.now()-G._lastPartyHeal > 500){
+          G._lastPartyHeal = Date.now();
+          window.WOLNet.send('partyHeal', { amount: heal });
+        }
+      }
+    }
   }, []);
 
   // ── STATUS EFFECTS: apply a stacking debuff (burn/poison/freeze/shock/smite/curse) ──
@@ -4207,14 +4295,17 @@ function App(){
     }
 
     if(mon.isBoss){
-      // Endgame: soul devourer drops a random infernal set piece
-      if(mon.base.id==='soul_devourer'){
-        const setDef = D.SHOP_SETS.find(st=>st.id==='infernal_set');
+      // bosses drop a piece from a level-appropriate DROP or NEST set (better gear
+      // than the shop). Pick the highest-tier set whose reqLv the monster meets.
+      const eligible = (D.SHOP_SETS||[]).filter(st=>(st.src==='drop'||st.src==='nest') && st.reqLv<=Math.max(1,mon.lv+5));
+      if(eligible.length && Math.random()<0.5){
+        const setDef = eligible[eligible.length-1]; // highest-level eligible set
         const pc = E.pick(setDef.pieces);
-        const piece = E.genSetPiece(pc.baseIdx, Math.max(200,mon.lv), 'mythic', 'infernal_set', setDef.name);
+        const piece = E.genSetPiece(pc.baseIdx, Math.max(setDef.reqLv,mon.lv), setDef.rarity, setDef.id, setDef.name);
         G.groundItems.push({x:mon.x+(Math.random()-0.5)*50, y:mon.y, item:piece, id:Math.random(), bob:Math.random()*6, t:Date.now()});
-        showToast(`💀 <b style="color:#e6cc80">${piece.name}</b> — חלק מסט התהום!`, '#e6cc80');
-        log('💀 הפיל חלק מסט התהום המיתי!', 'lg-leg');
+        const rc = D.RARITY[setDef.rarity];
+        showToast(`${setDef.emoji} <b style="color:${rc.color}">${piece.name}</b> — חלק מ${setDef.name}!`, rc.color);
+        log(`${setDef.emoji} הפיל חלק מ${setDef.name}!`, 'lg-leg');
       }
       G.nearBoss=null;
       mon.hp=0; mon._dying=true;
@@ -4287,7 +4378,7 @@ function App(){
       setTimeout(()=>{
         if(!G.running) return;
         mon._dying=false; mon.aggro=false; mon.state='idle';
-        mon.hp = mon.maxHp; mon._passive=true; mon._enraged=false;
+        mon.hp = mon.maxHp; mon._passive=true; mon._enraged=false; mon._engagedByMe=false;
         mon.x = spawnX; mon.y = spawnY;
       }, 30*60*1000);
     } else {
@@ -4442,14 +4533,15 @@ function App(){
     const nearestIn = (maxR)=>{ let best=null,bd=maxR; allM.forEach(m=>{ if(m.hp>0&&!m._dying){ const d=Math.hypot(m.x-p.x,m.y-p.y); if(d<bd){bd=d;best=m;} } }); return best; };
 
     if(cls==='archer'){
-      // slower at low levels; agi speeds it up but caps higher. weak base dmg.
-      const lvSpeed = Math.min(140, p.level*1.4); // low levels are notably slower
-      G.atkCd = now + Math.max(300, 560 - cs.tAgi*2.2 - lvSpeed);
+      // archers trade melee safety for range; give them solid per-arrow damage and a
+      // reasonable low-level cadence so they can actually kill (no cage-sniping needed).
+      const lvSpeed = Math.min(160, p.level*1.6);
+      G.atkCd = now + Math.max(280, 480 - cs.tAgi*2.2 - lvSpeed);
       const ARCHER_RANGE = 420;
       const tgt = nearestIn(ARCHER_RANGE);
       const a = tgt ? Math.atan2(tgt.y-p.y, tgt.x-p.x) : (G.facing>0?0:Math.PI);
       const sp = 760;
-      G.projectiles.push({x:p.x, y:p.y+ -6, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0.85, dmg:0.32, color:'#5affc0', size:5, hits:[], fx:'arrow', _basic:true, crit:Math.random()<cs.crit});
+      G.projectiles.push({x:p.x, y:p.y+ -6, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0.85, dmg:0.46, color:'#5affc0', size:5, hits:[], fx:'arrow', _basic:true, crit:Math.random()<cs.crit});
       G.effects.push({type:'slash', x:p.x, y:p.y, dir:G.facing, life:0.12, t:0, color:'#5affc0'});
     } else if(cls==='mage'){
       const lvSpeed = Math.min(130, p.level*1.3);
@@ -5156,7 +5248,8 @@ function App(){
             m.x+=(m.wx||0)*10*dt; m.y+=(m.wy||0)*10*dt;
           } else {
             m.aggro=true;
-            if(m.isBoss || m._worldBoss){ updateBossSpecials(m, now, p); }
+            if((m.isBoss && !m._worldBoss && !m._nestFinal && !m._engagedByMe)){ /* not my fight: don't cast specials */ }
+            else if(m.isBoss || m._worldBoss){ updateBossSpecials(m, now, p); }
             if(d>atkR){ m.x+=dx/d*sp*dt; m.y+=dy/d*sp*dt; m.state='chase'; }
             else m.state='attack';
             if(d>aggroR*4) m.aggro=false;
@@ -5186,8 +5279,10 @@ function App(){
         return;
       }
       // ATTACK (melee): normal monsters & boss BASIC attacks hit instantly (with a
-      // quick lunge animation). A passive boss (not yet attacked) never hits.
+      // quick lunge animation). A passive boss (not yet attacked) never hits, and a
+      // roaming boss never hits a player who didn't engage it.
       if(m.isBoss && !m._worldBoss && m._passive){ return; }
+      if(m.isBoss && !m._worldBoss && !m._nestFinal && !m._engagedByMe){ return; }
       if(d < atkR && !playerInSafe && now>m.atkT && (G._atkThisFrame||0) < 3){
         m.atkT = now + (m.isBoss?1100:1200) + Math.random()*200;
         m.state='attack'; m._strikeFx = now + 180;  // lunge animation
@@ -5234,6 +5329,11 @@ function App(){
     }
 
     const atkR = (m.isBoss?100:80) + (m.size||30) + 24; // melee reach includes body size
+    // a roaming boss that THIS player never engaged stays passive toward me (no
+    // attacking innocent passers-by). Nest/world bosses are always aggressive.
+    if(m.isBoss && !m._worldBoss && !m._nestFinal && !m._engagedByMe && G.worldDef && !G.worldDef.nest && !G.worldDef.dungeon){
+      m.state='idle'; return;
+    }
     if((d<aggroR||m.aggro) && !playerInSafe){
       m.aggro=true;
       // ── BOSS SPECIAL ATTACKS (telegraphed danger zones — the dodgeable big moves) ──
@@ -5523,6 +5623,7 @@ function App(){
         {x:WW/2, y:WH/2-320, emoji:'📜', name:'נותן המשימות', color:'#5affc0', modal:'quests'},
         {x:WW/2+150, y:WH/2-300, emoji:'🔮', name:'נביא ההתפתחות', color:'#ffd24a', modal:'evolution'},
         {x:WW/2-300, y:WH/2+200, emoji:'🏪', name:'הסוחר', color:'#ffd24a', modal:'shopGear'},
+        {x:WW/2, y:WH/2+260, emoji:'🌀', name:'אבן השיגור', color:'#5ac8ff', modal:'worldmap'},
       ];
       G._townNpcs = npcs;
       npcs.forEach(npc=>{
@@ -6636,6 +6737,34 @@ function App(){
           <div className="minimap-lbl">🗺️ מפת עולמות</div>
           <canvas ref={minimapRef} width={150} height={150} style={{borderRadius:4,display:'block'}}></canvas>
         </div>
+        {/* PARTY MEMBERS — name + live HP, shown under the minimap */}
+        {(()=>{
+          const party = window.WOLNet && window.WOLNet.party;
+          if(!party || !party.partyId || !party.members || party.members.length<=1) return null;
+          const peers = window.WOLNet.peers;
+          return (
+            <div style={{marginTop:6,background:'rgba(10,5,16,0.78)',border:'2px solid #3a5a7a',borderRadius:8,padding:'6px 8px',backdropFilter:'blur(8px)',pointerEvents:'none',minWidth:150}}>
+              <div style={{fontSize:'0.6rem',color:'#7ac8ff',fontWeight:700,marginBottom:4}}>👥 קבוצה</div>
+              {party.members.filter(mem=>mem.id!==window.WOLNet.id).map(mem=>{
+                const peer = peers && peers.get(mem.id);
+                const hp = peer && peer.hp!=null ? peer.hp : mem.hp;
+                const maxHp = (peer && peer.maxHp) || mem.maxHp || 100;
+                const pct = Math.max(0, Math.min(100, (hp/maxHp)*100));
+                const online = !!peer;
+                return (
+                  <div key={mem.id} style={{marginBottom:4,opacity:online?1:0.45}}>
+                    <div style={{fontSize:'0.62rem',color:'#e8dcc8',display:'flex',justifyContent:'space-between'}}>
+                      <span>{mem.leader?'👑 ':''}{mem.name}</span><span style={{color:'#9a8aba'}}>Lv{mem.level}</span>
+                    </div>
+                    <div style={{height:6,background:'#2a1a30',borderRadius:3,overflow:'hidden',marginTop:1}}>
+                      <div style={{height:'100%',width:pct+'%',background:pct>50?'linear-gradient(90deg,#3a9a4a,#5aff8a)':pct>25?'#e8a030':'#e84040',transition:'width .3s'}}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ACTIVE BUFFS */}
@@ -6726,12 +6855,49 @@ function App(){
         </div>
       </div>
 
-      {/* TRADE BUTTON — appears when standing near another player */}
-      {!trade && !tradeReq && G._nearPeer && window.WOLNet && window.WOLNet.isOnline() && (
-        <button style={{position:'absolute',bottom:'34%',left:'50%',transform:'translateX(-50%)',zIndex:60,background:'linear-gradient(135deg,#2a5a3a,#1a3a28)',border:'2px solid #5aff8a',borderRadius:12,color:'#5aff8a',fontWeight:700,fontSize:'0.85rem',padding:'8px 16px',boxShadow:'0 4px 16px rgba(0,0,0,0.5)',pointerEvents:'all'}}
-          onClick={()=>{ if(G._nearPeer){ window.WOLNet.tradeRequest(G._nearPeer.id); showToast(`🤝 שלחת בקשת מסחר ל${G._nearPeer.name}`, '#5aff8a'); } }}>
-          🤝 סחר עם {G._nearPeer.name}
+      {/* NEARBY PLAYER — tap to open the interaction menu (party / trade / chat) */}
+      {!trade && !tradeReq && !peerMenu && G._nearPeer && window.WOLNet && window.WOLNet.isOnline() && (
+        <button style={{position:'absolute',bottom:'42%',left:8,zIndex:55,background:'rgba(20,12,30,0.85)',border:'2px solid #7ac8ff',borderRadius:20,color:'#7ac8ff',fontWeight:700,fontSize:'0.72rem',padding:'5px 12px',boxShadow:'0 3px 12px rgba(0,0,0,0.5)',pointerEvents:'all'}}
+          onClick={()=>{ if(G._nearPeer) setPeerMenu({id:G._nearPeer.id, name:G._nearPeer.name, level:G._nearPeer.level}); }}>
+          👤 {G._nearPeer.name}
         </button>
+      )}
+
+      {/* PLAYER INTERACTION MENU */}
+      {peerMenu && (
+        <div style={{position:'absolute',inset:0,zIndex:96,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.6)'}} onClick={()=>setPeerMenu(null)}>
+          <div style={{background:'linear-gradient(160deg,#1a1428,#100a1c)',border:'2px solid #7ac8ff',borderRadius:14,padding:16,minWidth:220,textAlign:'center'}} onClick={e=>e.stopPropagation()}>
+            <div style={{fontSize:'1rem',color:'#bfe0ff',fontWeight:700,marginBottom:2}}>👤 {peerMenu.name}</div>
+            <div style={{fontSize:'0.72rem',color:'#9a8aba',marginBottom:12}}>רמה {peerMenu.level||'?'}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <button className="btn btn-main" onClick={()=>{ window.WOLNet.tradeRequest(peerMenu.id); showToast(`🤝 שלחת בקשת מסחר ל${peerMenu.name}`, '#5aff8a'); setPeerMenu(null); }}>🤝 הצע מסחר</button>
+              <button className="btn" style={{background:'#2a3a5a'}} onClick={()=>{ if(window.WOLNet.party && window.WOLNet.party.partyId){ window.WOLNet.partyInviteById?window.WOLNet.partyInviteById(peerMenu.id):window.WOLNet.send('partyInvite',{targetId:peerMenu.id}); } else { window.WOLNet.send('partyCreate',{}); setTimeout(()=>window.WOLNet.send('partyInvite',{targetId:peerMenu.id}),200); } showToast(`👥 הזמנת את ${peerMenu.name} לקבוצה`, '#5aff8a'); setPeerMenu(null); }}>👥 הזמן לקבוצה</button>
+              <button className="btn" style={{background:'#3a2a5a'}} onClick={()=>{ setPrivateChatWith(peerMenu); setPeerMenu(null); }}>💬 צ׳אט פרטי</button>
+              <button className="btn" style={{background:'#3a2030'}} onClick={()=>setPeerMenu(null)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PRIVATE CHAT WINDOW */}
+      {privateChatWith && (
+        <div style={{position:'absolute',bottom:80,left:8,zIndex:96,width:'min(86vw,320px)',background:'linear-gradient(160deg,#1a1428,#100a1c)',border:'2px solid #b87aff',borderRadius:12,padding:10,pointerEvents:'all'}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}>
+            <b style={{color:'#cc99ff',fontSize:'0.82rem'}}>💬 {privateChatWith.name}</b>
+            <button className="modal-x" onClick={()=>setPrivateChatWith(null)}>✕</button>
+          </div>
+          <div style={{maxHeight:140,overflowY:'auto',display:'flex',flexDirection:'column',gap:3,marginBottom:6}}>
+            {whispers.filter(w=>w.fromId===privateChatWith.id).map((w,i)=>(
+              <div key={i} style={{alignSelf:w.mine?'flex-end':'flex-start',background:w.mine?'#3a2a5a':'#2a2038',borderRadius:8,padding:'3px 8px',fontSize:'0.72rem',color:'#e8dcc8',maxWidth:'80%'}}>{w.text}</div>
+            ))}
+            {whispers.filter(w=>w.fromId===privateChatWith.id).length===0 && <div style={{fontSize:'0.68rem',color:'#6a5a7a',textAlign:'center'}}>שלח הודעה פרטית...</div>}
+          </div>
+          <div style={{display:'flex',gap:5}}>
+            <input value={whisperText} onChange={e=>setWhisperText(e.target.value)} onKeyDown={e=>{ if(e.key==='Enter'&&whisperText.trim()){ window.WOLNet.whisper(privateChatWith.id, whisperText.trim()); setWhisperText(''); } }}
+              placeholder="הודעה..." style={{flex:1,background:'#0e0a18',border:'1px solid #4a3a6a',borderRadius:6,color:'#fff',padding:'5px 8px',fontSize:'0.75rem'}}/>
+            <button className="btn btn-main" style={{padding:'5px 12px',fontSize:'0.75rem'}} onClick={()=>{ if(whisperText.trim()){ window.WOLNet.whisper(privateChatWith.id, whisperText.trim()); setWhisperText(''); } }}>שלח</button>
+          </div>
+        </div>
       )}
 
       {/* COMBO QUEST PROMPT (level 30) */}
@@ -7280,7 +7446,7 @@ function Modals(props){
           <div className={'tab'+(shopTab==='pots'?' active':'')} onClick={()=>setShopTab('pots')}>🧪 שיקויים</div>
         </div>
         <div style={{fontSize:'0.7rem',color:'#9a8aa8',margin:'8px 0'}}>🪙 זהב: {p.gold}</div>
-        {shopTab==='gear' && D.SHOP_SETS.map(set=>{
+        {shopTab==='gear' && D.SHOP_SETS.filter(set=>set.src==='shop' && !set.dropOnly && set.price>0).map(set=>{
           const canBuy = p.level>=set.reqLv && p.gold>=set.price;
           const rar = D.RARITY[set.rarity];
           return (
