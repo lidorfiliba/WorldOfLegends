@@ -2759,12 +2759,12 @@ function makeMonster(base, lv, x, y, scale, isBoss, xpMul){
   const variety = Math.min(1.35, Math.max(0.75, 0.8 + 0.4 * ((base.hp||250) / 300)));
   const levelHp = 35 + lv*lv*0.5 + lv*16;             // ~50 at lv1, ramps with level
   let hp = Math.round(levelHp * variety * (isBoss ? 11 : 1));
-  // ── XP balance: derive from the LEVEL so progression is steady everywhere
-  //    (~10-14 normal kills per level; bosses worth ~40 kills). Based on the
-  //    XP curve: xpForLevel(lv) / ~12 = a normal kill's value. ──
-  const xpNeed = E.xpForLevel(lv);
-  let xpVal = Math.max(5, Math.round(xpNeed / 12 * variety * xpMul));
-  if(isBoss) xpVal = Math.round(xpVal * 12); // a boss is worth ~12 normal kills (~1 level)
+  // ── XP balance: a monster's XP is tied to ITS OWN LEVEL and grows sub-exponentially
+  //    (8 + lv^1.5 * 0.55). The level-up requirement grows much faster (xpForLevel),
+  //    so each level needs progressively MORE kills: ~10 at low levels, ~80 mid-game,
+  //    thousands at end-game. This makes leveling meaningful instead of trivial. ──
+  let xpVal = Math.max(4, Math.round((8 + Math.pow(lv,1.5)*0.55) * variety * xpMul));
+  if(isBoss) xpVal = Math.round(xpVal * 15); // a boss is worth ~15 normal kills
   // gold scales gently with level
   const goldLo = Math.round(3 + lv*1.2), goldHi = Math.round(8 + lv*2.4);
   // ── element affinity by monster type (drives weakness/resist) ──
@@ -3330,6 +3330,8 @@ function App(){
               mo.mid = sm.mid; mo._server=true;
               mo._ranged = (parseInt(String(sm.mid).replace(/\D/g,''),10)||0) % 5 < 2; // ~40% ranged (stable per mid)
               mo.hp = sm.hp; mo.maxHp = sm.maxHp;
+              // bind to the matching client-side cage so it's contained in the pen
+              if(sm.cage>=0 && G._cages && G._cages[sm.cage]){ mo._cage = G._cages[sm.cage]; mo._cageDmg = G._cages[sm.cage].dmgMult||1.4; }
               G.monsters.push(mo);
               G._serverMons[sm.mid] = mo;
             });
@@ -4309,7 +4311,7 @@ function App(){
       const tgt = nearestIn(ARCHER_RANGE);
       const a = tgt ? Math.atan2(tgt.y-p.y, tgt.x-p.x) : (G.facing>0?0:Math.PI);
       const sp = 760;
-      G.projectiles.push({x:p.x, y:p.y+ -6, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0.85, dmg:0.55, color:'#5affc0', size:5, hits:[], fx:'arrow', _basic:true, crit:Math.random()<cs.crit});
+      G.projectiles.push({x:p.x, y:p.y+ -6, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0.85, dmg:0.32, color:'#5affc0', size:5, hits:[], fx:'arrow', _basic:true, crit:Math.random()<cs.crit});
       G.effects.push({type:'slash', x:p.x, y:p.y, dir:G.facing, life:0.12, t:0, color:'#5affc0'});
     } else if(cls==='mage'){
       const lvSpeed = Math.min(130, p.level*1.3);
@@ -4320,16 +4322,16 @@ function App(){
       const sp = 640;
       const els=[['#ff5a2a','fire'],['#5ad0ff','frost'],['#cc66ff','bolt']];
       const el = els[(G._mageEl=(G._mageEl||0)+1)%3];
-      G.projectiles.push({x:p.x, y:p.y-6, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0.78, dmg:0.7, color:el[0], size:7, hits:[], aoe:55, fx:el[1], _basic:true, crit:Math.random()<cs.crit});
+      G.projectiles.push({x:p.x, y:p.y-6, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp, life:0.78, dmg:0.4, color:el[0], size:7, hits:[], aoe:55, fx:el[1], _basic:true, crit:Math.random()<cs.crit});
       G.effects.push({type:'cast', x:p.x, y:p.y, life:0.18, t:0, color:el[0]});
     } else if(cls==='paladin'){
       const lvSpeed = Math.min(140, p.level*1.4);
       G.atkCd = now + Math.max(420, 700 - cs.tAgi*2.2 - lvSpeed); // medium-slow
       const range = 130;
       let hit=false;
-      allM.forEach(m=>{ if(m.hp>0&&!m._dying && Math.hypot(m.x-p.x,m.y-p.y)<range+m.size*0.5){ hit=true; hitMonster(m,0.72,0,true); } });
+      allM.forEach(m=>{ if(m.hp>0&&!m._dying && Math.hypot(m.x-p.x,m.y-p.y)<range+m.size*0.5){ hit=true; hitMonster(m,0.42,0,true); } });
       if(hit){ const h=Math.round(cs.maxHp*0.008); p.hp=Math.min(cs.maxHp,p.hp+h); } // minor heal on hit
-      hitPeers(range, 0.72);
+      hitPeers(range, 0.42);
       G.effects.push({type:'slash', x:p.x, y:p.y, dir:G.facing, life:0.25, t:0, color:'#ffee88', big:true});
       burst(p.x+G.facing*60, p.y, '#ffee88', 5, 110);
     } else {
@@ -4337,8 +4339,8 @@ function App(){
       const lvSpeed = Math.min(150, p.level*1.5);
       G.atkCd = now + Math.max(400, 720 - cs.tAgi*2.2 - lvSpeed);
       const range = 100;
-      allM.forEach(m=>{ if(m.hp>0&&!m._dying && Math.hypot(m.x-p.x,m.y-p.y)<range+m.size*0.5){ hitMonster(m,0.7,0,true); } });
-      hitPeers(range, 0.7);
+      allM.forEach(m=>{ if(m.hp>0&&!m._dying && Math.hypot(m.x-p.x,m.y-p.y)<range+m.size*0.5){ hitMonster(m,0.42,0,true); } });
+      hitPeers(range, 0.42);
       G.effects.push({type:'slash', x:p.x, y:p.y, dir:G.facing, life:0.25, t:0, color:'#ffffff', big:true});
       burst(p.x + G.facing*55, p.y, '#ffffff', 5, 110);
     }
@@ -4799,6 +4801,22 @@ function App(){
     }
     if(G.frame%180===0) G.monsters = G.monsters.filter(m=>!m._remove && (m._server ? !m._dying : m.hp>0));
 
+    // ── NEST WATCHDOG: reliably open the stage portal once the wave is cleared,
+    //    no matter how the monsters died (melee, DOT, status, off-screen). ──
+    if(G.frame%15===0 && G.worldDef && G.worldDef.nest){
+      const stages = G.worldDef.nestStages||[];
+      const cur = stages[G._nestStage||0];
+      if(cur && cur.type==='wave' && !G._dungeonGate){
+        const aliveMons = G.monsters.filter(m=>m.hp>0 && !m._dying).length;
+        if(aliveMons===0 && (G._nestWaveTotal||0)>0 && (G._nestStage||0) < stages.length-1){
+          G._dungeonGate = {x:WW/2, y:WH/2 - 350, r:55, _nest:true};
+          G._nestWaveTotal = 0; // don't re-trigger
+          showToast('✨ הגל נוקה! עבור דרך השער הזוהר →', '#5aff8a');
+          log('✨ ניקית את הגל! שער לשלב הבא נפתח במרכז המפה', 'lg-leg');
+        }
+      }
+    }
+
     // HUD refresh ~10fps
     if(G.frame%6===0) setHudTick(t=>(t+1)%1000000);
 
@@ -4888,6 +4906,11 @@ function App(){
   function _updateMonsterAIInner(m, dt, now, playerInSafe){
     if(now < m.stunT){ m._windupUntil = 0; return; } // stun/freeze cancels a wind-up
     const p = G.player;
+    // ── ROAMING BOSS LEASH: a non-event boss that the player ran far from calms
+    //    back down (returns to passive) so it never chases across the whole map. ──
+    if(m.isBoss && !m._worldBoss && !m._nestFinal && G.worldDef && !G.worldDef.nest && !G.worldDef.dungeon){
+      if(!m._passive && Math.hypot(p.x-m.x, p.y-m.y) > 900){ m._passive=true; m.aggro=false; m._enraged=false; }
+    }
     // ── PASSIVE roaming boss: ignores the player until first attacked (just idles) ──
     if(m._passive){
       m.state='idle';
