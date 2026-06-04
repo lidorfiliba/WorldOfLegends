@@ -7080,6 +7080,12 @@ function App(){
         <div style={{position:'absolute',inset:0,zIndex:97,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.8)',backdropFilter:'blur(5px)'}} onClick={()=>setNestDiffPrompt(null)}>
           <div style={{background:'linear-gradient(160deg,#1d1230,#100a1e)',border:'2px solid #ff66ff',borderRadius:16,padding:20,width:'min(90vw,360px)'}} onClick={e=>e.stopPropagation()}>
             <div style={{textAlign:'center',fontSize:'1.1rem',fontWeight:800,color:'#ff99ff',marginBottom:4}}>⚔️ {nestDiffPrompt.world.name}</div>
+            {(()=>{ const keys=(p.nestKeys&&p.nestKeys['key_'+nestDiffPrompt.world.id])||0; const nd=p.nestData&&p.nestData[nestDiffPrompt.world.id]; const today=new Date().toDateString(); const ent=(nd&&nd.day===today)?nd.entries:0;
+              return <div style={{textAlign:'center',fontSize:'0.7rem',marginBottom:10}}>
+                <span style={{color:keys>0?'#5aff8a':'#ff7a7a'}}>🗝️ מפתחות: {keys}</span> · <span style={{color:'#9a8aba'}}>כניסות היום: {ent}/3</span>
+                {keys<=0 && <div style={{color:'#ff7a7a',fontSize:'0.62rem',marginTop:3}}>צריך מפתח כדי להיכנס — נופל ממפלצות (~4%)</div>}
+              </div>;
+            })()}
             <div style={{textAlign:'center',fontSize:'0.72rem',color:'#9a8aba',marginBottom:14}}>בחר דרגת קושי — קשה יותר = שלל ו-XP טובים יותר</div>
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               {Object.values(NEST_DIFFICULTY).map(diff=>{
@@ -7315,7 +7321,7 @@ function App(){
         allocStat={allocStat} autoFillStats={autoFillStats} buySkill={buySkill} buySet={buySet}
         buyConsumable={buyConsumable} useConsumable={useConsumable}
         teleport={teleport} canEquip={(it)=>E.canEquip(p,it)}
-        rerender={rerender} showToast={showToast}
+        rerender={rerender} showToast={showToast} setNestDiffPrompt={setNestDiffPrompt}
         gm={{giveGold:gmGiveGold, giveXP:gmGiveXP, setLevel:gmSetLevel, spawnItem:gmSpawnItem, fullHeal:gmFullHeal, godMode:gmGodMode, killAll:gmKillAll, unlockWorlds:gmUnlockWorlds, startEvent:gmStartEvent,
           allMaterials:()=>{ const pl=G.player; if(!pl.materials)pl.materials={}; Object.keys(D.MATERIALS).forEach(k=>pl.materials[k]=(pl.materials[k]||0)+50); showToast('🔨 +50 מכל חומר','#ffaa3a'); rerender(); },
           allMounts:()=>{ G.player.mounts=Object.keys(D.MOUNTS); showToast('🐎 כל החיות נפתחו','#5aff8a'); rerender(); },
@@ -7331,7 +7337,7 @@ function App(){
 // ════════════════════════════════════════════════
 function Modals(props){
   const {modal, setModal, player:p, cs, selItem, setSelItem, equipItem, unequip, sellItem,
-    allocStat, autoFillStats, buySkill, buySet, buyConsumable, useConsumable, teleport, canEquip, showToast} = props;
+    allocStat, autoFillStats, buySkill, buySet, buyConsumable, useConsumable, teleport, canEquip, showToast, setNestDiffPrompt} = props;
   const [shopTab, setShopTab] = useState(modal==='shopSkill'?'loadout':'gear');
 
   const close = ()=>{ setModal(null); setSelItem(null); };
@@ -7703,7 +7709,7 @@ function Modals(props){
           const xpBonus = w.xpMul > 1 ? `+${Math.round((w.xpMul-1)*100)}% XP` : 'XP ×1';
           return (
             <div key={w.id} className={'world-item'+(unlocked?'':' locked')+(current||isHere?' current':'')}
-              onClick={()=>{ if(unlocked&&!isHere){ if(w.nest){ setNestDiffPrompt({world:w}); } else { teleport(w.id); } } }}>
+              onClick={()=>{ if(unlocked&&!isHere){ if(w.nest){ setModal(null); setNestDiffPrompt({world:w}); } else { teleport(w.id); } } }}>
               <span className="world-emoji">{w.emoji}</span>
               <div className="world-info">
                 <div className="world-nm" style={{color:isHere?'#5aff8a':unlocked?'inherit':'#6a5a7a'}}>{w.name} {w.nest&&<span style={{color:'#ff66ff',fontSize:'0.6rem'}}>⚔️ נסט</span>} {isHere&&'◀'}</div>
