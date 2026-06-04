@@ -3009,6 +3009,7 @@ function App(){
   const [whisperText, setWhisperText] = useState('');
   const [tradeItemView, setTradeItemView] = useState(null); // item shown in the trade detail popup
   const [nestDiffPrompt, setNestDiffPrompt] = useState(null); // {world} → choose difficulty before entering a nest
+  const [fullMap, setFullMap] = useState(false); // fullscreen map view
   // ── New-player tutorial (null = not showing; 0..N = current step) ──
   const [tutorialStep, setTutorialStep] = useState(null);
   useEffect(()=>{
@@ -3365,7 +3366,9 @@ function App(){
     if(stage.type==='wave'){
       const count = stage.count || 14;
       for(let i=0;i<count;i++){
-        const ang=(i/count)*Math.PI*2 + Math.random()*0.5, rad=300+Math.random()*700;
+        // spawn in a tighter ring around the player so monsters are easy to find
+        // (no more hunting across a huge empty map)
+        const ang=(i/count)*Math.PI*2 + Math.random()*0.5, rad=260+Math.random()*340;
         const x=E.clamp(WW/2+Math.cos(ang)*rad, 150, WW-150);
         const y=E.clamp(WH/2+Math.sin(ang)*rad, 150, WH-150);
         const base=D.MONSTERS.find(m=>m.id===E.pick(stage.mon||wd.monsters));
@@ -5796,6 +5799,44 @@ function App(){
       ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif'; ctx.textAlign='center';
       ctx.fillText('→ אזור הבא', gx, gy-g.r-10); ctx.textAlign='left';
     }
+
+    // ── OBJECTIVE ARROW: points toward the current goal so the player never gets lost.
+    //    Priority: glowing portal → boss → nearest living monster. Drawn at the screen
+    //    edge in the goal's direction, with the distance. Hidden when the goal is on-screen.
+    (function drawObjectiveArrow(){
+      let goal=null, label='', col='#5aff8a';
+      if(G._dungeonGate){ goal=G._dungeonGate; label='שער'; col='#88ffcc'; }
+      else {
+        const boss=(G.bosses||[]).find(b=>b.hp>0 && !b._dying);
+        if(boss){ goal=boss; label='בוס'; col='#ff5a5a'; }
+        else {
+          // nearest living monster
+          let best=null,bd=1e9;
+          for(const m of (G.monsters||[])){ if(m.hp>0&&!m._dying){ const d=Math.hypot(m.x-p.x,m.y-p.y); if(d<bd){bd=d;best=m;} } }
+          if(best){ goal=best; label='אויב'; col='#ffaa3a'; }
+        }
+      }
+      if(!goal) return;
+      const gx=goal.x-cam.x, gy=goal.y-cam.y;
+      const onScreen = gx>40 && gx<W-40 && gy>80 && gy<H-120;
+      if(onScreen) return; // no need for an arrow when you can see it
+      const cx=W/2, cy=H/2, ang=Math.atan2(goal.y-p.y, goal.x-p.x);
+      const margin=70, rx=(W/2-margin), ry=(H/2-margin);
+      // position along screen edge in the goal direction (clamped ellipse)
+      const ex=cx+Math.cos(ang)*rx, ey=cy+Math.sin(ang)*ry;
+      const dist=Math.round(Math.hypot(goal.x-p.x,goal.y-p.y));
+      ctx.save();
+      ctx.translate(ex,ey); ctx.rotate(ang);
+      const pulse=0.7+Math.sin(now/250)*0.3;
+      ctx.fillStyle=SP.withAlpha(col,pulse); ctx.shadowColor=col; ctx.shadowBlur=12;
+      ctx.beginPath(); ctx.moveTo(20,0); ctx.lineTo(-12,-13); ctx.lineTo(-12,13); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      // label + distance near the arrow
+      ctx.save(); ctx.shadowColor='#000'; ctx.shadowBlur=4;
+      ctx.fillStyle=col; ctx.font='bold 12px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(`${label} ${dist>999?(dist/1000).toFixed(1)+'k':dist}`, ex, ey + (Math.sin(ang)>0?-22:28));
+      ctx.restore(); ctx.textAlign='left';
+    })();
     // ground items
     G.groundItems.forEach(gi=>{
       const ix=gi.x-cam.x, iy=gi.y-cam.y;
@@ -6833,6 +6874,24 @@ function App(){
       <div className="zone-tag">{wd.emoji} {wd.name}</div>
 
       {/* TOP LEFT: player frame */}
+      {/* NEST PROGRESS BANNER — clear objective + monsters remaining */}
+      {G.worldDef && G.worldDef.nest && (()=>{
+        const stages=G.worldDef.nestStages||[]; const si=G._nestStage||0; const stage=stages[si];
+        if(!stage) return null;
+        const alive=(G.monsters||[]).filter(m=>m.hp>0&&!m._dying).length;
+        const bossAlive=(G.bosses||[]).some(b=>b.hp>0&&!b._dying);
+        let txt='';
+        if(stage.type==='wave'){ txt = G._dungeonGate ? '✨ עבור דרך השער הזוהר →' : `🗡️ נקה את הגל — נותרו ${alive} מפלצות`; }
+        else { txt = bossAlive ? `${stage.type==='boss'?'🔥 בוס סופי':'⚔️ בוס ביניים'}: ${stage.name}` : '✨ עבור דרך השער →'; }
+        const diff=NEST_DIFFICULTY[G._nestDifficulty]||NEST_DIFFICULTY.normal;
+        return (
+          <div style={{position:'absolute',top:'env(safe-area-inset-top,10px)',left:'50%',transform:'translateX(-50%)',zIndex:40,background:'rgba(10,5,16,0.82)',border:'2px solid '+diff.color,borderRadius:10,padding:'5px 14px',backdropFilter:'blur(8px)',textAlign:'center',pointerEvents:'none',maxWidth:'80vw'}}>
+            <div style={{fontSize:'0.6rem',color:diff.color,fontWeight:700}}>{diff.emoji} {G.worldDef.name} · שלב {si+1}/{stages.length}</div>
+            <div style={{fontSize:'0.8rem',color:'#fff',fontWeight:700,marginTop:1}}>{txt}</div>
+          </div>
+        );
+      })()}
+
       <div className="hud hud-tl">
         <div className="pf">
           <div className="pf-top">
@@ -6882,10 +6941,11 @@ function App(){
       <div className="hud hud-tr">
         <div className="gold-disp">🪙 {p.gold}</div>
         {(()=>{ const readyCount=(D.QUESTS||[]).filter(q=>{ const qs=p.quests&&p.quests[q.id]; return qs&&qs.done&&!qs.claimed; }).length; return readyCount>0 ? <button className="mini-btn" style={{background:'linear-gradient(135deg,#2a6a3a,#33a04a)',borderColor:'#5aff8a',animation:'ptsPulse 1.5s infinite',pointerEvents:'all'}} onClick={()=>setModal('quests')}>✅ {readyCount} משימות מוכנות!</button> : <button className="mini-btn" style={{pointerEvents:'all'}} onClick={()=>setModal('quests')}>📋 משימות</button>; })()}
-        <div className="minimap" onClick={()=>setModal('worldmap')}>
-          <div className="minimap-lbl">🗺️ מפת עולמות</div>
-          <canvas ref={minimapRef} width={150} height={150} style={{borderRadius:4,display:'block'}}></canvas>
+        <div className="minimap" onClick={()=>setFullMap(true)}>
+          <div className="minimap-lbl">🗺️ מפה (הגדל)</div>
+          <canvas ref={minimapRef} width={170} height={170} style={{borderRadius:4,display:'block'}}></canvas>
         </div>
+        <button onClick={()=>setModal('worldmap')} style={{marginTop:4,width:'100%',background:'linear-gradient(135deg,#2a4a6a,#1a2a4a)',border:'2px solid #5ac8ff',borderRadius:8,color:'#7ad8ff',fontWeight:700,fontSize:'0.72rem',padding:'5px',pointerEvents:'all'}}>🌀 השתגר לעולם</button>
         {/* PARTY MEMBERS — name + live HP, shown under the minimap */}
         {(()=>{
           const party = window.WOLNet && window.WOLNet.party;
@@ -7074,6 +7134,38 @@ function App(){
           </div>
         </div>
       )}
+
+      {/* FULLSCREEN MAP */}
+      {fullMap && (()=>{
+        const p=G.player; if(!p) return null;
+        const wd=G.worldDef||{}; const WWm=window.WW||6000, WHm=window.WH||6000;
+        return (
+          <div style={{position:'absolute',inset:0,zIndex:98,background:'rgba(5,3,10,0.94)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:16}} onClick={()=>setFullMap(false)}>
+            <div style={{color:'#ffce6a',fontWeight:800,fontSize:'1.1rem',marginBottom:8}}>🗺️ {wd.name||'מפה'}</div>
+            <canvas ref={el=>{ if(!el) return; const W=el.width, H=el.height; const cx=el.getContext('2d');
+              cx.fillStyle='#0a0612'; cx.fillRect(0,0,W,H);
+              const sx=W/WWm, sy=H/WHm;
+              // safe zone
+              const sr=(typeof activeSafeR==='function')?activeSafeR():0;
+              if(sr>0){ cx.fillStyle=wd.town?'rgba(80,255,120,0.15)':'rgba(90,200,255,0.15)'; cx.beginPath(); cx.arc(WWm/2*sx,WHm/2*sy,sr*sx,0,Math.PI*2); cx.fill(); cx.fillStyle=wd.town?'#5aff8a':'#7ac8ff'; cx.font='16px sans-serif'; cx.textAlign='center'; cx.fillText('🏠',WWm/2*sx,WHm/2*sy+5); }
+              // monsters
+              (G.monsters||[]).forEach(m=>{ if(m.hp>0){ cx.fillStyle='#c0392b'; cx.fillRect(m.x*sx-2,m.y*sy-2,4,4); }});
+              // boss
+              (G.bosses||[]).forEach(b=>{ if(b.hp>0&&!b._dying){ cx.fillStyle='#ff8000'; cx.beginPath(); cx.arc(b.x*sx,b.y*sy,6,0,Math.PI*2); cx.fill(); cx.fillStyle='#fff'; cx.font='10px sans-serif'; cx.textAlign='center'; cx.fillText('בוס',b.x*sx,b.y*sy-9); }});
+              // portal
+              if(G._dungeonGate){ const g=G._dungeonGate; cx.fillStyle='#5affcc'; cx.beginPath(); cx.arc(g.x*sx,g.y*sy,7,0,Math.PI*2); cx.fill(); cx.fillStyle='#fff'; cx.font='10px sans-serif'; cx.textAlign='center'; cx.fillText('שער',g.x*sx,g.y*sy-10); }
+              // items
+              (G.groundItems||[]).forEach(gi=>{ cx.fillStyle=gi.gold!=null?'#ffd24a':'#fff'; cx.fillRect(gi.x*sx-1.5,gi.y*sy-1.5,3,3); });
+              // player
+              cx.fillStyle='#5aff8a'; cx.shadowColor='#5aff8a'; cx.shadowBlur=8; cx.beginPath(); cx.arc(p.x*sx,p.y*sy,6,0,Math.PI*2); cx.fill(); cx.shadowBlur=0;
+            }} width={Math.min(window.innerWidth-32,420)} height={Math.min(window.innerWidth-32,420)} style={{border:'2px solid #3a2a5a',borderRadius:12,background:'#0a0612'}} onClick={e=>e.stopPropagation()}></canvas>
+            <div style={{display:'flex',gap:8,marginTop:12,fontSize:'0.7rem',color:'#c8b8d8'}}>
+              <span>🟢 אתה</span><span>🔴 מפלצת</span><span style={{color:'#ff8000'}}>🟠 בוס</span><span style={{color:'#5affcc'}}>🔵 שער</span>
+            </div>
+            <button className="btn btn-main" style={{marginTop:14,padding:'8px 24px'}} onClick={()=>setFullMap(false)}>סגור</button>
+          </div>
+        );
+      })()}
 
       {/* NEST DIFFICULTY SELECTION */}
       {nestDiffPrompt && (
@@ -8340,6 +8432,8 @@ function StablePanel({player, showToast, rerender}){
 // BLACKSMITH — crafting guide + forge unique items
 // ════════════════════════════════════════════════
 function BlacksmithPanel({player, showToast, rerender}){
+  // always read the live player object (the prop can be a stale render snapshot)
+  player = (window.G && window.G.player) || player;
   if(!player.materials) player.materials={};
   if(!player.craftedUniques) player.craftedUniques=[];
   const [, setT] = useState(0);
@@ -8354,7 +8448,7 @@ function BlacksmithPanel({player, showToast, rerender}){
   const ENH_MAX = 15;
   const enhConfig = (lvl)=>{
     // lvl = current enhancement level (upgrading lvl → lvl+1)
-    const goldCost = Math.round(200 * Math.pow(1.5, lvl) + 100);
+    const goldCost = Math.round(80 * Math.pow(1.45, lvl) + 40);
     const crystalCost = lvl >= 8 ? Math.ceil((lvl-7)/2) : 0; // forge crystals needed from +8
     let success;
     if(lvl < 6) success = 1.0;                 // +0..+5 always succeed
