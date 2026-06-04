@@ -1211,8 +1211,10 @@ function computeStats(player){
   const eqStats = {str:0,agi:0,int:0,vit:0,atk:0,matk:0,def:0,spd:0,crit:0};
   for(const item of Object.values(player.equipped)){
     if(!item) continue;
+    // ENHANCEMENT: each +level adds 8% to that item's stats (so a +10 item is ~1.8×).
+    const enhMul = 1 + (item._enh||0)*0.08;
     for(const [k,v] of Object.entries(item.stats)){
-      eqStats[k] = (eqStats[k]||0) + v;
+      eqStats[k] = (eqStats[k]||0) + (k==='crit' ? v : Math.round(v*enhMul));
     }
   }
   const tStr = s.str + eqStats.str;
@@ -1382,8 +1384,8 @@ function _mix(str){
 // account+slot are folded in so a valid signature can't be copied to another character.
 function _critState(p){
   if(!p) return '';
-  const inv = (p.inventory||[]).map(it=>`${it.uid||''}:${it.name||''}:${it.rarity||''}:${it.lv||0}:${JSON.stringify(it.stats||{})}`).join('|');
-  const eq = Object.values(p.equipped||{}).map(it=>it?`${it.uid||''}:${it.rarity||''}`:'-').join(',');
+  const inv = (p.inventory||[]).map(it=>`${it.uid||''}:${it.name||''}:${it.rarity||''}:${it.lv||0}:${it._enh||0}:${JSON.stringify(it.stats||{})}`).join('|');
+  const eq = Object.values(p.equipped||{}).map(it=>it?`${it.uid||''}:${it.rarity||''}:${it._enh||0}`:'-').join(',');
   const mats = Object.entries(p.materials||{}).sort().map(([k,v])=>`${k}=${v}`).join(',');
   return ['acct:'+(p.account||''), 'slot:'+(p.charSlot||0), p.level||1, Math.round(p.gold||0), p.statPoints||0,
     p.evoStage||0, p.awakened?1:0, (p.mounts||[]).length, (p.pets||[]).length, inv, eq, mats].join('#');
@@ -2786,6 +2788,15 @@ const D = window.GAME_DATA;
 const E = window.ENGINE;
 const SP = window.SPRITES;
 
+// ── NEST DIFFICULTY TIERS (Dragon-Nest style: same nest, harder modes = better loot) ──
+// hpMul/dmgMul make monsters tankier & hit harder; xpMul/goldMul/rarityBonus reward the
+// extra challenge. reqLv adds a recommended level on top of the nest's base requirement.
+const NEST_DIFFICULTY = {
+  normal: { id:'normal', name:'רגיל',  emoji:'🟢', hpMul:1.0, dmgMul:1.0, xpMul:1.0, goldMul:1.0, rarityBonus:0, addLv:0,  color:'#5aff8a' },
+  hard:   { id:'hard',   name:'קשה',   emoji:'🟠', hpMul:1.8, dmgMul:1.5, xpMul:1.7, goldMul:1.6, rarityBonus:2, addLv:10, color:'#ffaa3a' },
+  hell:   { id:'hell',   name:'גיהינום', emoji:'🔴', hpMul:3.2, dmgMul:2.2, xpMul:2.8, goldMul:2.5, rarityBonus:4, addLv:20, color:'#ff4a4a' },
+};
+
 // ═══════════════════════════════════════════════════════════════
 // WORLD GENERATION & GAME STATE (refs, not React state for perf)
 // ═══════════════════════════════════════════════════════════════
@@ -2997,6 +3008,7 @@ function App(){
   const [whispers, setWhispers] = useState([]); // [{fromId,fromName,text,mine}]
   const [whisperText, setWhisperText] = useState('');
   const [tradeItemView, setTradeItemView] = useState(null); // item shown in the trade detail popup
+  const [nestDiffPrompt, setNestDiffPrompt] = useState(null); // {world} → choose difficulty before entering a nest
   // ── New-player tutorial (null = not showing; 0..N = current step) ──
   const [tutorialStep, setTutorialStep] = useState(null);
   useEffect(()=>{
@@ -3343,6 +3355,7 @@ function App(){
     const stages = wd.nestStages || [];
     const stage = stages[stageIdx];
     if(!stage) return;
+    const diff = NEST_DIFFICULTY[G._nestDifficulty] || NEST_DIFFICULTY.normal;
     G._nestStage = stageIdx;
     G._dungeonGate = null;            // reuse the dungeon portal for advancing
     G.monsters = []; G.bosses = []; G.projectiles = []; G.effects = [];
@@ -3357,25 +3370,34 @@ function App(){
         const y=E.clamp(WH/2+Math.sin(ang)*rad, 150, WH-150);
         const base=D.MONSTERS.find(m=>m.id===E.pick(stage.mon||wd.monsters));
         if(!base) continue;
-        const lv=E.randInt(wd.monLv[0], wd.monLv[1]);
-        const mo=makeMonster(base, lv, x, y, 1+lv*0.085, false, wd.xpMul||1);
+        const lv=E.randInt(wd.monLv[0], wd.monLv[1]) + diff.addLv;
+        const mo=makeMonster(base, lv, x, y, 1+lv*0.085, false, (wd.xpMul||1)*diff.xpMul);
+        // apply difficulty: tankier + harder-hitting + better gold
+        mo.maxHp=Math.round(mo.maxHp*diff.hpMul); mo.hp=mo.maxHp;
+        mo._dmgMul=(mo._dmgMul||1)*diff.dmgMul;
+        if(mo.gold){ mo.gold=[Math.round(mo.gold[0]*diff.goldMul), Math.round(mo.gold[1]*diff.goldMul)]; }
+        mo._rarityBonus=diff.rarityBonus;
         mo._ranged = Math.random()<0.35;
         G.monsters.push(mo);
       }
       G._nestWaveTotal = G.monsters.length;
-      showToast(`${stage.name} — נקה את כל המפלצות! (שלב ${stageIdx+1}/${total})`, '#ffaa3a');
-      log(`${wd.emoji} ${stage.name} — שלב ${stageIdx+1}/${total}: הרוג ${G.monsters.length} מפלצות`, 'lg-boss');
+      showToast(`${diff.emoji} ${stage.name} — נקה את כל המפלצות! (שלב ${stageIdx+1}/${total})`, diff.color);
+      log(`${wd.emoji} ${stage.name} [${diff.name}] — שלב ${stageIdx+1}/${total}: הרוג ${G.monsters.length} מפלצות`, 'lg-boss');
     } else {
       // miniboss or final boss
       const bossBase = D.BOSSES.find(b=>b.id===stage.boss) || D.BOSSES[0];
-      const lv = stage.type==='boss' ? wd.monLv[1]+5 : wd.monLv[1]-5;
+      const lv = (stage.type==='boss' ? wd.monLv[1]+5 : wd.monLv[1]-5) + diff.addLv;
       const sizeScale = stage.type==='boss' ? 0.95+lv*0.05 : 0.85+lv*0.04;
-      const boss = makeMonster(bossBase, lv, WW/2, WH/2-100, sizeScale, true, wd.xpMul||1);
+      const boss = makeMonster(bossBase, lv, WW/2, WH/2-100, sizeScale, true, (wd.xpMul||1)*diff.xpMul);
+      boss.maxHp=Math.round(boss.maxHp*diff.hpMul); boss.hp=boss.maxHp;
+      boss._dmgMul=(boss._dmgMul||1)*diff.dmgMul;
+      if(boss.gold){ boss.gold=[Math.round(boss.gold[0]*diff.goldMul), Math.round(boss.gold[1]*diff.goldMul)]; }
+      boss._rarityBonus=diff.rarityBonus;
       boss._nestFinal = (stage.type==='boss');
       G.bosses = [ boss ];
       const tag = stage.type==='boss' ? '🔥 בוס סופי' : '⚔️ בוס ביניים';
-      showToast(`${tag}: ${stage.name}! (שלב ${stageIdx+1}/${total})`, '#ff3a3a');
-      log(`${wd.emoji} ${tag} — ${stage.name}! ${stage.type==='boss'?'הקרב המכריע!':'הביסו אותו כדי להמשיך'}`, 'lg-boss');
+      showToast(`${diff.emoji} ${tag}: ${stage.name}! (שלב ${stageIdx+1}/${total})`, '#ff3a3a');
+      log(`${wd.emoji} ${tag} [${diff.name}] — ${stage.name}! ${stage.type==='boss'?'הקרב המכריע!':'הביסו אותו כדי להמשיך'}`, 'lg-boss');
       G.shake = 14;
     }
     G.camera.x = p.x - window.innerWidth/2;
@@ -3420,7 +3442,8 @@ function App(){
     if(wd.dungeon){ setupDungeonZone(0); }
     // ── NEST: start at stage 0 (wave → miniboss → final boss) ──
     G._nestStage = 0; G._nestClear = false;
-    if(wd.nest){ setupNestStage(0); }
+    if(!wd.nest){ G._nestDifficulty = 'normal'; } // difficulty only applies inside nests
+    if(wd.nest){ if(!G._nestDifficulty) G._nestDifficulty='normal'; setupNestStage(0); }
     G.cs = E.computeStats(p);
     if(freshStart){ p.hp = G.cs.maxHp; p.mp = G.cs.maxMp; }
     G.camera.x = p.x - window.innerWidth/2;
@@ -4305,7 +4328,7 @@ function App(){
     const eg2 = G.worldDef && G.worldDef.endgame;
     // weighted rarity roll, biased upward by world tier
     const rollRarity = (bonus)=>{
-      const t = worldTier + (bonus||0);
+      const t = worldTier + (bonus||0) + (mon._rarityBonus||0); // nest difficulty boosts rarity
       const r = Math.random()*100;
       // higher tier shifts the curve toward better rarities
       const legc = Math.min(18, 0.5 + t*0.9);          // legendary chance %
@@ -4583,6 +4606,7 @@ function App(){
     const mitigation = Math.min(0.75, (cs.def||0) / ((cs.def||0) + 200 + p.level*12));
     let dmg = mon.atk * (1 - mitigation);
     dmg = Math.max(1, Math.round(dmg * (0.9 + Math.random()*0.2))); // ±10% variance, min 1
+    if(mon._dmgMul) dmg = Math.round(dmg * mon._dmgMul); // nest difficulty: harder hits
     if(mon._cageDmg) dmg = Math.round(dmg * mon._cageDmg); // pen monsters hit harder
     p.hp = Math.max(0, p.hp - dmg);
     pushDmgNum(p.x, p.y-40, dmg, '#ff5a5a', false);
@@ -7051,6 +7075,35 @@ function App(){
         </div>
       )}
 
+      {/* NEST DIFFICULTY SELECTION */}
+      {nestDiffPrompt && (
+        <div style={{position:'absolute',inset:0,zIndex:97,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.8)',backdropFilter:'blur(5px)'}} onClick={()=>setNestDiffPrompt(null)}>
+          <div style={{background:'linear-gradient(160deg,#1d1230,#100a1e)',border:'2px solid #ff66ff',borderRadius:16,padding:20,width:'min(90vw,360px)'}} onClick={e=>e.stopPropagation()}>
+            <div style={{textAlign:'center',fontSize:'1.1rem',fontWeight:800,color:'#ff99ff',marginBottom:4}}>⚔️ {nestDiffPrompt.world.name}</div>
+            <div style={{textAlign:'center',fontSize:'0.72rem',color:'#9a8aba',marginBottom:14}}>בחר דרגת קושי — קשה יותר = שלל ו-XP טובים יותר</div>
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {Object.values(NEST_DIFFICULTY).map(diff=>{
+                const recLv = nestDiffPrompt.world.reqLv + diff.addLv;
+                const tooLow = p.level < recLv;
+                return (
+                  <button key={diff.id} className="btn" style={{background:'#15101e',border:'2px solid '+diff.color+(tooLow?'44':''),borderRadius:10,padding:'10px 12px',textAlign:'right',opacity:tooLow?0.55:1}}
+                    onClick={()=>{ if(tooLow){ showToast(`מומלץ רמה ${recLv}+ לדרגה זו`, '#ffaa3a'); return; } G._nestDifficulty=diff.id; setNestDiffPrompt(null); teleport(nestDiffPrompt.world.id); }}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                      <span style={{color:diff.color,fontWeight:800,fontSize:'0.95rem'}}>{diff.emoji} {diff.name}</span>
+                      <span style={{fontSize:'0.62rem',color:'#9a8aba'}}>{tooLow?`🔒 רמה ${recLv}`:`מומלץ ${recLv}+`}</span>
+                    </div>
+                    <div style={{fontSize:'0.62rem',color:'#c8b8d8',marginTop:3}}>
+                      💀 ×{diff.hpMul} חיים · ⚡ ×{diff.dmgMul} נזק · ⭐ ×{diff.xpMul} XP · 🪙 ×{diff.goldMul}{diff.rarityBonus>0?` · 🎁 +${diff.rarityBonus} נדירות`:''}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <button className="btn" style={{width:'100%',marginTop:10,background:'#2a2038'}} onClick={()=>setNestDiffPrompt(null)}>ביטול</button>
+          </div>
+        </div>
+      )}
+
       {/* NEW PLAYER TUTORIAL */}
       {tutorialStep!==null && (()=>{
         const steps = [
@@ -7650,7 +7703,7 @@ function Modals(props){
           const xpBonus = w.xpMul > 1 ? `+${Math.round((w.xpMul-1)*100)}% XP` : 'XP ×1';
           return (
             <div key={w.id} className={'world-item'+(unlocked?'':' locked')+(current||isHere?' current':'')}
-              onClick={()=>{ if(unlocked&&!isHere) teleport(w.id); }}>
+              onClick={()=>{ if(unlocked&&!isHere){ if(w.nest){ setNestDiffPrompt({world:w}); } else { teleport(w.id); } } }}>
               <span className="world-emoji">{w.emoji}</span>
               <div className="world-info">
                 <div className="world-nm" style={{color:isHere?'#5aff8a':unlocked?'inherit':'#6a5a7a'}}>{w.name} {w.nest&&<span style={{color:'#ff66ff',fontSize:'0.6rem'}}>⚔️ נסט</span>} {isHere&&'◀'}</div>
@@ -8284,8 +8337,62 @@ function BlacksmithPanel({player, showToast, rerender}){
   if(!player.materials) player.materials={};
   if(!player.craftedUniques) player.craftedUniques=[];
   const [, setT] = useState(0);
+  const [tab, setTab] = useState('enhance'); // 'enhance' | 'craft'
   const refresh = ()=>setT(n=>n+1);
   const mats = player.materials || {};
+
+  // ── ENHANCEMENT (Dragon-Nest style gear upgrade +0 → +15) ──
+  // Success rate falls as the level rises. Failure at +12+ can DESTROY the item;
+  // below that, failure only wastes the cost (item is safe). Each +level gives +8%
+  // to the item's stats (applied in computeStats).
+  const ENH_MAX = 15;
+  const enhConfig = (lvl)=>{
+    // lvl = current enhancement level (upgrading lvl → lvl+1)
+    const goldCost = Math.round(200 * Math.pow(1.5, lvl) + 100);
+    const crystalCost = lvl >= 8 ? Math.ceil((lvl-7)/2) : 0; // forge crystals needed from +8
+    let success;
+    if(lvl < 6) success = 1.0;                 // +0..+5 always succeed
+    else success = Math.max(0.30, 1.0 - (lvl-5)*0.09); // +6:0.91 ... +15:~0.30
+    const canDestroy = lvl >= 12;              // only very high levels risk destruction
+    return {goldCost, crystalCost, success, canDestroy};
+  };
+  // items eligible for enhancement: equipped gear + inventory gear with stats
+  const enhItems = [];
+  for(const [slot,it] of Object.entries(player.equipped||{})){ if(it&&it.stats) enhItems.push({it, where:'equipped', slot}); }
+  (player.inventory||[]).forEach((it,i)=>{ if(it&&it.stats&&it.slot) enhItems.push({it, where:'inv', idx:i}); });
+
+  const doEnhance = (entry)=>{
+    const it = entry.it;
+    const lvl = it._enh||0;
+    if(lvl>=ENH_MAX){ showToast('הפריט כבר ברמת שדרוג מקסימלית (+'+ENH_MAX+')','#ffaa3a'); return; }
+    const cfg = enhConfig(lvl);
+    if((player.gold||0) < cfg.goldCost){ showToast(`חסר זהב (${cfg.goldCost}🪙)`,'#ff5a5a'); return; }
+    const haveCrystal = mats['forge_crystal']||0;
+    if(cfg.crystalCost>0 && haveCrystal < cfg.crystalCost){ showToast(`חסרים גבישי נפחייה (${haveCrystal}/${cfg.crystalCost}) 💎`,'#ff5a5a'); return; }
+    // pay the cost
+    player.gold -= cfg.goldCost;
+    if(cfg.crystalCost>0) player.materials['forge_crystal'] = haveCrystal - cfg.crystalCost;
+    // roll
+    if(Math.random() < cfg.success){
+      it._enh = lvl+1;
+      showToast(`✨ הצלחה! ${it.emoji} ${it.name} → +${it._enh}`, '#5aff8a');
+    } else {
+      if(cfg.canDestroy && Math.random()<0.5){
+        // destroy: remove the item
+        if(entry.where==='equipped'){ player.equipped[entry.slot]=null; }
+        else { const realIdx=player.inventory.indexOf(it); if(realIdx>=0) player.inventory.splice(realIdx,1); }
+        showToast(`💥 השדרוג נכשל והפריט נהרס!`, '#ff5a5a');
+      } else if(lvl>=6 && Math.random()<0.4){
+        it._enh = Math.max(0, lvl-1); // minor downgrade on high-level failure
+        showToast(`⚠️ נכשל — ירד ל-+${it._enh}`, '#ffaa3a');
+      } else {
+        showToast(`⚠️ השדרוג נכשל (הפריט בטוח)`, '#ffaa3a');
+      }
+    }
+    if(typeof E.save==='function') E.save(player);
+    refresh(); rerender && rerender();
+  };
+
   const craft = (recipe)=>{
     const have = mats[recipe.mat]||0;
     if(player.craftedUniques && player.craftedUniques.includes(recipe.id) && recipe.rarity==='mythic'){
@@ -8311,6 +8418,43 @@ function BlacksmithPanel({player, showToast, rerender}){
   };
   return (
     <div className="bs-panel">
+      <div style={{display:'flex',gap:6,marginBottom:10}}>
+        <button className="btn" style={{flex:1,background:tab==='enhance'?'#ff8800':'#2a2038',fontSize:'0.82rem'}} onClick={()=>setTab('enhance')}>⚒️ שדרוג</button>
+        <button className="btn" style={{flex:1,background:tab==='craft'?'#ff8800':'#2a2038',fontSize:'0.82rem'}} onClick={()=>setTab('craft')}>🔨 יצירה</button>
+      </div>
+
+      {tab==='enhance' && (
+        <div>
+          <div className="bs-guide">
+            <b>⚒️ שדרוג ציוד</b><br/>
+            שדרג נשק וציוד עד <b>+{ENH_MAX}</b>. כל רמה מוסיפה <b>+8%</b> לנתוני הפריט.
+            רמות +0 עד +5 — <b>הצלחה מובטחת</b>. מ-+6 יש סיכוי כישלון, ומ-+8 נדרשים גבישי נפחייה 💎.
+            <b style={{color:'#ff7a7a'}}> זהירות: מ-+12 כישלון עלול להרוס את הפריט!</b>
+          </div>
+          <div style={{fontSize:'0.78rem',color:'#ffd24a',margin:'8px 0'}}>💰 {(player.gold||0).toLocaleString()} · 💎 {mats['forge_crystal']||0}</div>
+          {enhItems.length===0 && <div style={{textAlign:'center',color:'#7a6a8a',fontSize:'0.8rem',padding:20}}>אין ציוד לשדרוג. השג נשק או שריון תחילה.</div>}
+          <div style={{display:'flex',flexDirection:'column',gap:6}}>
+            {enhItems.map((entry,i)=>{
+              const it=entry.it; const lvl=it._enh||0; const rc=window.GAME_DATA.RARITY[it.rarity]||{color:'#ccc'};
+              const maxed=lvl>=ENH_MAX; const cfg=enhConfig(lvl);
+              const affordGold=(player.gold||0)>=cfg.goldCost;
+              const affordCrystal=cfg.crystalCost===0||(mats['forge_crystal']||0)>=cfg.crystalCost;
+              return (
+                <div key={i} style={{display:'flex',alignItems:'center',gap:8,background:'#15101e',border:'1px solid '+rc.color+'66',borderRadius:8,padding:'6px 8px'}}>
+                  <span style={{fontSize:'1.4rem'}}>{it.emoji}</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{color:rc.color,fontSize:'0.8rem',fontWeight:700,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{it.name} {lvl>0&&<span style={{color:'#ffd24a'}}>+{lvl}</span>}</div>
+                    <div style={{fontSize:'0.66rem',color:'#9a8aba'}}>{entry.where==='equipped'?'(מצויד) ':''}{maxed?'מקסימלי':`הצלחה ${Math.round(cfg.success*100)}% · ${cfg.goldCost}🪙${cfg.crystalCost?` · ${cfg.crystalCost}💎`:''}`}{cfg.canDestroy&&!maxed&&<span style={{color:'#ff7a7a'}}> · סכנת הרס</span>}</div>
+                  </div>
+                  <button className="btn btn-main" style={{padding:'4px 10px',fontSize:'0.75rem',opacity:(maxed||!affordGold||!affordCrystal)?0.5:1}} disabled={maxed||!affordGold||!affordCrystal} onClick={()=>doEnhance(entry)}>{maxed?'מקס':'⚒️ שדרג'}</button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {tab==='craft' && (<div>
       <div className="bs-guide">
         <b>📖 מדריך הנפח</b><br/>
         חומרי יצירה נופלים במבוך הנפחייה 🔨 (4 אזורים). אסוף <b>15 חומרים</b> מאותו סוג
@@ -8341,6 +8485,7 @@ function BlacksmithPanel({player, showToast, rerender}){
           );
         })}
       </div>
+      </div>)}
     </div>
   );
 }
