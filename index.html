@@ -3647,6 +3647,7 @@ function App(){
         //    gold/xp/level; the client just displays them. ──
         window.WOLNet.onCharState=(m)=>{
           const p=G.player; if(!p) return;
+          window.WOLNet._gotCharState = true; // server is now authoritative for gold/xp/level
           p.gold = m.gold;
           p.level = m.level;
           p.xp = m.xp;
@@ -4541,14 +4542,20 @@ function App(){
     p.kills++;
     checkAchievements();
     updateEvoQuests();
-    // XP + gold: if in a party, the server grants shared rewards via 'partyXp' to
-    // everyone (incl. me), so DON'T grant here. Solo → grant now.
-    const inParty = window.WOLNet && window.WOLNet.party && window.WOLNet.party.partyId;
+    // XP + gold: the SERVER is authoritative online — it grants XP/gold for every
+    // kill and sends the true totals via 'charState' (solo) or 'partyXp' (party). We
+    // must NOT also grant locally, or the values double-count and then snap back to the
+    // server's number, making the level/XP bar flicker and jump. Only grant locally if
+    // the server isn't tracking this character's economy (no account/charState yet).
+    const serverAuthoritative = !!(p.account && window.WOLNet && window.WOLNet._gotCharState);
     let goldAmt = 0;
-    if(!inParty){
-      goldAmt = E.randInt((mon.gold&&mon.gold[0])||5, (mon.gold&&mon.gold[1])||15);
-      p.gold += goldAmt;
-      gainXP(mon.xp||50, true);
+    if(!serverAuthoritative){
+      const inParty = window.WOLNet && window.WOLNet.party && window.WOLNet.party.partyId;
+      if(!inParty){
+        goldAmt = E.randInt((mon.gold&&mon.gold[0])||5, (mon.gold&&mon.gold[1])||15);
+        p.gold += goldAmt;
+        gainXP(mon.xp||50, true);
+      }
     }
     log(`💀 ${mon.base?mon.base.name:'מפלצת'}${goldAmt?` +${goldAmt}🪙`:''}`, 'lg-xp');
     // pet parts (same odds as solo)
