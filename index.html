@@ -2707,7 +2707,14 @@ window.WOLNet = (function(){
         case 'peers': this.peers.clear(); (m.peers||[]).forEach(p=>this.peers.set(p.id,p)); break;
         case 'playerJoined': if(m.player&&m.player.id!==this.id) this.peers.set(m.player.id,m.player); break;
         case 'playerLeft': this.peers.delete(m.id); break;
-        case 'peerMove': { const p=this.peers.get(m.id); if(p){p.x=m.x;p.y=m.y;p.facing=m.facing;p.hp=m.hp;} break; }
+        case 'peerMove': { const p=this.peers.get(m.id); if(p){
+          // INTERPOLATION: store the freshly-received position as a TARGET. The render
+          // loop smoothly eases the drawn position (p.x/p.y) toward it each frame, so a
+          // peer moves fluidly even though updates only arrive ~12×/sec. On the first
+          // update we snap (no prior position to ease from).
+          if(p._tx===undefined){ p.x=m.x; p.y=m.y; }
+          p._tx=m.x; p._ty=m.y; p.facing=m.facing; p.hp=m.hp; p._lastMoveT=Date.now();
+        } break; }
         case 'peerHp': { const p=this.peers.get(m.id); if(p){p.hp=m.hp;p.maxHp=m.maxHp;} break; }
         case 'peerStats': { const p=this.peers.get(m.id); if(p){p.level=m.level;p.evoStage=m.evoStage;p.maxHp=m.maxHp;} break; }
         case 'peerParty': { const p=this.peers.get(m.id); if(p){p.partyId=m.partyId;} break; }
@@ -2744,7 +2751,7 @@ window.WOLNet = (function(){
       }
     },
     send(type,data){ if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify({type,...data})); },
-    move(x,y,facing,hp){ const n=Date.now(); if(n-this._lastSent<80)return; this._lastSent=n; this.send('move',{x:Math.round(x),y:Math.round(y),facing,hp:Math.round(hp)}); },
+    move(x,y,facing,hp){ const n=Date.now(); if(n-this._lastSent<50)return; this._lastSent=n; this.send('move',{x:Math.round(x),y:Math.round(y),facing,hp:Math.round(hp)}); },
     changeWorld(world,x,y,tier,ww,wh){ this.send('changeWorld',{world,x,y,worldTier:tier||1,worldW:ww,worldH:wh}); if(this.profile){this.profile.world=world;this.profile.worldW=ww;this.profile.worldH=wh;} this.peers.clear(); },
     chat(text){ this.send('chat',{text}); },
     whisper(targetId, text){ this.send('whisper',{targetId, text}); },
@@ -4996,6 +5003,21 @@ function App(){
     }
     // ── Multiplayer: broadcast my position (throttled inside WOLNet.move) ──
     if(window.WOLNet && window.WOLNet.connected){ window.WOLNet.move(p.x, p.y, G.facing, p.hp); }
+
+    // ── SMOOTH PEERS: ease each other player toward their last-received target so
+    //    they move fluidly despite the ~12/sec network update rate (anti "low FPS"
+    //    look). Frame-rate independent lerp; snap if very far (teleport/world change). ──
+    if(window.WOLNet && window.WOLNet.peers){
+      const k = 1 - Math.pow(0.0025, dt); // smoothing factor (~0.2 at 60fps), dt-independent
+      window.WOLNet.peers.forEach(peer=>{
+        if(peer._tx===undefined) return;
+        const dxp=peer._tx-peer.x, dyp=peer._ty-peer.y;
+        const dist=Math.hypot(dxp,dyp);
+        if(dist>600){ peer.x=peer._tx; peer.y=peer._ty; }       // big jump → snap
+        else if(dist>0.5){ peer.x+=dxp*k; peer.y+=dyp*k; }      // otherwise glide
+        else { peer.x=peer._tx; peer.y=peer._ty; }
+      });
+    }
 
     // ── AI ──
     const _safeRnow = activeSafeR();
