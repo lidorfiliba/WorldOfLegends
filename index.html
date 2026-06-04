@@ -3010,6 +3010,7 @@ function App(){
   const [tradeItemView, setTradeItemView] = useState(null); // item shown in the trade detail popup
   const [nestDiffPrompt, setNestDiffPrompt] = useState(null); // {world} → choose difficulty before entering a nest
   const [fullMap, setFullMap] = useState(false); // fullscreen map view
+  const [nestComplete, setNestComplete] = useState(false); // "return to city?" after finishing a nest
   // ── New-player tutorial (null = not showing; 0..N = current step) ──
   const [tutorialStep, setTutorialStep] = useState(null);
   useEffect(()=>{
@@ -3391,7 +3392,7 @@ function App(){
       const bossBase = D.BOSSES.find(b=>b.id===stage.boss) || D.BOSSES[0];
       const lv = (stage.type==='boss' ? wd.monLv[1]+5 : wd.monLv[1]-5) + diff.addLv;
       const sizeScale = stage.type==='boss' ? 0.95+lv*0.05 : 0.85+lv*0.04;
-      const boss = makeMonster(bossBase, lv, WW/2, WH/2-100, sizeScale, true, (wd.xpMul||1)*diff.xpMul);
+      const boss = makeMonster(bossBase, lv, WW/2, WH/2-360, sizeScale, true, (wd.xpMul||1)*diff.xpMul);
       boss.maxHp=Math.round(boss.maxHp*diff.hpMul); boss.hp=boss.maxHp;
       boss._dmgMul=(boss._dmgMul||1)*diff.dmgMul;
       if(boss.gold){ boss.gold=[Math.round(boss.gold[0]*diff.goldMul), Math.round(boss.gold[1]*diff.goldMul)]; }
@@ -3674,16 +3675,29 @@ function App(){
         window.WOLNet.onCharState=(m)=>{
           const p=G.player; if(!p) return;
           window.WOLNet._gotCharState = true; // server is now authoritative for gold/xp/level
-          p.gold = m.gold;
-          p.level = m.level;
-          p.xp = m.xp;
-          p.xpNext = E.xpForLevel(m.level);
+          // Compute the player's TOTAL xp (level+progress) on both sides. In non-shared
+          // worlds (nests/dungeons) the client grants XP locally and the server doesn't
+          // see those kills, so a periodic reconciliation must NEVER roll progress back.
+          // We only apply the server's numbers when they represent MORE progress, or when
+          // this message reports an actual gain/level-up (a real kill the server processed).
+          const totalXp = (lvl,xp)=>{ let t=0; for(let i=1;i<(lvl||1);i++) t+=E.xpForLevel(i); return t+(xp||0); };
+          const serverTotal = totalXp(m.level, m.xp);
+          const localTotal  = totalXp(p.level, p.xp);
+          const isGainMsg = !!(m.gainXp || m.gainGold || m.leveled);
+          const inInstanced = G.worldDef && (G.worldDef.nest || G.worldDef.dungeon);
+          // gold: take the higher (server authoritative for shared, but never wipe local nest gold)
+          if(typeof m.gold==='number') p.gold = Math.max(p.gold||0, m.gold);
+          if(isGainMsg || serverTotal >= localTotal){
+            // server is ahead (or this is a real kill) → trust it
+            if(!inInstanced || isGainMsg){
+              p.level = m.level; p.xp = m.xp; p.xpNext = E.xpForLevel(m.level);
+            }
+          }
           if(m.gainXp || m.gainGold){
             const bonusTxt = m.bonus>1 ? ` (×${m.bonus})` : '';
             showToast(`+${(m.gainXp||0).toLocaleString()} XP +${(m.gainGold||0).toLocaleString()}🪙${bonusTxt}`, '#88ddff');
           }
           if(m.leveled){
-            // grant the per-level stat points + growth for each level gained
             for(let i=0;i<m.leveled;i++) E.applyLevelGrowth(p);
             G.cs = E.computeStats(p);
             p.hp = G.cs.maxHp; p.mp = G.cs.maxMp;
@@ -4466,9 +4480,11 @@ function App(){
           gainXP(Math.round(E.xpForLevel(p.level)*0.4), false);
           G.shake=22;
           showToast(`🏆 השלמת את ${wd.name}! שלל ענק נפל!`, '#ffd24a');
-          log(`🏆${wd.emoji} השלמת את הנסט! אסוף את השלל, חוזר לעיר בקרוב...`, 'lg-leg');
+          log(`🏆${wd.emoji} השלמת את הנסט! אסוף את כל השלל בנחת.`, 'lg-leg');
           checkAchievements();
-          setTimeout(()=>{ if(G.running) teleport('town'); }, 7000); // time to grab loot
+          // open a "return to city?" prompt after a short delay (no forced teleport —
+          // the player collects loot at their own pace and chooses when to leave)
+          setTimeout(()=>{ if(G.running && G.worldDef && G.worldDef.nest) setNestComplete(true); }, 2500);
           return;
         } else {
           // MINIBOSS — drop a few items then open the portal to the final stage
@@ -4477,7 +4493,7 @@ function App(){
             G.groundItems.push({x:bx+Math.cos(a)*r,y:by+Math.sin(a)*r,item:it,id:Math.random(),bob:0,t:Date.now()}); }
           G.groundItems.push({x:bx,y:by+15,gold:1500+blv*30,id:Math.random(),bob:0,t:Date.now()});
           if((G._nestStage||0) < stages.length-1 && !G._dungeonGate){
-            G._dungeonGate = {x:WW/2, y:WH/2 - 350, r:55, _nest:true};
+            G._dungeonGate = {x:WW/2 + 450, y:WH/2 + 250, r:55, _nest:true};
             showToast('⚔️ בוס הביניים הובס! עבור דרך השער לבוס הסופי →', '#ffd24a');
             log('⚔️ בוס הביניים נפל! שער לבוס הסופי נפתח', 'lg-leg');
           }
@@ -4518,7 +4534,7 @@ function App(){
         if(cur && cur.type==='wave'){
           const alive = G.monsters.filter(m=>m.hp>0).length;
           if(alive===0 && !G._dungeonGate && (G._nestStage||0) < stages.length-1){
-            G._dungeonGate = {x:WW/2, y:WH/2 - 350, r:55, _nest:true};
+            G._dungeonGate = {x:WW/2 + 450, y:WH/2 + 250, r:55, _nest:true};
             showToast('✨ הגל נוקה! עבור דרך השער →', '#5aff8a');
             log('✨ ניקית את הגל! שער לשלב הבא נפתח במרכז', 'lg-leg');
           }
@@ -5207,7 +5223,7 @@ function App(){
       if(cur && cur.type==='wave' && !G._dungeonGate){
         const aliveMons = G.monsters.filter(m=>m.hp>0 && !m._dying).length;
         if(aliveMons===0 && (G._nestWaveTotal||0)>0 && (G._nestStage||0) < stages.length-1){
-          G._dungeonGate = {x:WW/2, y:WH/2 - 350, r:55, _nest:true};
+          G._dungeonGate = {x:WW/2 + 450, y:WH/2 + 250, r:55, _nest:true};
           G._nestWaveTotal = 0; // don't re-trigger
           showToast('✨ הגל נוקה! עבור דרך השער הזוהר →', '#5aff8a');
           log('✨ ניקית את הגל! שער לשלב הבא נפתח במרכז המפה', 'lg-leg');
@@ -7130,6 +7146,21 @@ function App(){
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               <button className="btn btn-main" onClick={()=>{ G.player.comboQuestActive=true; setComboPrompt(false); showToast('משימת קומבו החלה! השתמש ב-12 מיומנויות','#ffcc66'); }}>⚔️ קבל את המשימה</button>
               <button className="btn" style={{background:'#3a2a4a',fontSize:'0.8rem'}} onClick={()=>{ G.player.comboQuestOffered=false; setComboPrompt(false); }}>אולי מאוחר יותר</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* NEST COMPLETE — return to city? (no forced teleport) */}
+      {nestComplete && (
+        <div style={{position:'absolute',inset:0,zIndex:97,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.7)',backdropFilter:'blur(4px)'}}>
+          <div style={{background:'linear-gradient(160deg,#231634,#120b22)',border:'2px solid #ffce6a',borderRadius:16,padding:22,maxWidth:320,margin:16,textAlign:'center',boxShadow:'0 0 40px rgba(255,200,80,0.35)'}}>
+            <div style={{fontSize:'2.4rem',marginBottom:6}}>🏆</div>
+            <div style={{fontWeight:800,fontSize:'1.05rem',color:'#ffce6a',marginBottom:6}}>הנסט הושלם!</div>
+            <div style={{fontSize:'0.82rem',color:'#e8dcc8',lineHeight:1.6,marginBottom:16}}>אסוף את כל השלל בנחת. האם לחזור לעיר עכשiyו?</div>
+            <div style={{display:'flex',gap:8}}>
+              <button className="btn" style={{flex:1,background:'#2a2038'}} onClick={()=>setNestComplete(false)}>👜 נשאר לאסוף</button>
+              <button className="btn btn-main" style={{flex:1}} onClick={()=>{ setNestComplete(false); teleport('town'); }}>🏰 חזור לעיר</button>
             </div>
           </div>
         </div>
