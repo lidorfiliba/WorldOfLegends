@@ -2835,13 +2835,17 @@ function makeWorldEntities(worldDef, playerLevel){
   // defined arena spots, great for groups/grinding; (b) scattered LONERS that
   // wander the open space. Scales with map size so huge maps stay populated.
   const areaRatio = (ww * wh) / (WW_DEFAULT * WH_DEFAULT);
-  const cageCount = Math.max(3, Math.round((worldDef.endgame ? 4 : 3) * Math.sqrt(areaRatio)));
-  const perCage = worldDef.endgame ? 32 : 24;
+  // CAGE DENSITY scales with the world's level. Starter worlds (low minL) get small,
+  // gentle pens so a new player isn't swarmed and one-shot; high-level worlds keep the
+  // dense "challenge pens". This is the difference between a welcoming early game and a
+  // brick wall that makes new players quit.
+  const lvFactor = Math.min(1, minL / 40); // 0 at lv1 → 1 by lv40
+  const cageCount = Math.max(2, Math.round((worldDef.endgame ? 4 : 3) * Math.sqrt(areaRatio)));
+  const perCage = Math.round((worldDef.endgame ? 32 : (6 + lvFactor*18))); // ~6 at lv1 → 24 by lv40
+  const cageDmgMul = 1 + lvFactor*0.4;        // 1.0 at lv1 (no bonus) → 1.4 by lv40
   const lonerCount = Math.round((worldDef.endgame ? 16 : 12) * Math.sqrt(areaRatio));
 
   const tooCloseToSafe = (x,y)=> Math.hypot(x-ww/2, y-wh/2) < SAFE_R+200;
-  // place fenced CAGE PENS — square arenas with a fence and ONE entrance gap.
-  // Dense monster packs live inside; they hit harder (a real challenge zone).
   const cages = [];
   let guard=0;
   const CAGE_HALF = 300; // half-size of the square pen
@@ -2850,8 +2854,8 @@ function makeWorldEntities(worldDef, playerLevel){
     const cy = 400 + Math.random()*(wh-800);
     if(tooCloseToSafe(cx,cy)) continue;
     if(cages.some(c=>Math.hypot(c.x-cx,c.y-cy) < CAGE_HALF*2.6)) continue;
-    const gateSide = Math.floor(Math.random()*4); // 0=top 1=right 2=bottom 3=left
-    cages.push({x:cx, y:cy, half:CAGE_HALF, gateSide, dmgMult:1.4});
+    const gateSide = Math.floor(Math.random()*4);
+    cages.push({x:cx, y:cy, half:CAGE_HALF, gateSide, dmgMult:cageDmgMul});
   }
   // fill each pen with a dense pack of mixed monsters (bound inside the fence).
   // ~40% are RANGED (attack from afar), the rest melee — a mixed pack.
@@ -2913,10 +2917,12 @@ function makeMonster(base, lv, x, y, scale, isBoss, xpMul){
   //    monsters die fast and end-game monsters are real damage sponges. ──
   const variety = Math.min(1.35, Math.max(0.75, 0.8 + 0.4 * ((base.hp||250) / 300)));
   const levelHp = 35 + lv*lv*0.5 + lv*16;             // ~50 at lv1, ramps with level
-  // HP multiplier RAMPS with level so the early game is welcoming (Dragon-Nest style:
-  // levels 1-10 are an easy intro before the player has skills/gear). It grows from
-  // ~0.9x at lv1 to the full 2.2x by ~lv25, then stays there.
-  const hpMul = isBoss ? 11 : Math.min(2.2, 0.85 + lv*0.055);
+  // HP multiplier RAMPS with level. Early game (1-25) is a welcoming intro at ~0.9→2.2x.
+  // From level 30 on, player gear/skills scale fast, so monsters get an ADDITIONAL ramp
+  // (up to ~+120% by lv120) to keep them a real threat instead of one-shot fodder.
+  const baseMul = Math.min(2.2, 0.85 + lv*0.055);
+  const lateMul = 1 + Math.max(0, lv-30) * 0.012;   // +1.2% per level past 30
+  const hpMul = isBoss ? (11 * (1 + Math.max(0, lv-30)*0.018)) : (baseMul * lateMul);
   let hp = Math.round(levelHp * variety * hpMul);
   // ── XP balance: a monster's XP is tied to ITS OWN LEVEL and grows sub-exponentially
   //    (8 + lv^1.5 * 0.55). The level-up requirement grows much faster (xpForLevel),
@@ -4750,7 +4756,7 @@ function App(){
 
     if(recipe==='crit'){
       // CRITICAL BURST — moderate radius, guaranteed massive crit
-      R=240; dmgMult=9.0; color='#ffdd22'; label='💥 קומבו קריטי! ×9 נזק';
+      R=240; dmgMult=6.0; color='#ffdd22'; label='💥 קומבו קריטי! ×6 נזק';
       allM.forEach(m=>{ if(Math.hypot(m.x-p.x,m.y-p.y)<R){ const dmg=Math.round(power*dmgMult-m.def*0.2); m.hp-=dmg; m.hurtT=now+200; pushDmgNum(m.x,m.y-m.size,dmg+'!','#ffdd22',true); if(m.hp<=0&&!m._dying){m._dying=true;killMonster(m);} } });
       G.effects.push({type:'combo_blast', x:p.x, y:p.y, r:0, maxR:R, color, life:0.7, t:0});
       G.effects.push({type:'combo_blast', x:p.x, y:p.y, r:0, maxR:R*0.6, color:'#fff', life:0.5, t:0});
@@ -4758,7 +4764,7 @@ function App(){
     }
     else if(recipe==='power'){
       // RAW DAMAGE NOVA — bigger radius, highest flat damage
-      R=320; dmgMult=12.0; color='#ff3322'; label='💢 קומבו עוצמה! נזק אדיר';
+      R=320; dmgMult=8.0; color='#ff3322'; label='💢 קומבו עוצמה! נזק אדיר';
       allM.forEach(m=>{ if(Math.hypot(m.x-p.x,m.y-p.y)<R){ const dmg=Math.round(power*dmgMult-m.def*0.3); m.hp-=dmg; m.hurtT=now+220; pushDmgNum(m.x,m.y-m.size,dmg+'!','#ff5a2a',true); if(m.hp<=0&&!m._dying){m._dying=true;killMonster(m);} } });
       G.effects.push({type:'combo_blast', x:p.x, y:p.y, r:0, maxR:R, color, life:0.8, t:0});
       burst(p.x,p.y,'#ff5a2a',80,500); G.shake=20;
