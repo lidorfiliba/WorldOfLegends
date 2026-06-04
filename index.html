@@ -1354,29 +1354,38 @@ function applyLevelGrowth(player){
 // Every saved character carries a signature over its critical fields. If a player
 // edits gold/level/inventory/stats in the console or localStorage, the signature no
 // longer matches and the save is rejected as tampered. The secret is assembled at
-// runtime (not a single literal) to make casual extraction harder.
+// runtime from several pieces (not a single grep-able literal).
 const _SIG_SECRET = (function(){
-  // pieced together so it isn't a single grep-able string
-  const a=[0x57,0x6f,0x4c,0x21,0x67,0x75,0x61,0x72,0x64]; // "WoL!guard"
-  const b='2026'+'_'+'integrity'+'_'+'v1';
-  return a.map(c=>String.fromCharCode(c)).join('')+b;
+  const a=[0x57,0x6f,0x4c,0x21,0x67,0x75,0x61,0x72,0x64];          // "WoL!guard"
+  const c=[0x73,0x65,0x61,0x6c,0x2d,0x6b,0x65,0x79];               // "seal-key"
+  const b='2026'+'_'+'integrity'+'_'+'v2';
+  const mk=arr=>arr.map(x=>String.fromCharCode(x)).join('');
+  return mk(a)+b+mk(c)+(0x9e3779b9).toString(36);
 })();
 function _mix(str){
-  // FNV-1a-ish 32-bit hash, salted with the secret, double-pass to spread bits
-  let h=0x811c9dc5;
-  const s = String(str)+_SIG_SECRET;
-  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,0x01000193); }
-  let h2=h>>>0;
-  for(let i=s.length-1;i>=0;i--){ h2^=s.charCodeAt(i); h2=Math.imul(h2,0x01000193); }
-  return ((h>>>0).toString(16).padStart(8,'0'))+((h2>>>0).toString(16).padStart(8,'0'));
+  // multi-round avalanche hash salted with the secret on both ends; the extra
+  // rounds make hand-forging a matching signature substantially harder.
+  const s = _SIG_SECRET + '|' + String(str) + '|' + _SIG_SECRET;
+  let h=0x811c9dc5>>>0, h2=0x9e3779b9>>>0, h3=0x85ebca6b>>>0;
+  for(let i=0;i<s.length;i++){ const ch=s.charCodeAt(i);
+    h^=ch;  h=Math.imul(h,0x01000193)>>>0;
+    h2=Math.imul(h2^ch,0x85ebca6b)>>>0; h2=(h2<<13|h2>>>19)>>>0;
+    h3=(h3+ch)>>>0; h3=Math.imul(h3,0xc2b2ae35)>>>0;
+  }
+  // final mix
+  h^=h>>>16; h=Math.imul(h,0x7feb352d)>>>0;
+  h2^=h2>>>15; h2=Math.imul(h2,0x846ca68b)>>>0;
+  h3^=h3>>>13;
+  return (h>>>0).toString(16).padStart(8,'0')+(h2>>>0).toString(16).padStart(8,'0')+(h3>>>0).toString(16).padStart(8,'0');
 }
-// Canonical critical-state string: only the fields a cheater would inflate.
+// Canonical critical-state string: only the fields a cheater would inflate. The
+// account+slot are folded in so a valid signature can't be copied to another character.
 function _critState(p){
   if(!p) return '';
   const inv = (p.inventory||[]).map(it=>`${it.uid||''}:${it.name||''}:${it.rarity||''}:${it.lv||0}:${JSON.stringify(it.stats||{})}`).join('|');
   const eq = Object.values(p.equipped||{}).map(it=>it?`${it.uid||''}:${it.rarity||''}`:'-').join(',');
   const mats = Object.entries(p.materials||{}).sort().map(([k,v])=>`${k}=${v}`).join(',');
-  return [p.account||'', p.charSlot||0, p.level||1, Math.round(p.gold||0), p.statPoints||0,
+  return ['acct:'+(p.account||''), 'slot:'+(p.charSlot||0), p.level||1, Math.round(p.gold||0), p.statPoints||0,
     p.evoStage||0, p.awakened?1:0, (p.mounts||[]).length, (p.pets||[]).length, inv, eq, mats].join('#');
 }
 function signChar(p){ return _mix(_critState(p)); }
@@ -2980,6 +2989,7 @@ function App(){
   const [privateChatWith, setPrivateChatWith] = useState(null); // {id,name} for private chat
   const [whispers, setWhispers] = useState([]); // [{fromId,fromName,text,mine}]
   const [whisperText, setWhisperText] = useState('');
+  const [tradeItemView, setTradeItemView] = useState(null); // item shown in the trade detail popup
   // ── New-player tutorial (null = not showing; 0..N = current step) ──
   const [tutorialStep, setTutorialStep] = useState(null);
   useEffect(()=>{
@@ -3194,7 +3204,8 @@ function App(){
     //    Brand-new/empty characters are exempt; old unsigned legacy saves migrate once. ──
     const _hasProgress = (saved.level>3) || ((saved.gold||0)>500) || ((saved.inventory||[]).length>2);
     const _legacyUnsigned = (saved._sig===undefined && !saved._sigInit);
-    const _tampered = _hasProgress && !_legacyUnsigned && !E.verifyChar(saved);
+    const _legacyV1sig = (typeof saved._sig==='string' && saved._sig.length===16); // old 16-char v1 signature → migrate once
+    const _tampered = _hasProgress && !_legacyUnsigned && !_legacyV1sig && !E.verifyChar(saved);
     if(_tampered){
       saved.gold = 0;
       if(Array.isArray(saved.inventory)){
@@ -4091,7 +4102,7 @@ function App(){
     // curse debuff amplifies all damage taken
     if(mon._status && mon._status.curse){ dmg = Math.round(dmg * (1 + 0.08*mon._status.curse.stacks)); }
     const crit = Math.random() < (cs.crit + (critChance||0));
-    if(crit) dmg = Math.round(dmg*2);
+    if(crit){ dmg = Math.round(dmg*2); G.shake = Math.max(G.shake||0, 5); burst(mon.x, mon.y-mon.size*0.5, '#ffd24a', 8, 220); }
     pushDmgNum(mon.x, mon.y - mon.size, dmg, crit?'#ffd24a':(el!=='physical'?D.ELEMENTS[el].color:'#fff'), crit);
     mon.hurtT = Date.now()+150;
     if(mon._passive){ mon._passive=false; mon.aggro=true; } // attacking it wakes it up
@@ -4569,7 +4580,7 @@ function App(){
 
   // ════════ DAMAGE NUMBERS ════════
   function pushDmgNum(wx, wy, val, color, crit){
-    G.dmgNums.push({x:wx, y:wy, val:(crit?'⚡':'')+val, color, crit, life:1.0, vy:-1.2});
+    G.dmgNums.push({x:wx, y:wy, val:(crit?'⚡':'')+val, color, crit, life:1.0, maxLife:1.0, vy:-1.2});
     if(G.dmgNums.length>40) G.dmgNums.shift();
   }
 
@@ -6041,23 +6052,38 @@ function App(){
     }
 
     // particles
+    // ── PARTICLES — richer: additive glow for a vivid, energetic combat feel ──
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
     G.particles.forEach(pt=>{
-      ctx.save(); ctx.globalAlpha=Math.max(0,pt.life);
-      ctx.fillStyle=pt.color;
-      ctx.beginPath(); ctx.arc(pt.x-cam.x, pt.y-cam.y, pt.size*Math.max(0.2,pt.life), 0, Math.PI*2); ctx.fill();
-      ctx.restore();
+      const px=pt.x-cam.x, py=pt.y-cam.y;
+      const a=Math.max(0,pt.life), sz=pt.size*Math.max(0.2,pt.life);
+      // soft outer glow
+      const g=ctx.createRadialGradient(px,py,0,px,py,sz*3);
+      g.addColorStop(0, SP.withAlpha(pt.color, a*0.9));
+      g.addColorStop(0.4, SP.withAlpha(pt.color, a*0.35));
+      g.addColorStop(1, SP.withAlpha(pt.color, 0));
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(px,py,sz*3,0,Math.PI*2); ctx.fill();
+      // bright core
+      ctx.globalAlpha=a; ctx.fillStyle=pt.color;
+      ctx.beginPath(); ctx.arc(px,py,sz*0.7,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=1;
     });
+    ctx.restore();
 
-    // damage numbers
+    // damage numbers — pop in with a scale punch, crits bigger + glowing
     G.dmgNums.forEach(dn=>{
       ctx.save(); ctx.globalAlpha=Math.max(0,dn.life);
-      ctx.font=`900 ${dn.crit?24:15}px Cinzel`; ctx.textAlign='center';
-      ctx.lineJoin='round';
-      ctx.strokeStyle='#000'; ctx.lineWidth=4;
-      ctx.strokeText(dn.val, dn.x-cam.x, dn.y-cam.y);
-      if(dn.crit){ ctx.shadowColor=dn.color; ctx.shadowBlur=12; }
+      const age = 1-(dn.life/(dn.maxLife||1));
+      const pop = age<0.18 ? 0.6+age/0.18*0.6 : 1.15-Math.min(0.15,(age-0.18)*0.3); // quick scale-in punch
+      const base = dn.crit?24:15;
+      ctx.translate(dn.x-cam.x, dn.y-cam.y); ctx.scale(pop,pop);
+      ctx.font=`900 ${base}px Cinzel`; ctx.textAlign='center';
+      ctx.lineJoin='round'; ctx.strokeStyle='#000'; ctx.lineWidth=4;
+      ctx.strokeText(dn.val, 0, 0);
+      if(dn.crit){ ctx.shadowColor=dn.color; ctx.shadowBlur=14; }
       ctx.fillStyle=dn.color;
-      ctx.fillText(dn.val, dn.x-cam.x, dn.y-cam.y);
+      ctx.fillText(dn.val, 0, 0);
       ctx.restore();
     });
 
@@ -7058,7 +7084,9 @@ function App(){
               <div style={{flex:1,background:'rgba(90,255,138,0.06)',border:'1px solid #2a5a3a',borderRadius:10,padding:8}}>
                 <div style={{color:'#5aff8a',fontSize:'0.8rem',fontWeight:700,marginBottom:6}}>ההצעה שלך {mine.confirm&&'✅'}</div>
                 <div style={{minHeight:60,display:'flex',flexWrap:'wrap',gap:4}}>
-                  {(mine.items||[]).map(it=>(<button key={it.uid} onClick={()=>removeItem(it)} style={{fontSize:'1.2rem',background:'#1a2a1e',border:'1px solid #3a5a44',borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</button>))}
+                  {(mine.items||[]).map(it=>{ const rc=D.RARITY[it.rarity]||{color:'#ccc'}; return (
+                    <button key={it.uid} onClick={()=>setTradeItemView({item:it, side:'mine'})} style={{fontSize:'1.2rem',background:'#1a2a1e',border:'1px solid '+rc.color,borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</button>
+                  );})}
                 </div>
                 <div style={{marginTop:6,fontSize:'0.75rem',color:'#ffd24a'}}>💰 <input type="number" min="0" max={p.gold||0} value={mine.gold||0} onChange={e=>setGold(e.target.value|0)} style={{width:80,background:'#0e0a18',border:'1px solid #3a5a44',borderRadius:5,color:'#ffd24a',padding:'2px 4px'}}/> / {p.gold||0}</div>
               </div>
@@ -7066,17 +7094,22 @@ function App(){
               <div style={{flex:1,background:'rgba(122,90,255,0.06)',border:'1px solid #3a2a5a',borderRadius:10,padding:8}}>
                 <div style={{color:'#b89aff',fontSize:'0.8rem',fontWeight:700,marginBottom:6}}>{trade.withName} {theirs.confirm&&'✅'}</div>
                 <div style={{minHeight:60,display:'flex',flexWrap:'wrap',gap:4}}>
-                  {(theirs.items||[]).map(it=>(<span key={it.uid} style={{fontSize:'1.2rem',background:'#1e1a2a',border:'1px solid #443a5a',borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</span>))}
+                  {(theirs.items||[]).map(it=>{ const rc=D.RARITY[it.rarity]||{color:'#ccc'}; return (
+                    <button key={it.uid} onClick={()=>setTradeItemView({item:it, side:'theirs'})} style={{fontSize:'1.2rem',background:'#1e1a2a',border:'1px solid '+rc.color,borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</button>
+                  );})}
                 </div>
                 <div style={{marginTop:6,fontSize:'0.75rem',color:'#ffd24a'}}>💰 {theirs.gold||0}</div>
+                <div style={{fontSize:'0.6rem',color:'#9a8aba',marginTop:3}}>👆 לחץ על חפץ לפרטים</div>
               </div>
             </div>
             {/* MY INVENTORY to add from */}
             <div style={{marginTop:10}}>
-              <div style={{fontSize:'0.72rem',color:'#9a8aba',marginBottom:4}}>התיק שלך (לחץ להוספה):</div>
+              <div style={{fontSize:'0.72rem',color:'#9a8aba',marginBottom:4}}>התיק שלך (לחץ לפרטים והוספה):</div>
               <div style={{display:'flex',flexWrap:'wrap',gap:4,maxHeight:120,overflowY:'auto'}}>
                 {avail.length===0 && <span style={{fontSize:'0.7rem',color:'#6a5a7a'}}>אין חפצים פנויים</span>}
-                {avail.map(it=>(<button key={it.uid} onClick={()=>addItem(it)} style={{fontSize:'1.1rem',background:'#15101e',border:'1px solid #2a2038',borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</button>))}
+                {avail.map(it=>{ const rc=D.RARITY[it.rarity]||{color:'#ccc'}; return (
+                  <button key={it.uid} onClick={()=>setTradeItemView({item:it, side:'avail'})} style={{fontSize:'1.1rem',background:'#15101e',border:'1px solid '+rc.color,borderRadius:6,padding:'2px 5px'}} title={it.name}>{it.emoji}</button>
+                );})}
               </div>
             </div>
             <div style={{display:'flex',gap:8,marginTop:12}}>
@@ -7085,6 +7118,34 @@ function App(){
             </div>
             <div style={{fontSize:'0.65rem',color:'#9a8aba',marginTop:6,textAlign:'center'}}>שינוי הצעה מאפס את האישורים של שני הצדדים</div>
           </div>
+          {/* ITEM DETAIL POPUP — see an item's stats before trading */}
+          {tradeItemView && (()=>{
+            const it = tradeItemView.item, side = tradeItemView.side;
+            const rc = D.RARITY[it.rarity] || {color:'#ccc', name:it.rarity};
+            const statLabels = {atk:'התקפה',matk:'קסם',def:'הגנה',hp:'חיים',mp:'מאנה',crit:'קריטי %',spd:'מהירות',agi:'זריזות',luck:'מזל'};
+            return (
+              <div style={{position:'absolute',inset:0,zIndex:99,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(0,0,0,0.55)'}} onClick={()=>setTradeItemView(null)}>
+                <div style={{background:'linear-gradient(160deg,#1d1730,#100b1e)',border:'2px solid '+rc.color,borderRadius:14,padding:18,width:'min(80vw,300px)',boxShadow:'0 0 30px '+rc.color+'55'}} onClick={e=>e.stopPropagation()}>
+                  <div style={{textAlign:'center',fontSize:'2.4rem',marginBottom:4}}>{it.emoji}</div>
+                  <div style={{textAlign:'center',color:rc.color,fontWeight:800,fontSize:'1rem'}}>{it.name}</div>
+                  <div style={{textAlign:'center',color:'#9a8aba',fontSize:'0.72rem',marginBottom:10}}>{rc.name} • רמה {it.lv||1}{it.slot?' • '+it.slot:''}{it.setId?' • סט':''}</div>
+                  <div style={{background:'#0e0a18',borderRadius:8,padding:'8px 12px'}}>
+                    {Object.entries(it.stats||{}).filter(([k,v])=>v).map(([k,v])=>(
+                      <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:'0.82rem',color:'#e8dcc8',padding:'2px 0'}}>
+                        <span>{statLabels[k]||k}</span><span style={{color:'#5aff8a',fontWeight:700}}>+{v}</span>
+                      </div>
+                    ))}
+                    {Object.keys(it.stats||{}).length===0 && <div style={{fontSize:'0.75rem',color:'#9a8aba',textAlign:'center'}}>אין נתונים מיוחדים</div>}
+                  </div>
+                  <div style={{display:'flex',gap:6,marginTop:12}}>
+                    {side==='avail' && !mine.confirm && <button className="btn btn-main" style={{flex:1}} onClick={()=>{ addItem(it); setTradeItemView(null); }}>➕ הוסף למסחר</button>}
+                    {side==='mine' && !mine.confirm && <button className="btn" style={{flex:1,background:'#3a2030'}} onClick={()=>{ removeItem(it); setTradeItemView(null); }}>➖ הסר</button>}
+                    <button className="btn" style={{flex:1,background:'#2a2038'}} onClick={()=>setTradeItemView(null)}>סגור</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
         );
       })()}
