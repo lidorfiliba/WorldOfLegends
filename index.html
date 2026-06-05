@@ -4989,12 +4989,12 @@ function App(){
     const p = G.player, cs = G.cs;
     if(!p || p.hp<=0) return false;
     if(G.shield || G.godMode || G._iframe) return false;
-    // boss never harms a brand-new player (lv<8)
-    if(opts.fromBoss && p.level < 8) return false;
+    // boss never harms a brand-new player (lv<10)
+    if(opts.fromBoss && p.level < 10) return false;
     // GLOBAL HIT-GRACE: short i-frames after any hit so a pack/volley can't chain you to
-    // death in a fraction of a second. Longer for new players.
+    // death in a fraction of a second. Much longer for new players.
     const now = Date.now();
-    const grace = p.level < 8 ? 600 : p.level < 20 ? 450 : 280;
+    const grace = p.level < 10 ? 750 : p.level < 20 ? 450 : 280;
     if(G._lastHitT && now - G._lastHitT < grace) return false;
     G._lastHitT = now;
     // percentage mitigation (def + party def buff), capped at 75%
@@ -5007,12 +5007,14 @@ function App(){
       dmg = Math.max(1, Math.round(rawDmg*(1-mit)*(0.9+Math.random()*0.2)));
     }
     if(opts.dmgMul) dmg = Math.round(dmg*opts.dmgMul);
-    // NEW-PLAYER SHIELD: below level 8, cap any single hit to 12% of max HP and make hits
-    // rarer. A new player literally cannot be bursted down — they always have time to react.
-    if(p.level < 8 && cs){
-      dmg = Math.min(dmg, Math.max(1, Math.round(cs.maxHp*0.12)));
-    } else if(p.level < 15 && cs){
-      dmg = Math.min(dmg, Math.max(1, Math.round(cs.maxHp*0.22)));
+    // NEW-PLAYER SHIELD (lv<10): a hard, unmissable safety net. Any single hit can take
+    // at most 6% of max HP, and a longer grace window means hits are rare. A new player
+    // simply cannot be bursted down by a pen — they always have many seconds to react.
+    if(p.level < 10 && cs){
+      dmg = Math.min(dmg, Math.max(1, Math.round(cs.maxHp*0.06)));
+      G._shieldFlash = now + 200; // visible blue flash so it's obvious the shield is active
+    } else if(p.level < 20 && cs){
+      dmg = Math.min(dmg, Math.max(1, Math.round(cs.maxHp*0.15)));
     }
     p.hp = Math.max(0, p.hp - dmg);
     pushDmgNum(p.x, p.y-40, dmg, opts.color||'#ff5a5a', !!opts.crit);
@@ -7456,7 +7458,7 @@ function App(){
         <div className="title-bg"></div>
         <span className="logo-sword">⚔️</span>
         <h1 className="logo">WORLD OF<br/>LEGENDS</h1>
-        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v29 · הגנת מתחילים פעילה</p>
+        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v30 · הגנת מתחילים חזקה</p>
         <div className="login-box">
           <div className="login-tabs">
             <div className={'login-tab'+(loginMode==='login'?' active':'')} onClick={()=>{setLoginMode('login');setLoginMsg('');}}>התחברות</div>
@@ -7487,7 +7489,7 @@ function App(){
         </div>
         <span className="logo-sword">⚔️</span>
         <h1 className="logo">WORLD OF<br/>LEGENDS</h1>
-        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v29 · הגנת מתחילים פעילה</p>
+        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v30 · הגנת מתחילים חזקה</p>
         <div className="char-slots">
           {accountChars().slice(0,4).map((c,i)=>(
             <div key={i} className={'char-slot'+(c?' filled':'')}>
@@ -7708,6 +7710,13 @@ function App(){
           );
         })()}
       </div>
+
+      {/* NEW-PLAYER SHIELD — always visible for lv<10 so it's clear protection is active */}
+      {p && p.level < 10 && (
+        <div style={{position:'absolute',top:130,right:8,zIndex:41,pointerEvents:'none',background:'rgba(10,30,50,0.85)',border:'2px solid #4af',borderRadius:8,padding:'3px 8px',fontSize:'0.6rem',color:'#8cf',fontWeight:700}}>
+          🛡️ הגנת מתחילים (רמה {p.level}/10)
+        </div>
+      )}
 
       {/* ACTIVE BUFFS */}
       {(G.buffEnd>Date.now()||G.shieldEnd>Date.now()||(G.spdBuffEnd&&G.spdBuffEnd>Date.now())) && (
