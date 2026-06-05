@@ -4923,6 +4923,16 @@ function App(){
   const monsterHitPlayer = useCallback((mon)=>{
     const p = G.player, cs = G.cs;
     if(G.shield || G.godMode || G._iframe){ return; }
+    // SAFETY: a roaming map boss never harms a brand-new player (lv<8). New players
+    // shouldn't be chased down and killed by a world boss before they can even fight.
+    if(mon.isBoss && !mon._worldBoss && !mon._nestFinal && p.level < 8){ return; }
+    // GLOBAL HIT-GRACE: after taking a hit, the player has a brief window of invulnerability
+    // so a pack can't chain-stunlock you to death in a fraction of a second. The window is
+    // longer at low levels (a new player gets breathing room to react/flee).
+    const now = Date.now();
+    const grace = p.level < 8 ? 600 : p.level < 20 ? 450 : 300;
+    if(G._lastHitT && now - G._lastHitT < grace){ return; }
+    G._lastHitT = now;
     // Defense gives PERCENTAGE mitigation (diminishing), not flat subtraction —
     // so high defense never makes you fully immune. A monster always lands at
     // least ~20% of its attack. mitigation caps at ~75%.
@@ -5775,6 +5785,8 @@ function App(){
     //    back down (returns to passive) so it never chases across the whole map. ──
     if(m.isBoss && !m._worldBoss && !m._nestFinal && G.worldDef && !G.worldDef.nest && !G.worldDef.dungeon){
       if(!m._passive && Math.hypot(p.x-m.x, p.y-m.y) > 900){ m._passive=true; m.aggro=false; m._enraged=false; }
+      // never hunt a brand-new player — stay calm/passive
+      if(p.level < 8){ m._passive=true; m.aggro=false; }
     }
     // ── PASSIVE roaming boss: ignores the player until first attacked (just idles) ──
     if(m._passive){
@@ -5813,7 +5825,7 @@ function App(){
         m.aggro=false; m.state='idle';
         return;
       }
-      m._cageDmg = m._cageDmg || cagedMon.dmgMult || 1.4; // caged monsters hit harder
+      m._cageDmg = m._cageDmg || cagedMon.dmgMult || 1.0; // caged monsters use the pen's (level-scaled) multiplier
     }
     // ── SHARED (server-owned) monster ──
     if(m._server){
