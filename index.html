@@ -568,7 +568,7 @@ const SKILLS = {
   poison_nova: {name:'נובת רעל', emoji:'☠️', dmg:1.5, mp:40, cd:5000, type:'aoe', range:160, dot:true, fx:'poison', color:'#88ff00', desc:'ענן רעל מתמשך', cls:'all', price:4000, reqLv:22},
   // ── EVOLUTION SKILLS (unlocked automatically on evolution, cannot be bought) ──
   // Warrior
-  blade_storm: {name:'סופת להבים', emoji:'🌀', dmg:3.4, mp:38, cd:4000, type:'aoe', range:160, fx:'whirl', color:'#ff9a3a', desc:'מערבולת להבים אינסופית', cls:'warrior', price:-1, reqLv:50, evoSkill:true},
+  blade_storm: {name:'סופת להבים', emoji:'🌀', dmg:4.2, mp:38, cd:4000, type:'aoe', range:160, fx:'whirl', color:'#ff9a3a', desc:'מערבולת להבים אינסופית', cls:'warrior', price:-1, reqLv:50, evoSkill:true},
   titan_smash: {name:'מהלומת טיטאן', emoji:'⚡', dmg:7.0, mp:70, cd:6000, type:'aoe', range:210, fx:'quake', color:'#ffcc00', desc:'מכה שמרעידה את כל המסך', cls:'warrior', price:-1, reqLv:110, evoSkill:true},
   // Mage
   arcane_burst:{name:'פרץ ארקני', emoji:'🌟', dmg:4.0, mp:42, cd:3200, type:'proj', speed:520, fx:'fire', aoe:90, color:'#cc66ff', desc:'כדור אנרגיה ארקנית מתפוצץ', cls:'mage', price:-1, reqLv:50, evoSkill:true},
@@ -582,7 +582,7 @@ const SKILLS = {
   // ── ULTIMATE skills (level 220 third evolution) ──
   ragnarok:    {name:'רגנארוק', emoji:'🔥', dmg:16, mp:120, cd:9000, type:'aoe', range:300, fx:'quake', color:'#ff3300', desc:'קץ הימים — הרס מוחלט', cls:'warrior', price:-1, reqLv:220, evoSkill:true},
   big_bang:    {name:'המפץ הגדול', emoji:'💥', dmg:20, mp:150, cd:10000, type:'aoe', range:320, fx:'meteor', color:'#ff44ff', desc:'יצירה והרס ביקום', cls:'mage', price:-1, reqLv:220, evoSkill:true},
-  meteor_arrows:{name:'חצי מטאור', emoji:'☄️', dmg:13, mp:130, cd:9000, type:'multi', count:16, speed:800, fx:'arrow', color:'#00ffcc', desc:'16 חצי מטאור בוערים', cls:'archer', price:-1, reqLv:220, evoSkill:true},
+  meteor_arrows:{name:'חצי מטאור', emoji:'☄️', dmg:7, mp:130, cd:9000, type:'multi', count:16, speed:800, fx:'arrow', color:'#00ffcc', desc:'16 חצי מטאור בוערים', cls:'archer', price:-1, reqLv:220, evoSkill:true},
   genesis:     {name:'בריאה', emoji:'🌟', dmg:18, mp:140, cd:10000, type:'aoe', range:300, fx:'consecrate', color:'#ffffcc', desc:'אור הבריאה הראשוני', cls:'paladin', price:-1, reqLv:220, evoSkill:true},
   meteor_storm:{name:'סופת מטאורים', emoji:'☄️', dmg:19, mp:150, cd:10000, type:'aoe', range:340, fx:'meteor', color:'#44aaff', desc:'גשם מטאורים יסודי', cls:'mage', price:-1, reqLv:220, evoSkill:true},
   mass_heal:   {name:'ריפוי המונים', emoji:'💚', dmg:0, heal:0.6, mp:120, cd:8000, type:'heal_aoe', range:300, fx:'consecrate', color:'#88ffcc', desc:'ריפוי עוצמתי לך ולבעלי הברית', cls:'paladin', price:-1, reqLv:220, evoSkill:true},
@@ -677,6 +677,49 @@ const EVOLUTIONS = {
 
 // ── FINAL EVOLUTION BRANCHES (lv220): the player CHOOSES a path ──
 // Each branch grants a different ultimate skill + stat focus + title.
+// ── EVOLUTION BRANCHES — at EVERY evolution the player chooses 1 of 2 paths
+//    (Dragon-Nest style specialization). Keyed by class then stage index (0=lv50,
+//    1=lv110, 2=lv220). Each path tweaks the stat multipliers + grants a flavor title.
+// ── EVOLUTION PATH TREE — a real specialization tree (Dragon-Nest style).
+//    stage 0 (lv50): a flat list of starting paths.
+//    stage 1+ (lv110, lv220): keyed by the PARENT path id you chose, so each branch
+//    leads to its own thematic continuations (offensive paths beget offensive, etc.).
+const EVO_PATHS = {
+  warrior: {
+    0: [ {id:'w0_blade', name:'אמן הלהב', atkBonus:0.15, hpBonus:0.0, spdBonus:0.05, desc:'נזק התקפי גבוה ומהירות', title:'אמן הלהב'},
+         {id:'w0_iron',  name:'חומת הברזל', atkBonus:0.0, hpBonus:0.25, spdBonus:0.0, desc:'חיים והגנה מוגברים', title:'חומת הברזל'} ],
+    // offensive branch (from אמן הלהב)
+    w0_blade: [ {id:'w1_zerk', name:'ברסרקר', atkBonus:0.28, hpBonus:0.0, spdBonus:0.08, desc:'זעם פראי — נזק קיצוני', title:'ברסרקר'},
+                {id:'w1_glad', name:'גלדיאטור', atkBonus:0.18, hpBonus:0.1, spdBonus:0.12, desc:'אמן קומבו זריז', title:'גלדיאטור'} ],
+    // defensive branch (from חומת הברזל)
+    w0_iron:  [ {id:'w1_guard', name:'שומר אל', atkBonus:0.05, hpBonus:0.4, spdBonus:0.0, desc:'חומה בלתי-חדירה', title:'שומר אל'},
+                {id:'w1_temp',  name:'טמפלר', atkBonus:0.15, hpBonus:0.25, spdBonus:0.0, desc:'איזון בין מתקפה להגנה', title:'טמפלר'} ],
+  },
+  mage: {
+    0: [ {id:'m0_fire',  name:'אדון האש', atkBonus:0.18, hpBonus:0.05, spdBonus:0.0, desc:'קסמי אש הרסניים', title:'אדון האש'},
+         {id:'m0_frost', name:'אדון הקרח', atkBonus:0.1, hpBonus:0.1, spdBonus:0.05, desc:'שליטה והאטה', title:'אדון הקרח'} ],
+    m0_fire:  [ {id:'m1_pyro', name:'פירומאנסר', atkBonus:0.3, hpBonus:0.0, spdBonus:0.0, desc:'אש טהורה הרסנית', title:'פירומאנסר'},
+                {id:'m1_arc',  name:'אדון הארקנה', atkBonus:0.22, hpBonus:0.08, spdBonus:0.05, desc:'עוצמת קסם גולמית', title:'אדון הארקנה'} ],
+    m0_frost: [ {id:'m1_cryo', name:'קריומאנסר', atkBonus:0.18, hpBonus:0.12, spdBonus:0.08, desc:'שליטה מוחלטת בקרב', title:'קריומאנסר'},
+                {id:'m1_elem', name:'אדון היסודות', atkBonus:0.15, hpBonus:0.18, spdBonus:0.05, desc:'איזון בין כל היסודות', title:'אדון היסודות'} ],
+  },
+  archer: {
+    0: [ {id:'a0_snipe', name:'צלף', atkBonus:0.18, hpBonus:0.0, spdBonus:0.08, desc:'נזק טווח וקריטים', title:'צלף'},
+         {id:'a0_swift', name:'רץ הרוח', atkBonus:0.08, hpBonus:0.08, spdBonus:0.2, desc:'מהירות וזריזות', title:'רץ הרוח'} ],
+    a0_snipe: [ {id:'a1_eagle', name:'עין הנץ', atkBonus:0.3, hpBonus:0.0, spdBonus:0.05, desc:'דיוק קטלני וקריטים', title:'עין הנץ'},
+                {id:'a1_artil', name:'ארטילרי', atkBonus:0.22, hpBonus:0.1, spdBonus:0.05, desc:'מטחים הרסניים', title:'ארטילרי'} ],
+    a0_swift: [ {id:'a1_wind',  name:'רוח הפרא', atkBonus:0.15, hpBonus:0.1, spdBonus:0.28, desc:'ניידות עליונה', title:'רוח הפרא'},
+                {id:'a1_trap',  name:'צייד מלכוד', atkBonus:0.18, hpBonus:0.12, spdBonus:0.15, desc:'מלכודות וקיטינג', title:'צייד מלכוד'} ],
+  },
+  paladin: {
+    0: [ {id:'p0_holy',  name:'אביר האור', atkBonus:0.15, hpBonus:0.12, spdBonus:0.0, desc:'נזק קדוש + עמידות', title:'אביר האור'},
+         {id:'p0_guard', name:'מגן הברית', atkBonus:0.05, hpBonus:0.28, spdBonus:0.0, desc:'הגנה ותמיכה', title:'מגן הברית'} ],
+    p0_holy:  [ {id:'p1_cru',  name:'צלבן', atkBonus:0.25, hpBonus:0.15, spdBonus:0.05, desc:'לוחם קדוש תוקפני', title:'צלבן'},
+                {id:'p1_inq',  name:'אינקוויזיטור', atkBonus:0.2, hpBonus:0.2, spdBonus:0.0, desc:'נזק קדוש וקללות', title:'אינקוויזיטור'} ],
+    p0_guard: [ {id:'p1_heal', name:'יד הריפוי', atkBonus:0.05, hpBonus:0.35, spdBonus:0.0, desc:'ריפוי רב-עוצמה', title:'יד הריפוי'},
+                {id:'p1_temp', name:'מקדש', atkBonus:0.12, hpBonus:0.3, spdBonus:0.0, desc:'מגן תומך בלתי-שביר', title:'מקדש'} ],
+  },
+};
 const EVO_BRANCHES = {
   warrior: [
     {id:'berserker', name:'ברסרקר', skill:'ragnarok',   hpMul:1.7, atkMul:2.6, spdMul:1.25, aura:'#ff3300', title:'אל הזעם', desc:'נזק התקפי קיצוני ומהירות'},
@@ -1053,7 +1096,7 @@ const QUESTS = [
   {id:'q_demon_legion',name:'לגיון השדים',       emoji:'😈',  type:'kill',  target:'demon', count:50, reward:{xp:120000,gold:50000,item:true}, reqLv:60, desc:'הרוג 50 שדים במבוך הנפחייה'},
 ];
 
-const _gd = {CLASSES, SKILLS, EVOLUTIONS, RARITY, ITEM_BASES, CONSUMABLES, SHOP_SETS, MONSTERS, BOSSES, WORLDS, QUESTS, ITEM_PREFIXES, ITEM_SUFFIXES, MATERIALS, CRAFT_RECIPES, MOUNTS, PETS, PET_PARTS, ACHIEVEMENTS, EVO_BRANCHES, EVO_QUESTS, ELEMENTS, STATUS_FX, SKILL_ELEMENT, skillElement, ULT_BY_CLASS};
+const _gd = {CLASSES, SKILLS, EVOLUTIONS, RARITY, ITEM_BASES, CONSUMABLES, SHOP_SETS, MONSTERS, BOSSES, WORLDS, QUESTS, ITEM_PREFIXES, ITEM_SUFFIXES, MATERIALS, CRAFT_RECIPES, MOUNTS, PETS, PET_PARTS, ACHIEVEMENTS, EVO_BRANCHES, EVO_PATHS, EVO_QUESTS, ELEMENTS, STATUS_FX, SKILL_ELEMENT, skillElement, ULT_BY_CLASS};
 // SECURITY: deep-freeze all game-balance data so a tamperer can't rewrite item
 // prices, set bonuses, skill damage, drop tables, etc. from the console. (Frozen
 // objects silently reject writes; functions are left callable.)
@@ -1245,6 +1288,20 @@ function computeStats(player){
     // evolution gives a small speed boost but stays under the cap
     spd   = +(Math.min(spd * Math.min(evos[i].spdMul,1.12), 11)).toFixed(2);
   }
+  // Evolution PATH bonuses (the chosen specialization at each stage). Walk the tree:
+  // stage 0 lives under key [0]; stage i>0 lives under the id chosen at stage i-1.
+  if(player.evoPaths){
+    const tree = D.EVO_PATHS[player.classId]||{};
+    for(let i=0; i<(player.evoStage||0); i++){
+      const chosenId = player.evoPaths[i]; if(!chosenId) continue;
+      const list = i===0 ? (tree[0]||[]) : (tree[player.evoPaths[i-1]]||[]);
+      const pth = list.find(x=>x.id===chosenId); if(!pth) continue;
+      atk  = Math.round(atk  * (1+(pth.atkBonus||0)));
+      matk = Math.round(matk * (1+(pth.atkBonus||0)));
+      maxHp= Math.round(maxHp* (1+(pth.hpBonus||0)));
+      spd  = +(Math.min(spd*(1+(pth.spdBonus||0)), 11)).toFixed(2);
+    }
+  }
 
   // ── AWAKENING: a permanent power surge unlocked at lv60. +25% atk/matk and
   //    deeper element/status potency (handled at hit time via player.awakened). ──
@@ -1337,6 +1394,7 @@ function createPlayer(classId, name){
     weeklyRewardClaimed:0, // weekId of the last claimed weekly-winner reward
     evoQuests:{},          // evolution quest progress: {questId:{progress,done}}
     evoBranch:null,        // chosen lv220 branch id
+    evoPaths:{},           // chosen specialization path per evo stage {0:'w0_blade',...}
     evoReady:false,        // true when level reached but quests pending
     epicStage:0,           // progress through the lv220 epic chain (0-4)
   };
@@ -1388,7 +1446,7 @@ function _critState(p){
   const eq = Object.values(p.equipped||{}).map(it=>it?`${it.uid||''}:${it.rarity||''}:${it._enh||0}`:'-').join(',');
   const mats = Object.entries(p.materials||{}).sort().map(([k,v])=>`${k}=${v}`).join(',');
   return ['acct:'+(p.account||''), 'slot:'+(p.charSlot||0), p.level||1, Math.round(p.gold||0), p.statPoints||0,
-    p.evoStage||0, p.awakened?1:0, (p.mounts||[]).length, (p.pets||[]).length, inv, eq, mats].join('#');
+    p.evoStage||0, JSON.stringify(p.evoPaths||{}), p.awakened?1:0, (p.mounts||[]).length, (p.pets||[]).length, inv, eq, mats].join('#');
 }
 function signChar(p){ return _mix(_critState(p)); }
 function verifyChar(p){
@@ -2566,8 +2624,49 @@ function drawProp(ctx, type, x, y, s, now){
     case 'lamp': drawLamp(ctx,x,y,s,now); break;
     case 'crystal': drawCrystal(ctx,x,y,s,'#aa66ff',now); break;
     case 'firecrystal': drawCrystal(ctx,x,y,s,'#ff5a2a',now); break;
+    case 'signpost': drawSignpost(ctx,x,y,s); break;
+    case 'ruins': drawRuins(ctx,x,y,s); break;
+    case 'campfire': drawCampfire(ctx,x,y,s,now); break;
+    case 'flowers': drawFlowers(ctx,x,y,s); break;
+    case 'deadtree': drawTree(ctx,x,y,s,3); break;
+    case 'mushroom': drawMushroom(ctx,x,y,s); break;
     default: drawRock(ctx,x,y,s); break;
   }
+}
+function drawSignpost(ctx,x,y,s){ ctx.save(); const k=s/100;
+  ctx.fillStyle='#6a4a2a'; ctx.fillRect(x-2*k,y-30*k,4*k,34*k); // post
+  ctx.fillStyle='#8a6a3a'; ctx.fillRect(x-16*k,y-30*k,30*k,11*k); // sign
+  ctx.fillStyle='#caa86a'; ctx.fillRect(x-14*k,y-28*k,26*k,7*k);
+  ctx.fillStyle='#5a3a1a'; for(let i=0;i<3;i++) ctx.fillRect(x-11*k+i*8*k,y-26*k,5*k,2*k); // "text"
+  ctx.restore();
+}
+function drawRuins(ctx,x,y,s){ ctx.save(); const k=s/100;
+  ctx.fillStyle='#7a7068'; ctx.fillRect(x-26*k,y-8*k,12*k,18*k); // broken pillar
+  ctx.fillStyle='#8a8078'; ctx.fillRect(x-24*k,y-30*k,8*k,24*k);
+  ctx.fillStyle='#6a6058'; ctx.fillRect(x+6*k,y-4*k,14*k,14*k); // rubble block
+  ctx.fillStyle='#9a9088'; ctx.beginPath(); ctx.arc(x+2*k,y+6*k,6*k,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawCampfire(ctx,x,y,s,now){ ctx.save(); const k=s/100;
+  ctx.fillStyle='#3a2a1a'; for(let i=0;i<3;i++){ ctx.save(); ctx.translate(x,y+4*k); ctx.rotate(i*1.1); ctx.fillRect(-12*k,-2*k,24*k,4*k); ctx.restore(); }
+  const fl=Math.sin(now/120)*2*k;
+  ctx.fillStyle='#ff6a2a';
+  ctx.beginPath(); ctx.moveTo(x-8*k,y); ctx.quadraticCurveTo(x,y-22*k-fl,x+8*k,y); ctx.fill();
+  ctx.fillStyle='#ffd24a'; ctx.beginPath(); ctx.moveTo(x-4*k,y); ctx.quadraticCurveTo(x,y-13*k-fl,x+4*k,y); ctx.fill();
+  ctx.restore();
+}
+function drawFlowers(ctx,x,y,s){ ctx.save(); const k=s/100;
+  const cols=['#ff6aa0','#ffd24a','#9a6aff','#fff'];
+  for(let i=0;i<5;i++){ const fx=x+(i-2)*7*k, fy=y+((i*37)%9-4)*k;
+    ctx.fillStyle='#3a7a35'; ctx.fillRect(fx-1,fy-6*k,2,8*k);
+    ctx.fillStyle=cols[i%cols.length]; ctx.beginPath(); ctx.arc(fx,fy-7*k,3*k,0,Math.PI*2); ctx.fill(); }
+  ctx.restore();
+}
+function drawMushroom(ctx,x,y,s){ ctx.save(); const k=s/100;
+  ctx.fillStyle='#e8dcc0'; ctx.fillRect(x-3*k,y-8*k,6*k,9*k); // stem
+  ctx.fillStyle='#d0402a'; ctx.beginPath(); ctx.ellipse(x,y-8*k,10*k,7*k,0,Math.PI,0); ctx.fill(); // cap
+  ctx.fillStyle='#fff'; [-5,0,5].forEach(d=>{ ctx.beginPath(); ctx.arc(x+d*k,y-10*k,1.6*k,0,Math.PI*2); ctx.fill(); });
+  ctx.restore();
 }
 
 // ════════════════════════════════════════════════════
@@ -2609,6 +2708,84 @@ function drawMount(ctx, x, y, type, facing, t){
 
 return {drawMonster, drawPlayer, lighten, darken, drawGround, withAlpha, drawProp, drawMount};
 })();
+
+// ════════════════════════════════════════════════════════════════
+//  SOUND — procedural audio via Web Audio API (no files, stays single-file).
+//  Synthesizes attack/hit/level/UI sounds + a soft ambient pad. Mutable.
+// ════════════════════════════════════════════════════════════════
+window.SOUND = (function(){
+  let ctx=null, master=null, ambGain=null, ambNodes=[], started=false;
+  let muted = (function(){ try{ return localStorage.getItem('wol_muted')==='1'; }catch(e){ return false; } })();
+  function ensure(){
+    if(ctx) return ctx;
+    try{
+      ctx = new (window.AudioContext||window.webkitAudioContext)();
+      master = ctx.createGain(); master.gain.value = muted?0:0.5; master.connect(ctx.destination);
+      ambGain = ctx.createGain(); ambGain.gain.value = 0; ambGain.connect(master);
+    }catch(e){ ctx=null; }
+    return ctx;
+  }
+  // a short synthesized blip: type=osc shape, f0→f1 sweep over dur, gain env
+  function blip(f0,f1,dur,type,vol){
+    if(muted) return; const c=ensure(); if(!c) return;
+    const t=c.currentTime;
+    const o=c.createOscillator(), g=c.createGain();
+    o.type=type||'square'; o.frequency.setValueAtTime(f0,t);
+    if(f1&&f1!==f0) o.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
+    g.gain.setValueAtTime(0.0001,t);
+    g.gain.exponentialRampToValueAtTime(vol||0.3,t+0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t+dur+0.02);
+  }
+  // noise burst (for impacts/hits)
+  function noise(dur,vol,filterHz){
+    if(muted) return; const c=ensure(); if(!c) return;
+    const t=c.currentTime, n=Math.floor(c.sampleRate*dur);
+    const buf=c.createBuffer(1,n,c.sampleRate), d=buf.getChannelData(0);
+    for(let i=0;i<n;i++) d[i]=(Math.random()*2-1)*(1-i/n);
+    const src=c.createBufferSource(); src.buffer=buf;
+    const f=c.createBiquadFilter(); f.type='lowpass'; f.frequency.value=filterHz||1200;
+    const g=c.createGain(); g.gain.value=vol||0.25;
+    src.connect(f); f.connect(g); g.connect(master); src.start(t);
+  }
+  const SFX = {
+    swing(){ blip(420,180,0.12,'sawtooth',0.18); },
+    hit(){ noise(0.09,0.22,1600); blip(200,90,0.08,'square',0.12); },
+    crit(){ noise(0.14,0.3,2400); blip(700,200,0.18,'sawtooth',0.22); },
+    arrow(){ blip(900,500,0.1,'triangle',0.14); },
+    cast(){ blip(300,800,0.18,'sine',0.16); },
+    levelup(){ [523,659,784,1047].forEach((f,i)=>setTimeout(()=>blip(f,f,0.18,'triangle',0.25),i*90)); },
+    pickup(){ blip(880,1320,0.1,'sine',0.18); },
+    die(){ blip(160,40,0.4,'sawtooth',0.25); noise(0.3,0.2,800); },
+    ui(){ blip(660,660,0.05,'square',0.12); },
+    portal(){ blip(200,900,0.5,'sine',0.2); },
+  };
+  function play(name){ try{ if(SFX[name]) SFX[name](); }catch(e){} }
+  // soft ambient drone: two detuned low oscillators + slow LFO swell
+  function startAmbient(){
+    if(started||muted) return; const c=ensure(); if(!c) return;
+    started=true;
+    [110,138.6].forEach((f,i)=>{
+      const o=c.createOscillator(), g=c.createGain();
+      o.type='sine'; o.frequency.value=f; g.gain.value=0.04;
+      o.connect(g); g.connect(ambGain); o.start(); ambNodes.push(o,g);
+    });
+    // gentle high shimmer
+    const o2=c.createOscillator(), g2=c.createGain();
+    o2.type='triangle'; o2.frequency.value=440; g2.gain.value=0.012;
+    o2.connect(g2); g2.connect(ambGain); o2.start(); ambNodes.push(o2,g2);
+    ambGain.gain.linearRampToValueAtTime(0.5, c.currentTime+2); // fade in
+  }
+  function resume(){ const c=ensure(); if(c && c.state==='suspended') c.resume(); }
+  function setMuted(m){
+    muted=!!m; try{ localStorage.setItem('wol_muted', muted?'1':'0'); }catch(e){}
+    if(master){ const c=ensure(); master.gain.linearRampToValueAtTime(muted?0:0.5, c.currentTime+0.1); }
+    if(!muted) startAmbient();
+  }
+  function isMuted(){ return muted; }
+  return { play, startAmbient, resume, setMuted, isMuted };
+})();
+
 
 // ════════════════════════════════════════════════════════════════
 //  WOLNet — multiplayer connector (shared world + chat + real-time PvP)
@@ -2709,6 +2886,7 @@ window.WOLNet = (function(){
         case 'peers': this.peers.clear(); (m.peers||[]).forEach(p=>this.peers.set(p.id,p)); break;
         case 'playerJoined': if(m.player&&m.player.id!==this.id) this.peers.set(m.player.id,m.player); break;
         case 'playerLeft': this.peers.delete(m.id); break;
+        case 'peerGhost': { const p=this.peers.get(m.id); if(p){ p._ghost=true; } break; }
         case 'peerMove': { const p=this.peers.get(m.id); if(p){
           // INTERPOLATION: store the freshly-received position as a TARGET. The render
           // loop smoothly eases the drawn position (p.x/p.y) toward it each frame, so a
@@ -3017,6 +3195,7 @@ function App(){
   const [nestDiffPrompt, setNestDiffPrompt] = useState(null); // {world} → choose difficulty before entering a nest
   const [fullMap, setFullMap] = useState(false); // fullscreen map view
   const [nestComplete, setNestComplete] = useState(false); // "return to city?" after finishing a nest
+  const [muted, setMuted] = useState(()=>window.SOUND?window.SOUND.isMuted():false);
   // ── New-player tutorial (null = not showing; 0..N = current step) ──
   const [tutorialStep, setTutorialStep] = useState(null);
   useEffect(()=>{
@@ -3923,7 +4102,7 @@ function App(){
       p.hp = G.cs.maxHp; p.mp = G.cs.maxMp;
       setLvlupFlash(Date.now());
       setTimeout(()=>setLvlupFlash(0), 2500);
-      log(`⭐ עלית לרמה ${p.level}! (+${leveled*5} נקודות סטטיסטיקה)`, 'lg-xp');
+      log(`⭐ עלית לרמה ${p.level}! (+${leveled*5} נקודות סטטיסטיקה)`, 'lg-xp'); window.SOUND&&window.SOUND.play('levelup');
       // Milestone messages
       const milestones = {
         10:'🌟 עשרה רמות! הרפתקאי אמיתי!',
@@ -3985,6 +4164,28 @@ function App(){
   const updateEvoQuests = ()=>{
     const p = G.player; if(!p) return;
     if(!p.evoQuests) p.evoQuests={};
+    // use the active accepted quest (from G._evoQuestActive) so dynamic quests track too
+    const active = G._evoQuestActive;
+    const quests = active ? active.quests : null;
+    if(!quests) return;
+    let justFinished=false;
+    quests.forEach(q=>{
+      if(!p.evoQuests[q.id]) p.evoQuests[q.id]={progress:0,done:false};
+      const qs=p.evoQuests[q.id]; if(qs.done) return;
+      if(q.type==='kill_any') qs.progress = p.kills - (active._killBase||0);
+      else if(q.type==='gold') qs.progress = p.gold;
+      else if(q.type==='boss_any') qs.progress = (p._evoBossKills||0) - (active._bossBase||0);
+      if(qs.progress>=q.target){ qs.done=true; justFinished=true; showToast(`✅ משימת התפתחות הושלמה!`,'#5aff8a'); }
+    });
+    if(justFinished && quests.every(q=>p.evoQuests[q.id]&&p.evoQuests[q.id].done)){
+      showToast('🔮 חזור למאסטר האמנויות בעיר לבחירת ההתפתחות!','#ffd24a');
+      G._evoQuestActive = null;
+    }
+  };
+  // legacy (unused) updater kept for compatibility
+  const _updateEvoQuestsOld = ()=>{
+    const p = G.player; if(!p) return;
+    if(!p.evoQuests) p.evoQuests={};
     const evos = D.EVOLUTIONS[p.classId]||[];
     const nextStage = evos[p.evoStage||0];
     if(!nextStage) return;
@@ -4003,32 +4204,28 @@ function App(){
   const checkEvolution = useCallback(()=>{
     const p = G.player;
     const evos = D.EVOLUTIONS[p.classId] || [];
+    const stage = p.evoStage||0;
+    const next = evos[stage];
+    if(!next) return;
+    // Evolution is now PLAYER-DRIVEN (chosen via the Master of Arts panel). Here we
+    // only raise the "ready" flag + a prompt when the player first reaches the level.
+    if(p.level >= next.lv && !p.evoReady && !p._evoNotified){
+      p.evoReady = true; p._evoNotified = (p._evoNotified||{}); p._evoNotified[next.lv]=true;
+      if(stage===0){
+        showToast(`⚡ הגעת להתפתחות הראשונה! פתח את 🔮 ההתפתחות ובחר את דרכך`, '#ffd24a');
+        log(`⚡ התפתחות ראשונה זמינה! פתח את לוח ההתפתחות (⚡) ובחר בין 2 מסלולים`, 'lg-leg');
+      } else {
+        showToast(`⚡ הגעת לרמת התפתחות! לך לעיר ודבר עם 🔮 מאסטר האמנויות`, '#ffd24a');
+        log(`⚡ אתה מוכן להתפתח — חזור לעיר ודבר עם 🔮 מאסטר האמנויות לקבלת משימת ההתפתחות`, 'lg-leg');
+      }
+    }
+    return;
+    // (legacy auto-evolve removed — kept structure below disabled)
+    // eslint-disable-next-line no-unreachable
     let lastEvo = null;
-    // Evolve only if the player reached the level AND completed the evo quests.
-    while((p.evoStage||0) < evos.length && p.level >= evos[p.evoStage].lv){
-      const stageLv = evos[p.evoStage].lv;
-      // Are this stage's quests complete?
-      if(!evoQuestsComplete(p, stageLv)){
-        // Reached the level but quests pending — flag it, don't evolve yet.
-        if(!p.evoReady){
-          p.evoReady = true;
-          showToast(`⚡ הגעת לרמת התפתחות! השלם משימות אצל הנביא בעיר`, '#ffd24a');
-          log(`⚡ אתה מוכן להתפתח לרמה ${stageLv} — דבר עם 📜 נותן המשימות בעיר להשלמת משימות ההתפתחות`, 'lg-leg');
-        }
-        break;
-      }
-      // lv220 requires a branch choice — handled by the evo panel, not here
-      if(evos[p.evoStage].branch && !p.evoBranch){
-        if(!p.evoReady){ p.evoReady=true; showToast('⚡ בחר את מסלול ההתפתחות הסופי שלך!','#ffd24a'); }
-        break;
-      }
+    while(false && (p.evoStage||0) < evos.length && p.level >= evos[p.evoStage].lv){
       const evo = evos[p.evoStage];
-      // apply branch override at the final stage
       let grantSkill = evo.skill;
-      if(evo.branch && p.evoBranch){
-        const br = (D.EVO_BRANCHES[p.classId]||[]).find(b=>b.id===p.evoBranch);
-        if(br) grantSkill = br.skill;
-      }
       p.evoStage = (p.evoStage||0) + 1;
       p.evoReady = false;
       if(grantSkill && !p.skills.includes(grantSkill)){
@@ -4156,7 +4353,8 @@ function App(){
     // curse debuff amplifies all damage taken
     if(mon._status && mon._status.curse){ dmg = Math.round(dmg * (1 + 0.08*mon._status.curse.stacks)); }
     const crit = Math.random() < (cs.crit + (critChance||0));
-    if(crit){ dmg = Math.round(dmg*2); G.shake = Math.max(G.shake||0, 5); burst(mon.x, mon.y-mon.size*0.5, '#ffd24a', 8, 220); }
+    if(crit){ dmg = Math.round(dmg*2); G.shake = Math.max(G.shake||0, 5); burst(mon.x, mon.y-mon.size*0.5, '#ffd24a', 8, 220); window.SOUND&&window.SOUND.play('crit'); }
+    else { window.SOUND&&window.SOUND.play('hit'); }
     pushDmgNum(mon.x, mon.y - mon.size, dmg, crit?'#ffd24a':(el!=='physical'?D.ELEMENTS[el].color:'#fff'), crit);
     mon.hurtT = Date.now()+150;
     if(mon._passive){ mon._passive=false; mon.aggro=true; } // attacking it wakes it up
@@ -4668,6 +4866,7 @@ function App(){
     // no attacking while in the safe zone (town hub OR combat-world spawn outpost)
     const _sr = activeSafeR();
     if(_sr > 0 && Math.hypot(p.x-WW/2, p.y-WH/2) < _sr) return;
+    if(window.SOUND){ window.SOUND.resume(); window.SOUND.play(p.classId==='archer'?'arrow':p.classId==='mage'?'cast':'swing'); }
     const cls = p.classId;
     // ── Class attack profiles ──
     // archer: fast ranged arrows, medium dmg.  mage: ranged elemental, a bit slower/shorter than archer but strong.
@@ -5129,26 +5328,30 @@ function App(){
       // BOSS DANGER ZONE: when the wind-up ends, explode — damage the player if inside.
       if(ef.type==='danger' && !ef._resolved && Date.now()>=ef.fireAt){
         ef._resolved=true; ef._boom=Date.now();
+        const elCol = (ef.el && ef.el.color) || '#ff3030';
         const pl=G.player;
         if(pl && !G.godMode){
           const d=Math.hypot(pl.x-ef.x, pl.y-ef.y);
           if(d <= ef.r){
             if(G.shield){ /* shield blocks it */ }
             else {
-              // percentage mitigation (same as monster hits) so high def never = immune
               const def = G.cs ? (G.cs.def||0) : 0;
               const mit = Math.min(0.75, def/(def+200+pl.level*12));
               const dmg=Math.max(1, Math.round(ef.dmg*(1-mit)));
               pl.hp=Math.max(0, pl.hp-dmg);
-              pushDmgNum(pl.x, pl.y-40, dmg, '#ff2a2a', true);
+              pushDmgNum(pl.x, pl.y-40, dmg, elCol, true);
               G.hurtFlash=Date.now()+220; G.shake=12;
+              window.SOUND&&window.SOUND.play('hit');
+              // elemental status applied to the PLAYER (brief slow/burn feel via flash)
+              if(ef.el && ef.el.status){ G._playerStatusFx = {el:ef.el, until:Date.now()+1500}; }
               if(pl.hp<=0){ G.running=false; setTimeout(()=>setDead(true),400); }
             }
           }
         }
-        // visual explosion burst
-        burst(ef.x, ef.y, ef.kind==='beam'?'#ff8a3a':'#ff3030', 22, 240);
-        G.effects.push({type:'ring', x:ef.x, y:ef.y, r:0, maxR:ef.r, color:'#ff3030', life:0.4, t:0});
+        // elemental explosion burst
+        burst(ef.x, ef.y, elCol, 26, 260);
+        G.effects.push({type:'ring', x:ef.x, y:ef.y, r:0, maxR:ef.r, color:elCol, life:0.4, t:0});
+        window.SOUND&&window.SOUND.play('crit');
       }
       if(ef.t>=ef.life) G.effects.splice(i,1);
     }
@@ -5166,10 +5369,12 @@ function App(){
         if(gi.gold!=null){
           p.gold += gi.gold;
           G.groundItems.splice(i,1);
+          window.SOUND&&window.SOUND.play('pickup');
         } else if(p.inventory.length<40){
           p.inventory.push(gi.item);
           log(`🎒 אספת ${gi.item.emoji} ${gi.item.name}`, D.RARITY[gi.item.rarity].color==='#ff8000'?'lg-leg':'lg-item');
           G.groundItems.splice(i,1);
+          window.SOUND&&window.SOUND.play('pickup');
         } else if(!G._bagFullWarned || Date.now()-G._bagFullWarned>5000){
           G._bagFullWarned = Date.now();
           showToast('🎒 התיק מלא! פנה מקום כדי לאסוף', '#ff5a5a');
@@ -5268,47 +5473,75 @@ function App(){
   //    (Dragon-Nest style). The boss periodically marks a red zone on the ground;
   //    after a wind-up it explodes for heavy damage. Phases get more aggressive
   //    as the boss loses HP (enrage). ──
+  // Each boss gets an ELEMENT that themes its telegraphed attacks (color + on-hit fx).
+  const BOSS_ELEMENTS = {
+    fire:      { color:'#ff5a2a', name:'אש',    status:'burn' },
+    ice:       { color:'#5ad8ff', name:'קרח',   status:'freeze' },
+    lightning: { color:'#ffe24a', name:'ברק',   status:'shock' },
+    earth:     { color:'#c89a4a', name:'אדמה',  status:null },
+    poison:    { color:'#8aff5a', name:'רעל',   status:'poison' },
+    dark:      { color:'#b06aff', name:'אופל',  status:'curse' },
+  };
+  function bossElement(m){
+    if(!m._element){
+      const keys=Object.keys(BOSS_ELEMENTS);
+      // derive deterministically from the boss id/level so it's stable per boss
+      const seed=((m.base&&m.base.id||'').length + (m.level||1));
+      m._element = keys[seed % keys.length];
+    }
+    return BOSS_ELEMENTS[m._element];
+  }
   function updateBossSpecials(m, now, p){
     // never cast specials while passive (not yet attacked) or stunned
     if(m._passive || now < m.stunT) return;
-    // only cast when the player is genuinely engaged & close (no off-screen sniping)
     const distToPlayer = Math.hypot(p.x-m.x, p.y-m.y);
     if(distToPlayer > 620) return;
     if(!m._nextSpecial) m._nextSpecial = now + 3000 + Math.random()*2000;
-    // enrage: below 50% HP fires specials more often + a "berserk" tint
     const hpPct = m.hp / (m.maxHp||1);
     const enraged = hpPct < 0.5;
     if(!m._enraged && enraged){ m._enraged=true; showToast(`🔥 ${m.base?m.base.name:'הבוס'} משתולל!`, '#ff3a3a'); G.shake=14; }
     if(now < m._nextSpecial) return;
-    // pick a special based on phase
     const cd = enraged ? 2600 : 4200;
     m._nextSpecial = now + cd + Math.random()*1200;
-    m._specialFx = now + 500;      // boss rears back when casting a special
+    m._specialFx = now + 500;
     m.state = 'special';
+    const el = bossElement(m);
     const roll = Math.random();
-    if(roll < 0.5){
-      // SLAM: a big red circle at the player's current position (telegraph → boom)
+    if(roll < 0.34){
+      // SLAM: a big elemental circle at the player's current position
       const tx=p.x, ty=p.y, radius = m.isBoss?150:120;
-      spawnDangerZone(tx, ty, radius, now, enraged?700:1000, Math.round(m.atk*2.2), 'slam');
-      showToast('⚠️ הבוס מכין מהלומה!', '#ff6a3a');
-    } else if(roll < 0.8){
-      // LINE SWEEP: 3 zones in a line toward the player (a "breath/beam")
+      spawnDangerZone(tx, ty, radius, now, enraged?700:1000, Math.round(m.atk*2.2), 'slam', el);
+      showToast(`⚠️ מהלומת ${el.name}!`, el.color);
+    } else if(roll < 0.58){
+      // LINE SWEEP: a beam/breath of the boss's element toward the player
       const ang=Math.atan2(p.y-m.y, p.x-m.x);
-      for(let i=1;i<=3;i++){
-        const zx=m.x+Math.cos(ang)*i*130, zy=m.y+Math.sin(ang)*i*130;
-        spawnDangerZone(zx, zy, 90, now+i*90, (enraged?700:1000), Math.round(m.atk*1.8), 'beam');
+      for(let i=1;i<=4;i++){
+        const zx=m.x+Math.cos(ang)*i*120, zy=m.y+Math.sin(ang)*i*120;
+        spawnDangerZone(zx, zy, 85, now+i*80, (enraged?700:1000), Math.round(m.atk*1.8), 'beam', el);
       }
+      showToast(`⚠️ נשיפת ${el.name}!`, el.color);
+    } else if(roll < 0.78){
+      // SUMMON RING: zones in a ring around the boss (must run out or in)
+      const N=7;
+      for(let i=0;i<N;i++){ const a=i/N*Math.PI*2; const zx=m.x+Math.cos(a)*190, zy=m.y+Math.sin(a)*190;
+        spawnDangerZone(zx, zy, 100, now, enraged?650:950, Math.round(m.atk*1.6), 'ring', el); }
+      showToast(`⚠️ טבעת ${el.name}!`, el.color);
+    } else if(roll < 0.9){
+      // NEW — CROSS/STAR: 4-pointed danger lines (Dragon-Nest "flower" pattern)
+      for(let d=0;d<4;d++){ const a=d/4*Math.PI*2 + (enraged?Math.PI/4:0);
+        for(let i=1;i<=3;i++){ const zx=m.x+Math.cos(a)*i*130, zy=m.y+Math.sin(a)*i*130;
+          spawnDangerZone(zx, zy, 80, now+i*60, enraged?700:1000, Math.round(m.atk*1.5), 'beam', el); } }
+      showToast(`⚠️ פיצוץ ${el.name} מסתעף!`, el.color);
     } else {
-      // SUMMON RING: zones in a ring around the boss (must run out)
-      const N=6;
-      for(let i=0;i<N;i++){ const a=i/N*Math.PI*2; const zx=m.x+Math.cos(a)*180, zy=m.y+Math.sin(a)*180;
-        spawnDangerZone(zx, zy, 100, now, enraged?650:950, Math.round(m.atk*1.6), 'ring'); }
+      // NEW — EXPANDING NOVA: one huge zone centered on the boss (run far away!)
+      spawnDangerZone(m.x, m.y, 280, now, enraged?900:1300, Math.round(m.atk*2.6), 'nova', el);
+      showToast(`💥 נובת ${el.name} — התרחק!`, el.color);
     }
   }
   // Create a telegraphed danger zone that explodes after `delay` ms.
-  function spawnDangerZone(x, y, radius, fireAt, delay, dmg, kind){
+  function spawnDangerZone(x, y, radius, fireAt, delay, dmg, kind, el){
     G.effects.push({ type:'danger', x, y, r:radius, fireAt: fireAt+delay, born: fireAt,
-      delay, dmg, kind, life: (delay/1000)+0.35, t:0, _resolved:false });
+      delay, dmg, kind, el: el||null, life: (delay/1000)+0.5, t:0, _resolved:false });
   }
 
   function updateMonsterAI(m, dt, now, playerInSafe){
@@ -5584,24 +5817,45 @@ function App(){
   // ════════ RENDER ════════
   // Deterministic scenery: which props appear per world, placed on a coarse grid.
   const SCENERY_BY_TILE = {
-    grass:   [{t:'tree',w:6},{t:'tree2',w:4},{t:'rock',w:2},{t:'lamp',w:1}],
-    forest:  [{t:'pine',w:6},{t:'darktree',w:5},{t:'rock',w:2},{t:'tree',w:2}],
-    swamp:   [{t:'darktree',w:5},{t:'rock',w:3},{t:'pine',w:2}],
-    stone:   [{t:'building',w:4},{t:'house',w:4},{t:'tower',w:2},{t:'fountain',w:1},{t:'lamp',w:3}],
-    castle:  [{t:'tower',w:5},{t:'building',w:3},{t:'lamp',w:3},{t:'rock',w:1}],
-    snow:    [{t:'pine',w:4},{t:'icerock',w:5},{t:'rock',w:1}],
-    lava:    [{t:'darkrock',w:6},{t:'firecrystal',w:3}],
-    inferno: [{t:'darkrock',w:6},{t:'firecrystal',w:4}],
-    void:    [{t:'crystal',w:5},{t:'darkrock',w:3}],
-    celestial:[{t:'crystal',w:6},{t:'tower',w:2}],
+    grass:   [{t:'tree',w:6},{t:'tree2',w:4},{t:'rock',w:2},{t:'flowers',w:4},{t:'mushroom',w:2},{t:'signpost',w:1},{t:'campfire',w:1}],
+    forest:  [{t:'pine',w:6},{t:'darktree',w:5},{t:'rock',w:2},{t:'tree',w:2},{t:'mushroom',w:3},{t:'flowers',w:2},{t:'campfire',w:1}],
+    swamp:   [{t:'darktree',w:5},{t:'rock',w:3},{t:'pine',w:2},{t:'mushroom',w:3},{t:'ruins',w:2}],
+    stone:   [{t:'building',w:4},{t:'house',w:4},{t:'tower',w:2},{t:'fountain',w:1},{t:'lamp',w:3},{t:'signpost',w:2},{t:'ruins',w:2}],
+    castle:  [{t:'tower',w:5},{t:'building',w:3},{t:'lamp',w:3},{t:'rock',w:1},{t:'ruins',w:3},{t:'signpost',w:1}],
+    snow:    [{t:'pine',w:4},{t:'icerock',w:5},{t:'rock',w:1},{t:'campfire',w:2},{t:'ruins',w:1}],
+    lava:    [{t:'darkrock',w:6},{t:'firecrystal',w:3},{t:'ruins',w:2}],
+    inferno: [{t:'darkrock',w:6},{t:'firecrystal',w:4},{t:'ruins',w:2}],
+    void:    [{t:'crystal',w:5},{t:'darkrock',w:3},{t:'ruins',w:2}],
+    celestial:[{t:'crystal',w:6},{t:'tower',w:2},{t:'ruins',w:1}],
     astral:  [{t:'crystal',w:6},{t:'firecrystal',w:2}],
-    oblivion:[{t:'darkrock',w:4},{t:'crystal',w:4}],
-    metal:   [{t:'tower',w:4},{t:'darkrock',w:4}],
+    oblivion:[{t:'darkrock',w:4},{t:'crystal',w:4},{t:'ruins',w:2}],
+    metal:   [{t:'tower',w:4},{t:'darkrock',w:4},{t:'ruins',w:2}],
   };
   // Town gets a hand-placed village look
   function _hashSc(gx,gy){ const v=Math.sin(gx*127.1+gy*311.7)*43758.5453; return v-Math.floor(v); }
+  function drawPaths(ctx, W, H, cam, wd){
+    // Stone paths radiating from the spawn give the map structure & a sense of direction
+    // (so it doesn't feel like featureless open field). Skip in nests (compact arenas).
+    if(wd.nest || wd.dungeon) return;
+    const cxw=WW/2, cyw=WH/2;
+    const pathCol = wd.town ? '#6a5a44' : '#4a4338';
+    ctx.save();
+    ctx.strokeStyle=pathCol; ctx.lineWidth=46; ctx.lineCap='round'; ctx.globalAlpha=0.5;
+    const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
+    dirs.forEach(([dx,dy])=>{
+      ctx.beginPath();
+      ctx.moveTo(cxw-cam.x, cyw-cam.y);
+      ctx.lineTo(cxw+dx*2600-cam.x, cyw+dy*2600-cam.y);
+      ctx.stroke();
+    });
+    // lighter center stones
+    ctx.strokeStyle=SP.lighten?SP.lighten(pathCol,20):'#7a6a54'; ctx.lineWidth=8; ctx.globalAlpha=0.3; ctx.setLineDash([14,20]);
+    dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*2600-cam.x,cyw+dy*2600-cam.y); ctx.stroke(); });
+    ctx.setLineDash([]); ctx.restore();
+  }
   function drawScenery(ctx, W, H, cam, wd, now){
-    const GRID = 360; // prop spacing
+    drawPaths(ctx, W, H, cam, wd);
+    const GRID = 300; // prop spacing (denser than before for richer maps)
     const tile = wd.tile;
     const palette = SCENERY_BY_TILE[tile] || SCENERY_BY_TILE.grass;
     const startGX = Math.floor(cam.x/GRID)-1, startGY = Math.floor(cam.y/GRID)-1;
@@ -5611,10 +5865,12 @@ function App(){
       for(let cx=0; cx<cols; cx++){
         const gx=startGX+cx, gy=startGY+cy;
         const h=_hashSc(gx*1.7, gy*2.3);
-        if(h > 0.55) continue;
+        if(h > 0.62) continue;  // slightly denser scenery
         const wx = gx*GRID + _hashSc(gx*5+1,gy*3)*GRID*0.7 + GRID*0.15;
         const wy = gy*GRID + _hashSc(gx*3,gy*5+2)*GRID*0.7 + GRID*0.15;
         if(Math.hypot(wx-WW/2, wy-WH/2) < (wd.town?260:SAFE_R+80)) continue;
+        // keep props off the radiating paths (within ~40px of an axis through center)
+        if(!wd.nest && (Math.abs(wx-WW/2)<46 || Math.abs(wy-WH/2)<46)) continue;
         const h2=_hashSc(gx*11+7, gy*13+3);
         let total=palette.reduce((s,p)=>s+p.w,0), r=h2*total, pick=palette[0].t;
         for(const p of palette){ if(r<p.w){ pick=p.t; break; } r-=p.w; }
@@ -6044,10 +6300,19 @@ function App(){
       }
       ctx.save();
       if(pr.fx==='fire'){
-        ctx.shadowColor='#ff4400'; ctx.shadowBlur=22;
-        const g=ctx.createRadialGradient(ix,iy,0,ix,iy,pr.size*1.6);
+        ctx.shadowColor='#ff4400'; ctx.shadowBlur=24;
+        // outer heat haze
+        const halo=ctx.createRadialGradient(ix,iy,0,ix,iy,pr.size*2.4);
+        halo.addColorStop(0,SP.withAlpha('#ff6a2a',0.5)); halo.addColorStop(1,'rgba(255,40,0,0)');
+        ctx.fillStyle=halo; ctx.beginPath(); ctx.arc(ix,iy,pr.size*2.4,0,Math.PI*2); ctx.fill();
+        // pulsing core
+        const pulse=1+Math.sin(now/70)*0.12;
+        const g=ctx.createRadialGradient(ix,iy,0,ix,iy,pr.size*1.6*pulse);
         g.addColorStop(0,'#fff'); g.addColorStop(0.4,'#ffcc00'); g.addColorStop(1,'#ff2200');
-        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ix,iy,pr.size*1.4,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ix,iy,pr.size*1.4*pulse,0,Math.PI*2); ctx.fill();
+        // orbiting embers
+        ctx.fillStyle='#ffdd66';
+        for(let e=0;e<3;e++){ const a=now/120+e*2.1; ctx.beginPath(); ctx.arc(ix+Math.cos(a)*pr.size*1.5, iy+Math.sin(a)*pr.size*1.5, 2.2, 0, Math.PI*2); ctx.fill(); }
       } else if(pr.fx==='frost'){
         ctx.shadowColor='#33ccff'; ctx.shadowBlur=18; ctx.translate(ix,iy); ctx.rotate(ang);
         ctx.fillStyle='#aaeeff'; ctx.beginPath();
@@ -6440,29 +6705,35 @@ function App(){
         }
       }
       else if(ef.type==='danger'){
-        // expanding red telegraph: ring + filling interior shows time-to-boom
+        // expanding elemental telegraph: ring + filling interior shows time-to-boom
         const tNow=Date.now();
         const prog2 = ef._resolved ? 1 : Math.max(0, Math.min(1, 1-(ef.fireAt-tNow)/ef.delay));
         const msLeft = ef.fireAt - tNow;
+        const ec = (ef.el && ef.el.color) || '#ff3030';
         // outline (pulses faster as the boom nears)
-        ctx.globalAlpha = ef._resolved ? Math.max(0, 1-(tNow-ef._boom)/350) : 0.6;
-        ctx.strokeStyle='#ff3030'; ctx.lineWidth=4; ctx.shadowColor='#ff0000'; ctx.shadowBlur=14;
+        ctx.globalAlpha = ef._resolved ? Math.max(0, 1-(tNow-ef._boom)/350) : 0.7;
+        ctx.strokeStyle=ec; ctx.lineWidth=4; ctx.shadowColor=ec; ctx.shadowBlur=16;
         ctx.beginPath(); ctx.arc(ix,iy,ef.r,0,Math.PI*2); ctx.stroke();
+        // elemental inner motif (rotating spokes for nova, jagged for earth, etc.)
+        if(!ef._resolved){
+          ctx.globalAlpha=0.5; ctx.lineWidth=2;
+          const spokes = ef.kind==='nova'?12:6;
+          for(let s=0;s<spokes;s++){ const a=s/spokes*Math.PI*2 + tNow/600; ctx.beginPath(); ctx.moveTo(ix,iy); ctx.lineTo(ix+Math.cos(a)*ef.r*prog2, iy+Math.sin(a)*ef.r*prog2); ctx.stroke(); }
+        }
         // filling interior (danger building up toward the edge)
-        ctx.globalAlpha = (ef._resolved?0.5:0.18+prog2*0.32);
-        ctx.fillStyle = ef._resolved ? '#ffffff' : '#ff2a2a';
+        ctx.globalAlpha = (ef._resolved?0.5:0.16+prog2*0.34);
+        const g=ctx.createRadialGradient(ix,iy,0,ix,iy,Math.max(2,ef.r));
+        g.addColorStop(0, ef._resolved?'#ffffff':ec); g.addColorStop(1, SP.withAlpha(ec,0.05));
+        ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(ix,iy, ef._resolved?ef.r:ef.r*prog2, 0, Math.PI*2); ctx.fill();
-        // FINAL WARNING: in the last 350ms, the whole zone flashes bright (get out NOW!)
+        // FINAL WARNING: last 350ms flashes bright (get out NOW!)
         if(!ef._resolved && msLeft < 350){
           const flash = 0.4 + Math.abs(Math.sin(tNow/60))*0.5;
-          ctx.globalAlpha = flash*0.6;
-          ctx.fillStyle = '#ff5555';
+          ctx.globalAlpha = flash*0.6; ctx.fillStyle = ec;
           ctx.beginPath(); ctx.arc(ix,iy,ef.r,0,Math.PI*2); ctx.fill();
         }
-        // boom flash (bright white pop at explosion)
         if(ef._resolved && tNow-ef._boom < 150){
-          ctx.globalAlpha = 1-(tNow-ef._boom)/150;
-          ctx.fillStyle='#ffffff';
+          ctx.globalAlpha = 1-(tNow-ef._boom)/150; ctx.fillStyle='#ffffff';
           ctx.beginPath(); ctx.arc(ix,iy,ef.r,0,Math.PI*2); ctx.fill();
         }
         ctx.shadowBlur=0;
@@ -6896,6 +7167,24 @@ function App(){
       <div className="zone-tag">{wd.emoji} {wd.name}</div>
 
       {/* TOP LEFT: player frame */}
+      {/* EVOLUTION QUEST TRACKER — shows the active evo quest on the side of the screen */}
+      {G._evoQuestActive && (()=>{
+        const aq=G._evoQuestActive;
+        return (
+          <div style={{position:'absolute',right:8,top:'34%',zIndex:39,background:'rgba(10,5,16,0.82)',border:'2px solid #c9a84a',borderRadius:10,padding:'8px 10px',backdropFilter:'blur(8px)',maxWidth:170,pointerEvents:'none'}}>
+            <div style={{fontSize:'0.62rem',color:'#ffd24a',fontWeight:800,marginBottom:4}}>📜 משימת התפתחות</div>
+            {aq.quests.map(q=>{ const qs=(p.evoQuests&&p.evoQuests[q.id])||{progress:0,done:false}; const prog=Math.min(qs.progress||0,q.target);
+              return (<div key={q.id} style={{marginBottom:5}}>
+                <div style={{fontSize:'0.6rem',color:qs.done?'#5aff8a':'#e8dcc8'}}>{qs.done?'✅':'▫️'} {q.desc}</div>
+                <div style={{height:4,background:'#0c0712',borderRadius:2,overflow:'hidden',marginTop:2}}><div style={{height:'100%',width:(prog/q.target*100)+'%',background:qs.done?'#5aff8a':'#c9a84a'}}></div></div>
+                <div style={{fontSize:'0.55rem',color:'#9a8aba',textAlign:'left'}}>{prog}/{q.target}</div>
+              </div>);
+            })}
+            {aq.quests.every(q=>p.evoQuests&&p.evoQuests[q.id]&&p.evoQuests[q.id].done) && <div style={{fontSize:'0.58rem',color:'#ffd24a',fontWeight:700}}>🔮 חזור למאסטר בעיר!</div>}
+          </div>
+        );
+      })()}
+
       {/* NEST PROGRESS BANNER — clear objective + monsters remaining */}
       {G.worldDef && G.worldDef.nest && (()=>{
         const stages=G.worldDef.nestStages||[]; const si=G._nestStage||0; const stage=stages[si];
@@ -6961,7 +7250,10 @@ function App(){
 
       {/* TOP RIGHT: gold + minimap */}
       <div className="hud hud-tr">
-        <div className="gold-disp">🪙 {p.gold}</div>
+        <div style={{display:'flex',gap:6,alignItems:'center'}}>
+          <button className="mini-btn" style={{pointerEvents:'all',padding:'4px 8px'}} onClick={()=>{ const m=!(window.SOUND&&window.SOUND.isMuted()); window.SOUND&&window.SOUND.setMuted(m); setMuted(m); }} title="סאונד">{muted?'🔇':'🔊'}</button>
+          <div className="gold-disp">🪙 {p.gold}</div>
+        </div>
         {(()=>{ const readyCount=(D.QUESTS||[]).filter(q=>{ const qs=p.quests&&p.quests[q.id]; return qs&&qs.done&&!qs.claimed; }).length; return readyCount>0 ? <button className="mini-btn" style={{background:'linear-gradient(135deg,#2a6a3a,#33a04a)',borderColor:'#5aff8a',animation:'ptsPulse 1.5s infinite',pointerEvents:'all'}} onClick={()=>setModal('quests')}>✅ {readyCount} משימות מוכנות!</button> : <button className="mini-btn" style={{pointerEvents:'all'}} onClick={()=>setModal('quests')}>📋 משימות</button>; })()}
         <div className="minimap" onClick={()=>setFullMap(true)}>
           <div className="minimap-lbl">🗺️ מפה (הגדל)</div>
@@ -7036,6 +7328,7 @@ function App(){
           {p.evoReady && <button className="mini-btn" style={{borderColor:'#ffd24a',color:'#ffd24a',animation:'ptsPulse 1.5s infinite'}} onClick={()=>setModal('evolution')}>⚡ התפתחות!</button>}
           {G.worldDef && G.worldDef.town && <button className="mini-btn" style={{borderColor:'#ff99cc',color:'#ff99cc'}} onClick={()=>setModal('pets')}>🐾 חיות</button>}
           <button className="mini-btn" onClick={()=>teleport('town')}>🏰 עיר</button>
+          <button className="mini-btn" style={{borderColor:'#b89aff',color:'#c8b0ff'}} onClick={()=>{ E.save(p); cloudSync(p); G.running=false; setScreen('title'); }}>🔄 החלף שחקן</button>
           <button className="mini-btn" style={p.activeMount?{borderColor:'#5aff8a',color:'#5aff8a'}:{}} onClick={()=>{
             if(p.activeMount){ p.activeMount=null; showToast('ירדת מהרכיבה','#9a8aa8'); }
             else if(p.mounts && p.mounts.length){ p.activeMount=p.mounts[p.mounts.length-1]; showToast(`🐎 רכבת על ${D.MOUNTS[p.activeMount].name}`,'#5aff8a'); }
@@ -7055,7 +7348,7 @@ function App(){
 
       {/* JOYSTICK */}
       <div className="joy-base" ref={joyRef}
-        onTouchStart={onJoyStart} onTouchMove={onJoyMove} onTouchEnd={onJoyEnd} onTouchCancel={onJoyEnd}
+        onTouchStart={e=>{ if(window.SOUND){window.SOUND.resume();window.SOUND.startAmbient();} onJoyStart(e); }} onTouchMove={onJoyMove} onTouchEnd={onJoyEnd} onTouchCancel={onJoyEnd}
         onMouseDown={onJoyStart}>
         <div className="joy-stick"></div>
       </div>
@@ -8219,76 +8512,115 @@ function EvolutionPanel({player, showToast, rerender, teleport, setModal}){
   const [,setT]=useState(0); const refresh=()=>setT(n=>n+1);
   const D = window.GAME_DATA;
   const evos = D.EVOLUTIONS[player.classId]||[];
-  const stage = player.evoStage||0;
-  const next = evos[stage];
+  const stage = player.evoStage||0;          // how many evolutions already done
+  const next = evos[stage];                   // the evolution being worked toward
   if(!next){
     return <div style={{textAlign:'center',padding:20,color:'#ffd24a'}}>🏆 הגעת להתפתחות הסופית! אתה אגדה אמיתית.</div>;
   }
   const reached = player.level >= next.lv;
   const def = D.EVO_QUESTS[next.lv];
-  // simple-quest stages (50,110)
-  if(def && !def.epic){
-    if(!player.evoQuests) player.evoQuests={};
-    const allDone = def.quests.every(q=>player.evoQuests[q.id]&&player.evoQuests[q.id].done);
-    return (
-      <div className="bs-panel">
-        <div className="bs-guide">📜 <b>נותן המשימות:</b> כדי להתפתח ל<b>{next.name}</b> (רמה {next.lv}) עליך להוכיח את עצמך. {reached?'השלם את המשימות:':`קודם הגע לרמה ${next.lv}.`}</div>
-        {def.quests.map(q=>{
-          const qs=player.evoQuests[q.id]||{progress:0,done:false};
-          const prog=Math.min(qs.progress||0, q.target);
-          return (
-            <div key={q.id} className="bs-recipe" style={{borderColor:qs.done?'#5aff8a':'#2a2238'}}>
-              <div className="bs-r-head"><span className="bs-r-emoji">{qs.done?'✅':'📜'}</span>
-                <span className="bs-r-name" style={{color:qs.done?'#5aff8a':'#e8e0f0'}}>{q.desc}</span></div>
-              <div className="bs-r-cost">{prog.toLocaleString()} / {q.target.toLocaleString()}</div>
-              <div style={{height:6,background:'#0c0712',borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',width:(prog/q.target*100)+'%',background:qs.done?'#5aff8a':'#c9a84a'}}></div></div>
+  // Path options for THIS stage, following the tree: stage 0 = root list; later
+  // stages = the continuations of whatever path was chosen at the previous stage.
+  const tree = D.EVO_PATHS[player.classId] || {};
+  let paths;
+  if(stage===0){ paths = tree[0] || null; }
+  else { const prevChoice = player.evoPaths && player.evoPaths[stage-1]; paths = (prevChoice && tree[prevChoice]) || null; }
+
+  // Apply the chosen path: bumps evoStage, grants the stage skill, records the path.
+  const choosePath = (path)=>{
+    const evo = evos[stage];
+    if(!player.evoPaths) player.evoPaths={};
+    player.evoPaths[stage] = path.id;
+    if(path.title) player.title = path.title;
+    // grant the evolution's signature skill
+    if(evo.skill && !player.skills.includes(evo.skill)){
+      player.skills.push(evo.skill);
+      if(player.loadout.length<8) player.loadout.push(evo.skill);
+    }
+    player.evoStage = stage+1;
+    player.evoReady = false;
+    player.evoBranch = path.id; // keep legacy field in sync for stat calc
+    if(typeof E!=='undefined'){ G.cs = E.computeStats(player); player.hp=G.cs.maxHp; player.mp=G.cs.maxMp; }
+    showToast(`⚡ התפתחת ל${evo.name} — ${path.name}!`, evo.aura||'#ffd24a');
+    G.shake=16;
+    setModal&&setModal(null);
+    rerender&&rerender();
+  };
+
+  // The PATH CHOICE UI (2 options) — shown once requirements are met.
+  const PathChoice = ()=> (
+    <div>
+      <div style={{textAlign:'center',color:'#ffd24a',fontWeight:800,fontSize:'0.92rem',margin:'6px 0'}}>⚡ בחר את דרך ההתפתחות שלך:</div>
+      <div style={{textAlign:'center',color:'#9a8aba',fontSize:'0.66rem',marginBottom:10}}>הבחירה קבועה — בחר בחוכמה!</div>
+      <div style={{display:'flex',flexDirection:'column',gap:8}}>
+        {(paths||[]).map(pth=>(
+          <div key={pth.id} style={{background:'#15101e',border:'2px solid '+(next.aura||'#c9a84a'),borderRadius:10,padding:'10px 12px'}}>
+            <div style={{color:next.aura||'#ffd24a',fontWeight:800,fontSize:'0.95rem'}}>{pth.name}</div>
+            <div style={{fontSize:'0.7rem',color:'#c8b8d8',margin:'4px 0'}}>{pth.desc}</div>
+            <div style={{fontSize:'0.62rem',color:'#9a8aba'}}>
+              {pth.atkBonus>0&&`⚔️ +${Math.round(pth.atkBonus*100)}% התקפה `}
+              {pth.hpBonus>0&&`❤️ +${Math.round(pth.hpBonus*100)}% חיים `}
+              {pth.spdBonus>0&&`💨 +${Math.round(pth.spdBonus*100)}% מהירות`}
             </div>
-          );
-        })}
-        {reached && allDone
-          ? <button className="btn btn-main" onClick={()=>{ player.evoReady=true; setModal&&setModal(null); showToast('⚡ המשימות הושלמו! ההתפתחות תופעל מיד','#ffd24a'); rerender&&rerender(); }}>⚡ התפתח עכשיו!</button>
-          : <div style={{textAlign:'center',color:'#9a8aa8',fontSize:'0.7rem'}}>{reached?'השלם את כל המשימות כדי להתפתח':`דרושה רמה ${next.lv}`}</div>}
-      </div>
-    );
-  }
-  // EPIC lv220 chain
-  if(def && def.epic){
-    const ep = player.epicStage||0;
-    const steps = [
-      {t:'הבא חפץ אגדי לנביא', d:'מצא חפץ אגדי כלשהו (drop) — הנביא יהפוך אותו למפתח לעולם האבוד'},
-      {t:'היכנס לעולם האבוד', d:'השתמש במפתח כדי להיכנס לממד האבוד'},
-      {t:'הרוג 100 מפלצות + 6 בוסים', d:'בעולם האבוד — נקה 100 מפלצות ו-6 בוסים מאזורים שונים'},
-      {t:'עזור לשחקן חדש לעלות 10 רמות', d:'חזור לעיר — למד שחקן מתחיל (העלה 10 רמות בזמן שאתה בקרבת מקום)'},
-    ];
-    return (
-      <div className="bs-panel">
-        <div className="bs-guide">🌌 <b>הנביא:</b> ההתפתחות הסופית ל<b>{next.name}</b> היא המסע הקשה ביותר. {reached?'':'קודם הגע לרמה 220.'}</div>
-        {steps.map((s,i)=>(
-          <div key={i} className="bs-recipe" style={{borderColor:ep>i?'#5aff8a':ep===i?'#c9a84a':'#2a2238',opacity:ep>=i?1:0.5}}>
-            <div className="bs-r-head"><span className="bs-r-emoji">{ep>i?'✅':ep===i?'⚡':'🔒'}</span>
-              <span className="bs-r-name">{i+1}. {s.t}</span></div>
-            <div className="bs-r-desc">{s.d}</div>
-            {reached && ep===i && (
-              <button className="bs-craft" onClick={()=>{
-                // simulate progression of the epic chain step
-                if(i===1){ teleport && teleport('oblivion'); setModal&&setModal(null); }
-                player.epicStage = ep+1;
-                showToast(`⚡ שלב ${i+1} הושלם!`, '#5aff8a');
-                refresh(); rerender&&rerender();
-              }}>{i===1?'🌌 היכנס לעולם':'✓ סמן כהושלם'}</button>
-            )}
+            <button className="btn btn-main" style={{marginTop:8,width:'100%'}} onClick={()=>choosePath(pth)}>בחר: {pth.name}</button>
           </div>
         ))}
-        {reached && ep>=4 && (
-          <div>
-            <div className="bs-sec" style={{color:'#ffd24a',textAlign:'center',margin:'8px 0'}}>🎉 בחר את מסלולך הסופי:</div>
-            <BranchChoice player={player} showToast={showToast} rerender={rerender} setModal={setModal} />
-          </div>
-        )}
+      </div>
+    </div>
+  );
+
+  // ─ STAGE 0 (lv50): immediate choice the moment you reach the level (no quest) ─
+  if(stage===0){
+    if(!reached) return <div className="bs-panel"><div className="bs-guide">🔮 <b>מאסטר האמנויות:</b> כשתגיע ל<b>רמה {next.lv}</b> תוכל לבחור את דרך ההתפתחות הראשונה שלך — {next.name}.</div><div style={{textAlign:'center',color:'#9a8aa8',fontSize:'0.72rem',padding:10}}>דרושה רמה {next.lv} (אתה ברמה {player.level})</div></div>;
+    return <div className="bs-panel"><div className="bs-guide">🔮 <b>מאסטר האמנויות:</b> הגעת לרמה {next.lv}! הגיע הזמן לבחור את דרכך כ<b>{next.name}</b>.</div><PathChoice/></div>;
+  }
+
+  // ─ STAGE 1+ (lv110, lv220): quest at the Master of Arts, THEN path choice ─
+  if(!reached){
+    return <div className="bs-panel"><div className="bs-guide">🔮 <b>מאסטר האמנויות:</b> ההתפתחות הבאה ל<b>{next.name}</b> נפתחת ברמה {next.lv}.</div><div style={{textAlign:'center',color:'#9a8aa8',fontSize:'0.72rem',padding:10}}>דרושה רמה {next.lv} (אתה ברמה {player.level})</div></div>;
+  }
+  // build the quest list for this stage
+  if(!player.evoQuests) player.evoQuests={};
+  const questDef = def && !def.epic ? def : {quests:[{id:'evo'+next.lv+'_kill', type:'kill_any', target: next.lv*2, desc:`הרוג ${next.lv*2} מפלצות`},{id:'evo'+next.lv+'_boss', type:'boss_any', target: stage>=2?8:5, desc:`הבס ${stage>=2?8:5} בוסים`}]};
+  const allDone = questDef.quests.every(q=>player.evoQuests[q.id]&&player.evoQuests[q.id].done);
+
+  if(!player._evoQuestAccepted) player._evoQuestAccepted = {};
+  const accepted = player._evoQuestAccepted[next.lv];
+
+  if(!accepted){
+    return (
+      <div className="bs-panel">
+        <div className="bs-guide">🔮 <b>מאסטר האמנויות:</b> כדי להתפתח ל<b>{next.name}</b>, עליך להוכיח את כוחך. קבל את משימת ההתפתחות — היא תופיע בצד המסך. חזור אליי כשתסיים.</div>
+        <div style={{margin:'10px 0'}}>
+          {questDef.quests.map(q=>(<div key={q.id} style={{fontSize:'0.76rem',color:'#e8dcc8',padding:'3px 0'}}>📜 {q.desc}</div>))}
+        </div>
+        <button className="btn btn-main" style={{width:'100%'}} onClick={()=>{
+          player._evoQuestAccepted[next.lv]=true;
+          questDef.quests.forEach(q=>{ if(!player.evoQuests[q.id]) player.evoQuests[q.id]={progress:0,done:false}; });
+          G._evoQuestActive = {lv:next.lv, quests:questDef.quests, _killBase:player.kills||0, _bossBase:player._evoBossKills||0};
+          showToast('📜 משימת התפתחות התקבלה! עקוב אחריה בצד המסך','#5affc0');
+          setModal&&setModal(null); rerender&&rerender();
+        }}>📜 קבל משימה</button>
       </div>
     );
   }
-  return null;
+
+  if(!allDone){
+    return (
+      <div className="bs-panel">
+        <div className="bs-guide">🔮 <b>מאסטר האמנויות:</b> עדיין לא סיימת את המשימה. חזור כשתשלים אותה.</div>
+        {questDef.quests.map(q=>{ const qs=player.evoQuests[q.id]||{progress:0,done:false}; const prog=Math.min(qs.progress||0,q.target);
+          return (<div key={q.id} className="bs-recipe" style={{borderColor:qs.done?'#5aff8a':'#2a2238'}}>
+            <div className="bs-r-head"><span className="bs-r-emoji">{qs.done?'✅':'📜'}</span><span className="bs-r-name" style={{color:qs.done?'#5aff8a':'#e8e0f0'}}>{q.desc}</span></div>
+            <div className="bs-r-cost">{prog.toLocaleString()} / {q.target.toLocaleString()}</div>
+            <div style={{height:6,background:'#0c0712',borderRadius:3,overflow:'hidden'}}><div style={{height:'100%',width:(prog/q.target*100)+'%',background:qs.done?'#5aff8a':'#c9a84a'}}></div></div>
+          </div>);
+        })}
+      </div>
+    );
+  }
+  // quests done → choose the path
+  return <div className="bs-panel"><div className="bs-guide">🔮 <b>מאסטר האמנויות:</b> הוכחת את עצמך! בחר את דרכך כ<b>{next.name}</b>.</div><PathChoice/></div>;
 }
 
 function BranchChoice({player, showToast, rerender, setModal}){
