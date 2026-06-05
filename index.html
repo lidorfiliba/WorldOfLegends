@@ -140,7 +140,7 @@ canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;image
 .skill-btn:active{transform:scale(0.9);border-color:var(--gold);}
 .skill-cd{position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;font-weight:700;}
 .atk-main{width:clamp(72px,16vw,90px);height:clamp(72px,16vw,90px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#ff6b5b,#9b1a1a);border:3px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:clamp(1.6rem,4.5vw,2.2rem);cursor:pointer;box-shadow:0 0 24px #ff444466;touch-action:none;}
-.dodge-btn{width:clamp(48px,11vw,62px);height:clamp(48px,11vw,62px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#5ac8ff,#1a5a9b);border:3px solid #7ad8ff;display:flex;align-items:center;justify-content:center;font-size:clamp(1.2rem,3.5vw,1.7rem);cursor:pointer;box-shadow:0 0 18px #4aaaff66;touch-action:none;position:absolute;bottom:clamp(170px,38vw,210px);right:14px;z-index:30;}
+.dodge-btn{width:clamp(50px,12vw,64px);height:clamp(50px,12vw,64px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#5ac8ff,#1a5a9b);border:3px solid #7ad8ff;display:flex;align-items:center;justify-content:center;font-size:clamp(1.2rem,3.5vw,1.7rem);cursor:pointer;box-shadow:0 0 18px #4aaaff66;touch-action:none;position:absolute;bottom:calc(190px + env(safe-area-inset-bottom));left:20px;z-index:46;}
 .atk-main:active{transform:scale(0.9);}
 
 /* ── MODALS / PANELS ── */
@@ -7351,8 +7351,12 @@ function App(){
   const onJoyStart = (e)=>{
     e.preventDefault();
     const t = e.changedTouches?e.changedTouches[0]:e;
-    G.joy.id = t.identifier!=null?t.identifier:-1;
+    // ALWAYS track a concrete finger id (identifier can be 0, which is valid). If we
+    // can't get one (mouse), use a sentinel 'mouse' string — never -1, which caused the
+    // "grab any touch / never release" stuck-joystick bug.
+    G.joy.id = (t.identifier!=null) ? t.identifier : 'mouse';
     G.joy.active = true;
+    G.joy._lastMove = Date.now();
     updateJoy(t);
   };
   const onJoyMove = (e)=>{
@@ -7360,7 +7364,8 @@ function App(){
     if(!G.joy.active) return;
     const touches = e.changedTouches || [e];
     for(let i=0;i<touches.length;i++){
-      if(touches[i].identifier===G.joy.id || G.joy.id===-1){ updateJoy(touches[i]); break; }
+      const tid = (touches[i].identifier!=null) ? touches[i].identifier : 'mouse';
+      if(tid===G.joy.id){ updateJoy(touches[i]); G.joy._lastMove = Date.now(); break; }
     }
   };
   const updateJoy = (t)=>{
@@ -7371,39 +7376,50 @@ function App(){
     const max = r.width/2;
     const d = Math.hypot(dx,dy);
     if(d>max){ dx=dx/d*max; dy=dy/d*max; }
-    G.joy.dx = dx/max; G.joy.dy = dy/max;
+    // dead-zone: tiny movements read as zero so the player doesn't drift
+    if(Math.abs(dx/max) < 0.12 && Math.abs(dy/max) < 0.12){ G.joy.dx=0; G.joy.dy=0; }
+    else { G.joy.dx = dx/max; G.joy.dy = dy/max; }
     const stick = base.querySelector('.joy-stick');
     if(stick) stick.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
   };
-  const onJoyEnd = (e)=>{
-    // Only clear if the joystick's own touch ended (or no id tracking).
-    if(e && e.changedTouches && G.joy.id!==-1){
-      let mine=false;
-      for(let i=0;i<e.changedTouches.length;i++){ if(e.changedTouches[i].identifier===G.joy.id){ mine=true; break; } }
-      if(!mine) return; // a different finger lifted — keep moving
-    }
+  const resetJoy = ()=>{
     G.joy.active=false; G.joy.dx=0; G.joy.dy=0; G.joy.id=-1;
     const stick = joyRef.current && joyRef.current.querySelector('.joy-stick');
     if(stick) stick.style.transform = 'translate(-50%,-50%)';
   };
-  // iOS SAFETY NET: Safari sometimes drops touchend on the joystick element when
-  // the finger slides off. Listen on window so a release ANYWHERE stops movement.
+  const onJoyEnd = (e)=>{
+    // Only clear if the joystick's own tracked finger ended.
+    if(e && e.changedTouches && G.joy.id!==-1 && G.joy.id!=='mouse'){
+      let mine=false;
+      for(let i=0;i<e.changedTouches.length;i++){ if(e.changedTouches[i].identifier===G.joy.id){ mine=true; break; } }
+      if(!mine) return; // a different finger lifted — keep moving
+    }
+    resetJoy();
+  };
+  // SAFETY NETS against a stuck joystick:
+  //  (1) a release ANYWHERE whose touch list no longer contains our finger → stop.
+  //  (2) a watchdog: if the joystick is active but hasn't received a move event in
+  //      400ms AND no touches remain on screen, force-release (covers dropped touchend).
   useEffect(()=>{
     const stop = (e)=>{
       if(!G.joy.active) return;
-      // if the tracked finger is gone from the active touch list, stop
-      if(e.touches && G.joy.id!==-1){
+      if(e.touches && G.joy.id!==-1 && G.joy.id!=='mouse'){
         let still=false;
         for(let i=0;i<e.touches.length;i++){ if(e.touches[i].identifier===G.joy.id){ still=true; break; } }
         if(still) return;
       }
-      G.joy.active=false; G.joy.dx=0; G.joy.dy=0; G.joy.id=-1;
-      const stick = joyRef.current && joyRef.current.querySelector('.joy-stick');
-      if(stick) stick.style.transform='translate(-50%,-50%)';
+      resetJoy();
     };
     window.addEventListener('touchend', stop, {passive:true});
     window.addEventListener('touchcancel', stop, {passive:true});
-    return ()=>{ window.removeEventListener('touchend', stop); window.removeEventListener('touchcancel', stop); };
+    // watchdog
+    const wd = setInterval(()=>{
+      if(!G.joy.active) return;
+      const noTouches = (typeof document!=='undefined') && document.documentElement;
+      // if no finger has moved the stick recently and the page reports no active touches
+      if(Date.now() - (G.joy._lastMove||0) > 1500){ resetJoy(); }
+    }, 500);
+    return ()=>{ window.removeEventListener('touchend', stop); window.removeEventListener('touchcancel', stop); clearInterval(wd); };
   }, []);
 
   const respawn = ()=>{
@@ -7783,11 +7799,12 @@ function App(){
           onMouseUp={()=>G.atkHeld=false}>
           ⚔️
         </div>
-        <div className="dodge-btn"
-          onTouchStart={e=>{e.preventDefault();doDodge();}}
-          onMouseDown={e=>{e.preventDefault();doDodge();}}>
-          💨
-        </div>
+      </div>
+      {/* DODGE BUTTON — on the LEFT (above joystick), clear of the attack/skill buttons */}
+      <div className="dodge-btn"
+        onTouchStart={e=>{e.preventDefault();doDodge();}}
+        onMouseDown={e=>{e.preventDefault();doDodge();}}>
+        💨
       </div>
 
       {/* NEARBY PLAYER — tap to open the interaction menu (party / trade / chat) */}
