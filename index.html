@@ -4947,6 +4947,13 @@ function App(){
       dmg = Math.max(1, Math.round(rawDmg*(1-mit)*(0.9+Math.random()*0.2)));
     }
     if(opts.dmgMul) dmg = Math.round(dmg*opts.dmgMul);
+    // NEW-PLAYER SHIELD: below level 8, cap any single hit to 12% of max HP and make hits
+    // rarer. A new player literally cannot be bursted down — they always have time to react.
+    if(p.level < 8 && cs){
+      dmg = Math.min(dmg, Math.max(1, Math.round(cs.maxHp*0.12)));
+    } else if(p.level < 15 && cs){
+      dmg = Math.min(dmg, Math.max(1, Math.round(cs.maxHp*0.22)));
+    }
     p.hp = Math.max(0, p.hp - dmg);
     pushDmgNum(p.x, p.y-40, dmg, opts.color||'#ff5a5a', !!opts.crit);
     if(opts.shake){ G.hurtFlash=now+220; G.shake=opts.shake; }
@@ -7373,7 +7380,7 @@ function App(){
         <div className="title-bg"></div>
         <span className="logo-sword">⚔️</span>
         <h1 className="logo">WORLD OF<br/>LEGENDS</h1>
-        <p className="logo-sub">עולם האגדות</p>
+        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v29 · הגנת מתחילים פעילה</p>
         <div className="login-box">
           <div className="login-tabs">
             <div className={'login-tab'+(loginMode==='login'?' active':'')} onClick={()=>{setLoginMode('login');setLoginMsg('');}}>התחברות</div>
@@ -7404,7 +7411,7 @@ function App(){
         </div>
         <span className="logo-sword">⚔️</span>
         <h1 className="logo">WORLD OF<br/>LEGENDS</h1>
-        <p className="logo-sub">עולם האגדות</p>
+        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v29 · הגנת מתחילים פעילה</p>
         <div className="char-slots">
           {accountChars().slice(0,4).map((c,i)=>(
             <div key={i} className={'char-slot'+(c?' filled':'')}>
