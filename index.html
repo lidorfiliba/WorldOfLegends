@@ -4920,35 +4920,46 @@ function App(){
     }
     if(Math.random()<0.5) G.groundItems.push({x:mon.x,y:mon.y,gold:goldAmt,id:Math.random(),bob:0,t:Date.now()});
   }, []);
-  const monsterHitPlayer = useCallback((mon)=>{
+  // ── SINGLE SOURCE OF TRUTH for ALL damage to the player (melee, ranged projectiles,
+  //    boss danger zones). Every path MUST go through here so the hit-grace + low-level
+  //    safety + mitigation are applied uniformly (this fixes "died instantly" — ranged
+  //    and AoE used to bypass the guards). Returns true if damage was actually applied. ──
+  const damagePlayer = useCallback((rawDmg, opts)=>{
+    opts = opts || {};
     const p = G.player, cs = G.cs;
-    if(G.shield || G.godMode || G._iframe){ return; }
-    // SAFETY: a roaming map boss never harms a brand-new player (lv<8). New players
-    // shouldn't be chased down and killed by a world boss before they can even fight.
-    if(mon.isBoss && !mon._worldBoss && !mon._nestFinal && p.level < 8){ return; }
-    // GLOBAL HIT-GRACE: after taking a hit, the player has a brief window of invulnerability
-    // so a pack can't chain-stunlock you to death in a fraction of a second. The window is
-    // longer at low levels (a new player gets breathing room to react/flee).
+    if(!p || p.hp<=0) return false;
+    if(G.shield || G.godMode || G._iframe) return false;
+    // boss never harms a brand-new player (lv<8)
+    if(opts.fromBoss && p.level < 8) return false;
+    // GLOBAL HIT-GRACE: short i-frames after any hit so a pack/volley can't chain you to
+    // death in a fraction of a second. Longer for new players.
     const now = Date.now();
-    const grace = p.level < 8 ? 600 : p.level < 20 ? 450 : 300;
-    if(G._lastHitT && now - G._lastHitT < grace){ return; }
+    const grace = p.level < 8 ? 600 : p.level < 20 ? 450 : 280;
+    if(G._lastHitT && now - G._lastHitT < grace) return false;
     G._lastHitT = now;
-    // Defense gives PERCENTAGE mitigation (diminishing), not flat subtraction —
-    // so high defense never makes you fully immune. A monster always lands at
-    // least ~20% of its attack. mitigation caps at ~75%.
-    const defBuff = (G._activeBuffs&&G._activeBuffs.def)||0;
-    const effDef = (cs.def||0)*(1+defBuff);
-    const mitigation = Math.min(0.75, effDef / (effDef + 200 + p.level*12));
-    let dmg = mon.atk * (1 - mitigation);
-    dmg = Math.max(1, Math.round(dmg * (0.9 + Math.random()*0.2))); // ±10% variance, min 1
-    if(mon._dmgMul) dmg = Math.round(dmg * mon._dmgMul); // nest difficulty: harder hits
-    if(mon._cageDmg) dmg = Math.round(dmg * mon._cageDmg); // pen monsters hit harder
-    p.hp = Math.max(0, p.hp - dmg);
-    pushDmgNum(p.x, p.y-40, dmg, '#ff5a5a', false);
-    if(p.hp<=0){
-      G.running=false;
-      setTimeout(()=>setDead(true), 400);
+    // percentage mitigation (def + party def buff), capped at 75%
+    let dmg;
+    if(opts.preMitigated){ dmg = Math.max(1, Math.round(rawDmg)); }
+    else {
+      const defBuff = (G._activeBuffs&&G._activeBuffs.def)||0;
+      const effDef = (cs.def||0)*(1+defBuff);
+      const mit = Math.min(0.75, effDef/(effDef+200+p.level*12));
+      dmg = Math.max(1, Math.round(rawDmg*(1-mit)*(0.9+Math.random()*0.2)));
     }
+    if(opts.dmgMul) dmg = Math.round(dmg*opts.dmgMul);
+    p.hp = Math.max(0, p.hp - dmg);
+    pushDmgNum(p.x, p.y-40, dmg, opts.color||'#ff5a5a', !!opts.crit);
+    if(opts.shake){ G.hurtFlash=now+220; G.shake=opts.shake; }
+    if(p.hp<=0){ G.running=false; setTimeout(()=>setDead(true), 400); }
+    return true;
+  }, []);
+
+  const monsterHitPlayer = useCallback((mon)=>{
+    const isBossMon = mon.isBoss && !mon._worldBoss && !mon._nestFinal;
+    let mul = 1;
+    if(mon._dmgMul) mul *= mon._dmgMul;     // nest difficulty
+    if(mon._cageDmg) mul *= mon._cageDmg;   // pen monsters
+    damagePlayer(mon.atk, { fromBoss:isBossMon, dmgMul:mul });
   }, []);
 
   // ════════ DAMAGE NUMBERS ════════
@@ -5544,18 +5555,10 @@ function App(){
           // Precise to the visible ring: you're only hit if your center is inside the
           // drawn radius (a tiny 6px grace so standing right on the edge reads as safe).
           if(d <= ef.r - 6){
-            if(G.shield){ /* shield blocks it */ }
-            else {
-              const def = G.cs ? (G.cs.def||0) : 0;
-              const mit = Math.min(0.75, def/(def+200+pl.level*12));
-              const dmg=Math.max(1, Math.round(ef.dmg*(1-mit)));
-              pl.hp=Math.max(0, pl.hp-dmg);
-              pushDmgNum(pl.x, pl.y-40, dmg, elCol, true);
-              G.hurtFlash=Date.now()+220; G.shake=12;
+            const applied = damagePlayer(ef.dmg, { color:elCol, crit:true, shake:12 });
+            if(applied){
               window.SOUND&&window.SOUND.play('hit');
-              // elemental status applied to the PLAYER (brief slow/burn feel via flash)
               if(ef.el && ef.el.status){ G._playerStatusFx = {el:ef.el, until:Date.now()+1500}; }
-              if(pl.hp<=0){ G.running=false; setTimeout(()=>setDead(true),400); }
             }
           }
         }
@@ -5703,8 +5706,9 @@ function App(){
     return BOSS_ELEMENTS[m._element];
   }
   function updateBossSpecials(m, now, p){
-    // never cast specials while passive (not yet attacked) or stunned
+    // never cast specials while passive (not yet attacked), stunned, or vs a new player
     if(m._passive || now < m.stunT) return;
+    if(p.level < 8 && !m._worldBoss && !m._nestFinal) return;
     const distToPlayer = Math.hypot(p.x-m.x, p.y-m.y);
     if(distToPlayer > 620) return;
     if(!m._nextSpecial) m._nextSpecial = now + 3000 + Math.random()*2000;
@@ -5997,13 +6001,7 @@ function App(){
       if(pr.enemy){
         const pl=G.player;
         if(Math.hypot(pl.x-pr.x, pl.y-pr.y) < (pr.size||pr.r||8)+22){
-          if(!(G.shield||G.godMode) && (G._atkThisFrame||0) < (G._maxAttackers||3)){
-            G._atkThisFrame=(G._atkThisFrame||0)+1;
-            const cs=G.cs; const mit=Math.min(0.75,(cs.def||0)/((cs.def||0)+200+pl.level*12));
-            let dmg=Math.max(1, Math.round((pr.dmg||10)*(1-mit)*(0.9+Math.random()*0.2)*(pr._cageDmg||1)));
-            pl.hp=Math.max(0, pl.hp-dmg); pushDmgNum(pl.x, pl.y-40, dmg, '#ff7a3a', false);
-            if(pl.hp<=0){ G.running=false; setTimeout(()=>setDead(true),400); }
-          }
+          damagePlayer(pr.dmg||10, { dmgMul:(pr._cageDmg||1), fromBoss:!!pr._fromBoss, color:'#ff7a3a' });
           dead=true;
         }
         if(dead) G.projectiles.splice(i,1);
