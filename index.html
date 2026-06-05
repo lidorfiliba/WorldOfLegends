@@ -582,7 +582,7 @@ const SKILLS = {
   // ── ULTIMATE skills (level 220 third evolution) ──
   ragnarok:    {name:'רגנארוק', emoji:'🔥', dmg:16, mp:120, cd:9000, type:'aoe', range:300, fx:'quake', color:'#ff3300', desc:'קץ הימים — הרס מוחלט', cls:'warrior', price:-1, reqLv:220, evoSkill:true},
   big_bang:    {name:'המפץ הגדול', emoji:'💥', dmg:20, mp:150, cd:10000, type:'aoe', range:320, fx:'meteor', color:'#ff44ff', desc:'יצירה והרס ביקום', cls:'mage', price:-1, reqLv:220, evoSkill:true},
-  meteor_arrows:{name:'חצי מטאור', emoji:'☄️', dmg:7, mp:130, cd:9000, type:'multi', count:16, speed:800, fx:'arrow', color:'#00ffcc', desc:'16 חצי מטאור בוערים', cls:'archer', price:-1, reqLv:220, evoSkill:true},
+  meteor_arrows:{name:'חצי מטאור', emoji:'☄️', dmg:4, mp:130, cd:9000, type:'multi', count:8, speed:800, fx:'arrow', color:'#00ffcc', desc:'8 חצי מטאור בוערים', cls:'archer', price:-1, reqLv:220, evoSkill:true},
   genesis:     {name:'בריאה', emoji:'🌟', dmg:18, mp:140, cd:10000, type:'aoe', range:300, fx:'consecrate', color:'#ffffcc', desc:'אור הבריאה הראשוני', cls:'paladin', price:-1, reqLv:220, evoSkill:true},
   meteor_storm:{name:'סופת מטאורים', emoji:'☄️', dmg:19, mp:150, cd:10000, type:'aoe', range:340, fx:'meteor', color:'#44aaff', desc:'גשם מטאורים יסודי', cls:'mage', price:-1, reqLv:220, evoSkill:true},
   mass_heal:   {name:'ריפוי המונים', emoji:'💚', dmg:0, heal:0.6, mp:120, cd:8000, type:'heal_aoe', range:300, fx:'consecrate', color:'#88ffcc', desc:'ריפוי עוצמתי לך ולבעלי הברית', cls:'paladin', price:-1, reqLv:220, evoSkill:true},
@@ -3100,7 +3100,11 @@ function makeMonster(base, lv, x, y, scale, isBoss, xpMul){
   // (up to ~+120% by lv120) to keep them a real threat instead of one-shot fodder.
   const baseMul = Math.min(2.2, 0.85 + lv*0.055);
   const lateMul = 1 + Math.max(0, lv-30) * 0.012;   // +1.2% per level past 30
-  const hpMul = isBoss ? (11 * (1 + Math.max(0, lv-30)*0.018)) : (baseMul * lateMul);
+  // Boss HP — tuned so bosses are always an EVENT. A level-appropriate, reasonably-
+  // geared player needs several combos (not 2 hits); a maxed player still needs a real
+  // fight on top-tier bosses. base 12, +2%/lv from 30, +0.8%/lv from 100.
+  const bossLate = (1 + Math.max(0, lv-30)*0.020) * (1 + Math.max(0, lv-100)*0.008);
+  const hpMul = isBoss ? (12 * bossLate) : (baseMul * lateMul);
   let hp = Math.round(levelHp * variety * hpMul);
   // ── XP balance: a monster's XP is tied to ITS OWN LEVEL and grows sub-exponentially
   //    (8 + lv^1.5 * 0.55). The level-up requirement grows much faster (xpForLevel),
@@ -4867,6 +4871,7 @@ function App(){
     const _sr = activeSafeR();
     if(_sr > 0 && Math.hypot(p.x-WW/2, p.y-WH/2) < _sr) return;
     if(window.SOUND){ window.SOUND.resume(); window.SOUND.play(p.classId==='archer'?'arrow':p.classId==='mage'?'cast':'swing'); }
+    G._atkLunge = now; // for the attack-lunge animation
     const cls = p.classId;
     // ── Class attack profiles ──
     // archer: fast ranged arrows, medium dmg.  mage: ranged elemental, a bit slower/shorter than archer but strong.
@@ -4999,6 +5004,17 @@ function App(){
     p.mp -= sk.mp;
     G.skillCd[skillId] = now + sk.cd;
     setHudTick(t=>t+1);
+
+    // ── ULTIMATE CINEMATIC: a dramatic screen reaction for ultimate skills ──
+    if(sk.ultimate){
+      G.shake = 26;
+      G._ultFlash = { t: now, color: sk.color, name: sk.name, emoji: sk.emoji };
+      G._slowMo = now + 350;           // brief slow-motion for impact
+      window.SOUND && window.SOUND.play('crit');
+      // shockwave ring centered on the player
+      G.effects.push({type:'combo_blast', x:p.x, y:p.y, maxR:sk.range||300, color:sk.color, life:0.7, t:0});
+      G.effects.push({type:'ring', x:p.x, y:p.y, r:0, maxR:(sk.range||300)*1.3, color:'#fff', life:0.5, t:0});
+    }
 
     // ── COMBO QUEST progress: using skills advances the level-30 quest ──
     if(p.comboQuestActive && !p.comboUnlocked){
@@ -5160,7 +5176,9 @@ function App(){
 
   function loopBody(ts){
     if(!G.running) return; // Guard: checkEvolution may have stopped loop mid-frame
-    const dt = Math.min((ts - G.lastT)/1000, 0.05);
+    let dt = Math.min((ts - G.lastT)/1000, 0.05);
+    // ULTIMATE slow-mo: briefly slow the simulation for cinematic impact
+    if(G._slowMo && Date.now() < G._slowMo) dt *= 0.45;
     G.lastT = ts; G.frame++;
     const now = Date.now();
     const p = G.player, cs = G.cs;
@@ -6397,8 +6415,26 @@ function App(){
       ctx.textBaseline='alphabetic'; ctx.textAlign='left';
       ctx.restore();
     }
-    SP.drawPlayer(ctx, p.x-cam.x, p.y-cam.y, p.classId, G._moving, now, G.facing, p.evoStage||0);
-    // my own floating chat bubble
+    // ── CLASS SIGNATURE AURA — a subtle distinct ground glow per class so each class
+    //    reads differently at a glance (warrior=ember red, mage=arcane purple,
+    //    archer=wind green, paladin=holy gold). ──
+    (function(){
+      const sig = {warrior:'#ff6a3a', mage:'#b96aff', archer:'#3affb0', paladin:'#ffd83a'}[p.classId] || '#ffffff';
+      const px=p.x-cam.x, py=p.y-cam.y;
+      const pulse=0.5+Math.sin(now/420)*0.18;
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const g=ctx.createRadialGradient(px,py+14,0,px,py+14,40);
+      g.addColorStop(0, SP.withAlpha(sig, 0.22*pulse)); g.addColorStop(1, SP.withAlpha(sig,0));
+      ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(px,py+14,40,16,0,0,Math.PI*2); ctx.fill();
+      // class motif: a couple of slow orbiting motes when moving
+      if(G._moving){ ctx.fillStyle=SP.withAlpha(sig,0.5);
+        for(let k=0;k<2;k++){ const a=now/500+k*Math.PI; ctx.beginPath(); ctx.arc(px+Math.cos(a)*22, py+8+Math.sin(a)*6, 2, 0, Math.PI*2); ctx.fill(); } }
+      ctx.restore();
+    })();
+    // attack lunge: a quick forward jab then settle (150ms), in the facing direction
+    let lungeX=0;
+    if(G._atkLunge){ const la=now-G._atkLunge; if(la<150){ const k=Math.sin((la/150)*Math.PI); lungeX = G.facing*k*7; } }
+    SP.drawPlayer(ctx, p.x-cam.x+lungeX, p.y-cam.y, p.classId, G._moving, now, G.facing, p.evoStage||0);
     if(G._myBubble && now < G._myBubble.until){ drawChatBubble(ctx, p.x-cam.x, p.y-cam.y-52, G._myBubble.txt); }
     // shield ring
     if(G.shield){
@@ -6512,6 +6548,32 @@ function App(){
         ctx.restore();
         G._isNight = night>0.5;
       } else G._isNight=false;
+    }
+
+    // ── ULTIMATE CINEMATIC FLASH: a colored screen flash + skill name banner ──
+    if(G._ultFlash){
+      const age = now - G._ultFlash.t;
+      if(age < 700){
+        const a = Math.max(0, 1 - age/700);
+        ctx.save();
+        // radial color wash from center
+        const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.7);
+        g.addColorStop(0, SP.withAlpha(G._ultFlash.color, a*0.05));
+        g.addColorStop(0.7, SP.withAlpha(G._ultFlash.color, a*0.28));
+        g.addColorStop(1, SP.withAlpha(G._ultFlash.color, a*0.05));
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+        // skill name banner (slides up + fades)
+        if(age < 1100){
+          const ba = Math.max(0, 1-age/1100);
+          ctx.globalAlpha = ba;
+          ctx.font='900 30px Cinzel, serif'; ctx.textAlign='center';
+          ctx.lineWidth=5; ctx.strokeStyle='#000'; ctx.shadowColor=G._ultFlash.color; ctx.shadowBlur=24;
+          const ty = H*0.34 - (1-ba)*20;
+          ctx.strokeText(G._ultFlash.emoji+' '+G._ultFlash.name, W/2, ty);
+          ctx.fillStyle=G._ultFlash.color; ctx.fillText(G._ultFlash.emoji+' '+G._ultFlash.name, W/2, ty);
+        }
+        ctx.restore(); ctx.textAlign='left';
+      } else { G._ultFlash=null; }
     }
 
     ctx.textAlign='left';
