@@ -140,7 +140,7 @@ canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;image
 .skill-btn:active{transform:scale(0.9);border-color:var(--gold);}
 .skill-cd{position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;font-weight:700;}
 .atk-main{width:clamp(72px,16vw,90px);height:clamp(72px,16vw,90px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#ff6b5b,#9b1a1a);border:3px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:clamp(1.6rem,4.5vw,2.2rem);cursor:pointer;box-shadow:0 0 24px #ff444466;touch-action:none;}
-.dodge-btn{width:clamp(48px,11vw,62px);height:clamp(48px,11vw,62px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#5ac8ff,#1a5a9b);border:3px solid #7ad8ff;display:flex;align-items:center;justify-content:center;font-size:clamp(1.2rem,3.5vw,1.7rem);cursor:pointer;box-shadow:0 0 18px #4aaaff66;touch-action:none;position:absolute;bottom:clamp(96px,21vw,120px);right:8px;}
+.dodge-btn{width:clamp(48px,11vw,62px);height:clamp(48px,11vw,62px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#5ac8ff,#1a5a9b);border:3px solid #7ad8ff;display:flex;align-items:center;justify-content:center;font-size:clamp(1.2rem,3.5vw,1.7rem);cursor:pointer;box-shadow:0 0 18px #4aaaff66;touch-action:none;position:absolute;bottom:clamp(170px,38vw,210px);right:14px;z-index:30;}
 .atk-main:active{transform:scale(0.9);}
 
 /* ── MODALS / PANELS ── */
@@ -571,6 +571,11 @@ const SKILLS = {
   arcane_brilliance:{name:'זוהר ארקאני', emoji:'🔮', dmg:0, mp:60, cd:120000, type:'partybuff', buffKey:'matk', buffVal:0.2, buffDur:300000, fx:'buff', color:'#b96aff', desc:'באף קבוצתי: +20% קסם ל-5 דקות', cls:'mage', price:9000, reqLv:45},
   hawkeye:     {name:'עין הנץ', emoji:'🦅', dmg:0, mp:60, cd:120000, type:'partybuff', buffKey:'crit', buffVal:0.15, buffDur:300000, fx:'buff', color:'#3affb0', desc:'באף קבוצתי: +15% קריטי ל-5 דקות', cls:'archer', price:9000, reqLv:45},
   blessing:    {name:'ברכת האל', emoji:'⚜️', dmg:0, mp:60, cd:120000, type:'partybuff', buffKey:'def', buffVal:0.25, buffDur:300000, fx:'buff', color:'#ffd83a', desc:'באף קבוצתי: +25% הגנה ל-5 דקות', cls:'paladin', price:9000, reqLv:45},
+  // ── NEW ENDGAME SKILLS (lv150) — each with a distinctive new visual effect ──
+  titan_quake: {name:'רעש הטיטאן', emoji:'🌋', dmg:8.5, mp:90, cd:9000, type:'aoe', range:230, fx:'earthshatter', color:'#c87a2a', cc:'stun', stun:1200, desc:'בקע אדמה ענק שמהמם אויבים', cls:'warrior', price:30000, reqLv:150},
+  void_nova:   {name:'נובת תהום', emoji:'🌀', dmg:9, mp:100, cd:9500, type:'aoe', range:260, fx:'voidnova', color:'#9a3aff', slow:3000, desc:'התפוצצות תהום שמושכת ומאיטה', cls:'mage', price:30000, reqLv:150},
+  phantom_volley:{name:'מטח רפאים', emoji:'👻', dmg:3.5, mp:95, cd:9000, type:'multi', count:12, speed:900, fx:'phantom', color:'#3affd8', pierce:true, desc:'12 חצי רפאים נוקבים', cls:'archer', price:30000, reqLv:150},
+  holy_tempest:{name:'סופת קודש', emoji:'🌩️', dmg:8, mp:95, cd:9000, type:'aoe', range:240, fx:'divinestorm', color:'#ffe88a', healPct:0.15, desc:'סופה קדושה שפוגעת ומרפאה', cls:'paladin', price:30000, reqLv:150},
   // UNIVERSAL (any class can buy)
   dash_strike: {name:'הסתערות', emoji:'💨', dmg:2.2, mp:20, cd:3500, type:'dash', range:200, fx:'dash', color:'#88ccff', desc:'מזנק קדימה ופוגע', cls:'all', price:2500, reqLv:18},
   poison_nova: {name:'נובת רעל', emoji:'☠️', dmg:1.5, mp:40, cd:5000, type:'aoe', range:160, dot:true, fx:'poison', color:'#88ff00', desc:'ענן רעל מתמשך', cls:'all', price:4000, reqLv:22},
@@ -892,6 +897,30 @@ const SHOP_SETS = [
   {id:'genesis_set', name:'סט בריאה', emoji:'🌌', reqLv:190, price:-1, rarity:'mythic', src:'nest', dropOnly:true,
    bonus:{atk:0.278, hp:0.278, crit:0.134, desc:'+28% נזק, +28% חיים, +13% קריטי'},
    pieces:[{slot:'weapon',baseIdx:2},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  // ── SHOP-BUYABLE SETS (lv40-200): a reliable gold path to "decent" gear. Bonuses are
+  //    intentionally WEAKER than the drop/nest set of the same level, so farming drops is
+  //    still worth it — these just keep you from being stuck without gear. ──
+  {id:'shop_iron2', name:'סט פלדה מחושל', emoji:'🛡️', reqLv:40, price:5000, rarity:'rare', src:'shop',
+   bonus:{atk:0.08, hp:0.08, crit:0.035, desc:'+8% נזק, +8% חיים, +3.5% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14}]},
+  {id:'shop_knight', name:'סט אביר', emoji:'⚔️', reqLv:60, price:12000, rarity:'rare', src:'shop',
+   bonus:{atk:0.095, hp:0.095, crit:0.042, desc:'+9.5% נזק, +9.5% חיים, +4% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14}]},
+  {id:'shop_war', name:'סט מלחמה', emoji:'🗡️', reqLv:80, price:28000, rarity:'epic', src:'shop',
+   bonus:{atk:0.11, hp:0.11, crit:0.05, desc:'+11% נזק, +11% חיים, +5% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16}]},
+  {id:'shop_royal', name:'סט מלכותי', emoji:'👑', reqLv:100, price:60000, rarity:'epic', src:'shop',
+   bonus:{atk:0.13, hp:0.13, crit:0.058, desc:'+13% נזק, +13% חיים, +6% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16}]},
+  {id:'shop_myth', name:'סט מיתי', emoji:'🌟', reqLv:130, price:140000, rarity:'epic', src:'shop',
+   bonus:{atk:0.15, hp:0.15, crit:0.066, desc:'+15% נזק, +15% חיים, +6.5% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'shop_eternal', name:'סט נצח', emoji:'💫', reqLv:160, price:280000, rarity:'legendary', src:'shop',
+   bonus:{atk:0.17, hp:0.17, crit:0.075, desc:'+17% נזק, +17% חיים, +7.5% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
+  {id:'shop_celestial', name:'סט שמיימי', emoji:'☀️', reqLv:200, price:500000, rarity:'legendary', src:'shop',
+   bonus:{atk:0.19, hp:0.19, crit:0.085, desc:'+19% נזק, +19% חיים, +8.5% קריטי'},
+   pieces:[{slot:'weapon',baseIdx:0},{slot:'chest',baseIdx:8},{slot:'helm',baseIdx:10},{slot:'boots',baseIdx:14},{slot:'amulet',baseIdx:16},{slot:'ring',baseIdx:15}]},
 ]
 
 // ── MONSTERS — each with unique appearance type ──
@@ -3039,7 +3068,9 @@ function makeWorldEntities(worldDef, playerLevel){
   // brick wall that makes new players quit.
   const lvFactor = Math.min(1, minL / 40); // 0 at lv1 → 1 by lv40
   const cageCount = Math.max(2, Math.round((worldDef.endgame ? 4 : 3) * Math.sqrt(areaRatio)));
-  const perCage = Math.round((worldDef.endgame ? 32 : (6 + lvFactor*18))); // ~6 at lv1 → 24 by lv40
+  // Starter pens are SMALL (3 monsters at lv1) so a new player can actually fight and win;
+  // ramps up to dense challenge pens by lv40. Endgame worlds keep the big packs.
+  const perCage = Math.round((worldDef.endgame ? 32 : (3 + lvFactor*15))); // 3 at lv1 → 18 by lv40
   const cageDmgMul = 1 + lvFactor*0.4;        // 1.0 at lv1 (no bonus) → 1.4 by lv40
   const lonerCount = Math.round((worldDef.endgame ? 16 : 12) * Math.sqrt(areaRatio));
 
@@ -3660,7 +3691,19 @@ function App(){
     // ── NEST: start at stage 0 (wave → miniboss → final boss) ──
     G._nestStage = 0; G._nestClear = false;
     if(!wd.nest){ G._nestDifficulty = 'normal'; } // difficulty only applies inside nests
-    if(wd.nest){ if(!G._nestDifficulty) G._nestDifficulty='normal'; setupNestStage(0); }
+    if(wd.nest){
+      if(!G._nestDifficulty) G._nestDifficulty='normal';
+      // If the player already cleared this nest (and chose to stay / left it open),
+      // re-entering shows it CLEARED — no boss, no re-loot — until they reset it.
+      const doneAt = p._nestDone && p._nestDone[wd.id];
+      if(doneAt){
+        G.monsters=[]; G.bosses=[]; G._nestCleared=true; G._nestStage=(wd.nestStages||[]).length-1;
+        p.x=WW/2; p.y=WH/2+200;
+        showToast('✅ נסט שהושלם — ריק. לחץ "אפס נסט" כדי לשחק שוב', '#5affc0');
+      } else {
+        G._nestCleared=false; setupNestStage(0);
+      }
+    }
     G.cs = E.computeStats(p);
     if(freshStart){ p.hp = G.cs.maxHp; p.mp = G.cs.maxMp; }
     G.camera.x = p.x - window.innerWidth/2;
@@ -3900,21 +3943,31 @@ function App(){
           const inInstanced = G.worldDef && (G.worldDef.nest || G.worldDef.dungeon);
           // gold: take the higher (server authoritative for shared, but never wipe local nest gold)
           if(typeof m.gold==='number') p.gold = Math.max(p.gold||0, m.gold);
-          if(isGainMsg || serverTotal >= localTotal){
-            // server is ahead (or this is a real kill) → trust it
+          // CRITICAL: never roll progress BACKWARD. Only adopt the server's level/xp when
+          // its TOTAL xp is actually >= ours. A gain message from a stale server baseline
+          // must not drag a higher-level player down (this caused the "L60→L26 +155 stat"
+          // bug). We apply the server numbers only if they represent equal-or-more progress.
+          if(serverTotal > localTotal){
             if(!inInstanced || isGainMsg){
               p.level = m.level; p.xp = m.xp; p.xpNext = E.xpForLevel(m.level);
             }
+          } else if(isGainMsg && m.gainXp){
+            // server processed a real kill but is behind our local total → just add the xp
+            // locally without touching level (local level-up handles thresholds).
+            p.xp = (p.xp||0) + (m.gainXp||0);
           }
           if(m.gainXp || m.gainGold){
             const bonusTxt = m.bonus>1 ? ` (×${m.bonus})` : '';
             showToast(`+${(m.gainXp||0).toLocaleString()} XP +${(m.gainGold||0).toLocaleString()}🪙${bonusTxt}`, '#88ddff');
           }
-          if(m.leveled){
-            for(let i=0;i<m.leveled;i++) E.applyLevelGrowth(p);
+          if(m.leveled && m.level > (p._lastGrowthLevel||0) && serverTotal >= localTotal){
+            // only apply growth for levels we haven't already grown into
+            const from = Math.max(p._lastGrowthLevel||0, p.level - m.leveled);
+            for(let lv=from; lv<m.level; lv++) E.applyLevelGrowth(p);
+            p._lastGrowthLevel = m.level;
             G.cs = E.computeStats(p);
             p.hp = G.cs.maxHp; p.mp = G.cs.maxMp;
-            showToast(`⬆️ עלית לרמה ${m.level}! (+${m.leveled*5} נקודות)`, '#ffd24a'); G.shake=10;
+            showToast(`⬆️ עלית לרמה ${m.level}!`, '#ffd24a'); G.shake=10;
           }
         };
         window.WOLNet.onKicked=(m)=>{ showToast(`⛔ ${m.reason||'נותקת מהשרת'}`, '#ff5a5a'); };
@@ -4726,6 +4779,12 @@ function App(){
           G.shake=22;
           showToast(`🏆 השלמת את ${wd.name}! שלל ענק נפל!`, '#ffd24a');
           log(`🏆${wd.emoji} השלמת את הנסט! אסוף את כל השלל בנחת.`, 'lg-leg');
+          // PERSIST completion: if the player stays and later closes/reopens the game,
+          // the nest stays cleared (no boss respawn, no re-loot) until they reset it.
+          if(!p._nestDone) p._nestDone={};
+          p._nestDone[wd.id] = Date.now();
+          G._nestCleared = true;
+          E.save && E.save(p);
           checkAchievements();
           // open a "return to city?" prompt after a short delay (no forced teleport —
           // the player collects loot at their own pace and chooses when to leave)
@@ -5176,13 +5235,18 @@ function App(){
     } else if(sk.type==='dash'){
       const tgt = nearestMonster();
       const fromX=p.x, fromY=p.y;
+      const dashRange = sk.range || 220; // default so dash skills without an explicit range don't NaN
       if(tgt){
         const a = Math.atan2(tgt.y-p.y, tgt.x-p.x);
-        p.x += Math.cos(a)*sk.range; p.y += Math.sin(a)*sk.range;
-        p.x = E.clamp(p.x, 30, WW-30); p.y = E.clamp(p.y, 30, WH-30);
-        allM().forEach(m=>{ if(Math.hypot(m.x-p.x,m.y-p.y)<100) hitMonster(m, sk.dmg, 0, false, _el); });
-        G.effects.push({type:'dash', x:p.x, y:p.y, fromX, fromY, life:0.35, t:0, color:sk.color, fx:sk.fx});
+        p.x += Math.cos(a)*dashRange; p.y += Math.sin(a)*dashRange;
+      } else {
+        // no target: dash forward in the facing direction
+        p.x += G.facing*dashRange;
       }
+      p.x = E.clamp(p.x, 30, WW-30); p.y = E.clamp(p.y, 30, WH-30);
+      if(!isFinite(p.x)) p.x = fromX; if(!isFinite(p.y)) p.y = fromY; // safety
+      allM().forEach(m=>{ if(Math.hypot(m.x-p.x,m.y-p.y)<100) hitMonster(m, sk.dmg, 0, false, _el); });
+      G.effects.push({type:'dash', x:p.x, y:p.y, fromX, fromY, life:0.35, t:0, color:sk.color, fx:sk.fx});
       hitPeers(100, sk.dmg, 0);
       log(`💨 ${sk.name}!`, 'lg-dmg');
     } else if(sk.type==='proj' || sk.type==='multi'){
@@ -5316,13 +5380,29 @@ function App(){
     G._moving = moving;
 
     // ── DODGE ROLL: a quick dash with invincibility frames (i-frames). Skilled play —
-    //    dodge THROUGH a telegraphed attack to take zero damage. Has a short cooldown. ──
+    //    dodge THROUGH a telegraphed attack to take zero damage. The dash still respects
+    //    cage fences (you can't roll through walls). ──
     if(G._dodgeUntil && now < G._dodgeUntil){
-      // during the roll, dash fast in the roll direction
       const dr = G._dodgeDir || {x:G.facing, y:0};
       const dashSpd = 620;
-      p.x = E.clamp(p.x + dr.x*dashSpd*dt, 30, WW-30);
-      p.y = E.clamp(p.y + dr.y*dashSpd*dt, 30, WH-30);
+      let dnx = E.clamp(p.x + dr.x*dashSpd*dt, 30, WW-30);
+      let dny = E.clamp(p.y + dr.y*dashSpd*dt, 30, WH-30);
+      // re-run cage fence collision for the dash target (same logic as walking)
+      if(G._cages && G._cages.length){
+        const GAP=110;
+        for(const c of G._cages){
+          const L=c.x-c.half, R=c.x+c.half, T=c.y-c.half, B=c.y+c.half;
+          if(dnx < L-60 || dnx > R+60 || dny < T-60 || dny > B+60) continue;
+          const inGapX = Math.abs(dnx-c.x) < GAP/2, inGapY = Math.abs(dny-c.y) < GAP/2;
+          const crossTop=(p.y<T&&dny>=T)||(p.y>T&&dny<=T), crossBottom=(p.y<B&&dny>=B)||(p.y>B&&dny<=B);
+          const crossLeft=(p.x<L&&dnx>=L)||(p.x>L&&dnx<=L), crossRight=(p.x<R&&dnx>=R)||(p.x>R&&dnx<=R);
+          if(crossTop&&dnx>L&&dnx<R&&!(c.gateSide===0&&inGapX)){ dny=(p.y<T)?T-2:T+2; }
+          if(crossBottom&&dnx>L&&dnx<R&&!(c.gateSide===2&&inGapX)){ dny=(p.y<B)?B-2:B+2; }
+          if(crossLeft&&dny>T&&dny<B&&!(c.gateSide===3&&inGapY)){ dnx=(p.x<L)?L-2:L+2; }
+          if(crossRight&&dny>T&&dny<B&&!(c.gateSide===1&&inGapY)){ dnx=(p.x<R)?R-2:R+2; }
+        }
+      }
+      p.x = dnx; p.y = dny;
       G._iframe = true; // invincible during the roll
     } else {
       G._iframe = false;
@@ -5395,6 +5475,9 @@ function App(){
     const inSafe = _safeRnow > 0 && Math.hypot(p.x-WW/2, p.y-WH/2) < _safeRnow;
     const updRange = 1300;
     G._atkThisFrame = 0; // cap how many monsters can land a hit per frame (anti-swarm)
+    // Early-game grace: a low-level player can only be hit by 1 monster at a time (then 2,
+    // then 3 by lv20). Stops new players from being instantly swarmed to death in a pen.
+    G._maxAttackers = p.level < 8 ? 1 : (p.level < 20 ? 2 : 3);
     [...G.monsters, ...G.bosses].forEach(m=>{
       if(m.hp<=0||m._dying) return;
       const d = Math.hypot(m.x-p.x, m.y-p.y);
@@ -5448,7 +5531,9 @@ function App(){
         const pl=G.player;
         if(pl && !G.godMode && !G._iframe){
           const d=Math.hypot(pl.x-ef.x, pl.y-ef.y);
-          if(d <= ef.r){
+          // Precise to the visible ring: you're only hit if your center is inside the
+          // drawn radius (a tiny 6px grace so standing right on the edge reads as safe).
+          if(d <= ef.r - 6){
             if(G.shield){ /* shield blocks it */ }
             else {
               const def = G.cs ? (G.cs.def||0) : 0;
@@ -5635,32 +5720,32 @@ function App(){
     if(roll < 0.34){
       // SLAM: a big elemental circle at the player's current position
       const tx=p.x, ty=p.y, radius = m.isBoss?150:120;
-      spawnDangerZone(tx, ty, radius, now, enraged?700:1000, Math.round(m.atk*2.2), 'slam', el);
+      spawnDangerZone(tx, ty, radius, now, enraged?700:1000, Math.round(m.atk*3.5), 'slam', el);
       showToast(`⚠️ מהלומת ${el.name}!`, el.color);
     } else if(roll < 0.58){
       // LINE SWEEP: a beam/breath of the boss's element toward the player
       const ang=Math.atan2(p.y-m.y, p.x-m.x);
       for(let i=1;i<=4;i++){
         const zx=m.x+Math.cos(ang)*i*120, zy=m.y+Math.sin(ang)*i*120;
-        spawnDangerZone(zx, zy, 85, now+i*80, (enraged?700:1000), Math.round(m.atk*1.8), 'beam', el);
+        spawnDangerZone(zx, zy, 85, now+i*80, (enraged?700:1000), Math.round(m.atk*2.8), 'beam', el);
       }
       showToast(`⚠️ נשיפת ${el.name}!`, el.color);
     } else if(roll < 0.78){
       // SUMMON RING: zones in a ring around the boss (must run out or in)
       const N = elite?9:7;
       for(let i=0;i<N;i++){ const a=i/N*Math.PI*2; const zx=m.x+Math.cos(a)*190, zy=m.y+Math.sin(a)*190;
-        spawnDangerZone(zx, zy, 100, now, enraged?650:950, Math.round(m.atk*1.6), 'ring', el); }
+        spawnDangerZone(zx, zy, 100, now, enraged?650:950, Math.round(m.atk*2.6), 'ring', el); }
       showToast(`⚠️ טבעת ${el.name}!`, el.color);
     } else if(roll < 0.9){
       // CROSS/STAR: 4-pointed danger lines (Dragon-Nest "flower" pattern)
       const arms = elite?6:4;
       for(let d=0;d<arms;d++){ const a=d/arms*Math.PI*2 + (enraged?Math.PI/4:0);
         for(let i=1;i<=3;i++){ const zx=m.x+Math.cos(a)*i*130, zy=m.y+Math.sin(a)*i*130;
-          spawnDangerZone(zx, zy, 80, now+i*60, enraged?700:1000, Math.round(m.atk*1.5), 'beam', el); } }
+          spawnDangerZone(zx, zy, 80, now+i*60, enraged?700:1000, Math.round(m.atk*2.4), 'beam', el); } }
       showToast(`⚠️ פיצוץ ${el.name} מסתעף!`, el.color);
     } else {
       // EXPANDING NOVA: one huge zone centered on the boss (run far away!)
-      spawnDangerZone(m.x, m.y, elite?340:280, now, enraged?900:1300, Math.round(m.atk*2.6), 'nova', el);
+      spawnDangerZone(m.x, m.y, elite?340:280, now, enraged?900:1300, Math.round(m.atk*4.2), 'nova', el);
       showToast(`💥 נובת ${el.name} — התרחק!`, el.color);
     }
     }
@@ -5788,7 +5873,7 @@ function App(){
       // ── RANGED server monster: fire a projectile at the player ──
       if(m._ranged && !m.isBoss){
         const shootR=340+(m.size||30);
-        if(d<shootR+80 && !playerInSafe && now>m.atkT && (G._atkThisFrame||0)<3){
+        if(d<shootR+80 && !playerInSafe && now>m.atkT && (G._atkThisFrame||0)<(G._maxAttackers||3)){
           m.atkT=now+1500+Math.random()*500; G._atkThisFrame=(G._atkThisFrame||0)+1;
           const ang=Math.atan2(dy,dx);
           G.projectiles.push({ x:m.x, y:m.y, vx:Math.cos(ang)*360, vy:Math.sin(ang)*360,
@@ -5802,7 +5887,7 @@ function App(){
       // roaming boss never hits a player who didn't engage it.
       if(m.isBoss && !m._worldBoss && m._passive){ return; }
       if(m.isBoss && !m._worldBoss && !m._nestFinal && !m._engagedByMe){ return; }
-      if(d < atkR && !playerInSafe && now>m.atkT && (G._atkThisFrame||0) < 3){
+      if(d < atkR && !playerInSafe && now>m.atkT && (G._atkThisFrame||0) < (G._maxAttackers||3)){
         m.atkT = now + (m.isBoss?1100:1200) + Math.random()*200;
         m.state='attack'; m._strikeFx = now + 180;  // lunge animation
         m._windupFx = now + 150;                      // brief body wind-up motion
@@ -5828,7 +5913,7 @@ function App(){
         else if(d < tooClose){ m.x -= dx/d*sp*dt; m.y -= dy/d*sp*dt; m.state='flee'; } // kite away
         else { m.state='attack'; }
         // fire a projectile on cooldown
-        if(d < shootR+80 && now>m.atkT && (G._atkThisFrame||0) < 3){
+        if(d < shootR+80 && now>m.atkT && (G._atkThisFrame||0) < (G._maxAttackers||3)){
           m.atkT = now + 1500 + Math.random()*500;
           G._atkThisFrame = (G._atkThisFrame||0) + 1;
           const ang=Math.atan2(dy,dx);
@@ -5861,7 +5946,7 @@ function App(){
         m.x += dx/d*sp*dt; m.y += dy/d*sp*dt; m.state='chase';
       } else {
         // basic melee: instant hit with a quick lunge/body motion (no long windup)
-        if(now>m.atkT && (G._atkThisFrame||0) < 3){
+        if(now>m.atkT && (G._atkThisFrame||0) < (G._maxAttackers||3)){
           m.atkT = now + (m.isBoss?1100:1400) + Math.random()*400;
           m.state='attack'; m._strikeFx = now + 180; m._windupFx = now + 150;
           G._atkThisFrame=(G._atkThisFrame||0)+1; monsterHitPlayer(m);
@@ -5900,7 +5985,7 @@ function App(){
       if(pr.enemy){
         const pl=G.player;
         if(Math.hypot(pl.x-pr.x, pl.y-pr.y) < (pr.size||pr.r||8)+22){
-          if(!(G.shield||G.godMode) && (G._atkThisFrame||0) < 3){
+          if(!(G.shield||G.godMode) && (G._atkThisFrame||0) < (G._maxAttackers||3)){
             G._atkThisFrame=(G._atkThisFrame||0)+1;
             const cs=G.cs; const mit=Math.min(0.75,(cs.def||0)/((cs.def||0)+200+pl.level*12));
             let dmg=Math.max(1, Math.round((pr.dmg||10)*(1-mit)*(0.9+Math.random()*0.2)*(pr._cageDmg||1)));
@@ -5913,6 +5998,27 @@ function App(){
         continue; // enemy projectiles never hit monsters
       }
       if(!pr.hits) pr.hits=[];
+      // ── PvP: player projectiles damage enemy players (not party members) ──
+      if(G.worldDef && G.worldDef.pvp && window.WOLNet && window.WOLNet.connected && !pr.pet){
+        const myParty = window.WOLNet.party && window.WOLNet.party.partyId;
+        let hitPeer=false;
+        window.WOLNet.peers.forEach(peer=>{
+          if(hitPeer||peer._dead) return;
+          if(myParty && peer.partyId===myParty) return;
+          if(pr.hits.includes('peer_'+peer.id)) return;
+          if(Math.hypot(peer.x-pr.x, peer.y-pr.y) < (pr.size||7)+26){
+            const cs=G.cs; const power=Math.max(cs.atk,cs.matk);
+            const crit=Math.random()<(cs.crit||0);
+            const dmg=Math.max(1, Math.round(power*(pr.dmg||1)*(crit?2:1) - (peer.level||1)*2));
+            const kx=(peer.x-G.player.x)/(Math.hypot(peer.x-G.player.x,peer.y-G.player.y)||1), ky=(peer.y-G.player.y)/(Math.hypot(peer.x-G.player.x,peer.y-G.player.y)||1);
+            window.WOLNet.pvpHit(peer.id, dmg, kx, ky);
+            pushDmgNum(peer.x, peer.y-40, dmg, crit?'#ffd24a':'#fff', crit);
+            burst(pr.x, pr.y, pr.color, 8, 140);
+            if(pr.pierce){ pr.hits.push('peer_'+peer.id); } else { hitPeer=true; }
+          }
+        });
+        if(hitPeer && !pr.pierce){ G.projectiles.splice(i,1); continue; }
+      }
       for(const m of allM){
         if(m.hp<=0||m._dying) continue;
         if(pr.hits.includes(m.id)) continue;
@@ -6839,6 +6945,31 @@ function App(){
         } else if(fx==='poison'){
           ctx.globalAlpha=fade*0.5; ctx.fillStyle=ef.color; ctx.shadowColor=ef.color; ctx.shadowBlur=20;
           for(let i=0;i<10;i++){ const a=i*2.1+now/400; const rr=ef.r*(0.3+0.6*((i%3)/3)); ctx.beginPath(); ctx.arc(ix+Math.cos(a)*rr,iy+Math.sin(a)*rr,ef.r*0.18,0,Math.PI*2); ctx.fill(); }
+        } else if(fx==='earthshatter'){
+          // jagged earth cracks bursting outward + rising rock shards
+          ctx.globalAlpha=fade*0.5; const g=ctx.createRadialGradient(ix,iy,0,ix,iy,ef.r);
+          g.addColorStop(0,'#e8b06a'); g.addColorStop(0.5,ef.color); g.addColorStop(1,'rgba(120,70,20,0)');
+          ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ix,iy,ef.r,0,Math.PI*2); ctx.fill();
+          ctx.globalAlpha=fade; ctx.strokeStyle='#5a3a1a'; ctx.lineWidth=5;
+          for(let i=0;i<8;i++){ const a=i/8*Math.PI*2; ctx.beginPath(); ctx.moveTo(ix,iy);
+            let cx=ix,cy=iy; for(let s=1;s<=4;s++){ const rr=ef.r*s/4; cx=ix+Math.cos(a+Math.sin(s)*0.2)*rr; cy=iy+Math.sin(a+Math.sin(s)*0.2)*rr; ctx.lineTo(cx,cy);} ctx.stroke(); }
+          // rising shards
+          ctx.fillStyle='#7a5a3a'; for(let i=0;i<10;i++){ const a=i*2.1; const rr=ef.r*0.7*(i%3/3+0.3); ctx.save(); ctx.translate(ix+Math.cos(a)*rr, iy+Math.sin(a)*rr-prog*14); ctx.rotate(a); ctx.fillRect(-3,-10,6,16); ctx.restore(); }
+        } else if(fx==='voidnova'){
+          // a swirling purple vortex pulling inward
+          ctx.globalAlpha=fade*0.6; ctx.translate(ix,iy); ctx.rotate(now/300);
+          const g=ctx.createRadialGradient(0,0,0,0,0,ef.r); g.addColorStop(0,'#1a0030'); g.addColorStop(0.6,ef.color); g.addColorStop(1,'rgba(154,58,255,0)');
+          ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,ef.r,0,Math.PI*2); ctx.fill();
+          ctx.globalAlpha=fade; ctx.strokeStyle='#d8aaff'; ctx.lineWidth=3; ctx.shadowColor=ef.color; ctx.shadowBlur=20;
+          for(let s=0;s<4;s++){ ctx.beginPath(); for(let a=0;a<Math.PI*2;a+=0.2){ const rr=ef.r*(a/(Math.PI*2))*(1-s*0.18); const px=Math.cos(a*2+s)*rr, py=Math.sin(a*2+s)*rr; a===0?ctx.moveTo(px,py):ctx.lineTo(px,py);} ctx.stroke(); }
+        } else if(fx==='divinestorm'){
+          // radiant holy storm: golden beams + sparkles
+          ctx.globalAlpha=fade*0.5; const g=ctx.createRadialGradient(ix,iy,0,ix,iy,ef.r);
+          g.addColorStop(0,'#fffce8'); g.addColorStop(0.6,ef.color); g.addColorStop(1,'rgba(255,232,138,0)');
+          ctx.fillStyle=g; ctx.beginPath(); ctx.arc(ix,iy,ef.r,0,Math.PI*2); ctx.fill();
+          ctx.globalAlpha=fade; ctx.strokeStyle='#fff'; ctx.lineWidth=3; ctx.shadowColor=ef.color; ctx.shadowBlur=22;
+          for(let i=0;i<12;i++){ const a=i/12*Math.PI*2+now/500; ctx.beginPath(); ctx.moveTo(ix+Math.cos(a)*ef.r*0.3,iy+Math.sin(a)*ef.r*0.3); ctx.lineTo(ix+Math.cos(a)*ef.r,iy+Math.sin(a)*ef.r); ctx.stroke(); }
+          ctx.fillStyle='#fff'; for(let i=0;i<8;i++){ const a=i*2.4+now/200, rr=Math.random()*ef.r; ctx.fillRect(ix+Math.cos(a)*rr,iy+Math.sin(a)*rr,2,2); }
         } else {
           // generic expanding ring
           ctx.globalAlpha=fade; ctx.strokeStyle=ef.color; ctx.lineWidth=5; ctx.shadowColor=ef.color; ctx.shadowBlur=16;
@@ -7202,10 +7333,15 @@ function App(){
     const p = G.player;
     G.cs = E.computeStats(p);
     p.hp = G.cs.maxHp; p.mp = G.cs.maxMp;
-    // lose some gold
-    const lost = Math.round(p.gold*0.1); p.gold -= lost;
+    // lose some gold (no loss in PvP arena)
+    const curWorld = (G.worldDef && G.worldDef.id) || 'meadow';
+    const isPvp = G.worldDef && G.worldDef.pvp;
+    if(!isPvp){ const lost = Math.round(p.gold*0.1); p.gold -= lost; }
+    // Revive in the SAME world you died in (PvP→PvP arena, combat world→its spawn,
+    // nest/dungeon→its start). Only fall back to town if the world is unknown.
+    const reviveWorld = D.WORLDS.find(w=>w.id===curWorld) ? curWorld : 'town';
     G.running = false;
-    enterWorld('meadow', false);
+    enterWorld(reviveWorld, false);
     requestAnimationFrame(()=>{
       const cv = canvasRef.current;
       if(cv){
@@ -7447,6 +7583,9 @@ function App(){
           <canvas ref={minimapRef} width={170} height={170} style={{borderRadius:4,display:'block'}}></canvas>
         </div>
         <button onClick={()=>setModal('worldmap')} style={{marginTop:4,width:'100%',background:'linear-gradient(135deg,#2a4a6a,#1a2a4a)',border:'2px solid #5ac8ff',borderRadius:8,color:'#7ad8ff',fontWeight:700,fontSize:'0.72rem',padding:'5px',pointerEvents:'all'}}>🌀 השתגר לעולם</button>
+        {G._nestCleared && G.worldDef && G.worldDef.nest && (
+          <button onClick={()=>{ const p=G.player; if(p._nestDone) delete p._nestDone[G.worldDef.id]; G._nestCleared=false; E.save&&E.save(p); setupNestStage(0); showToast('🔄 הנסט אופס — בהצלחה!', '#5aff8a'); rerender(); }} style={{marginTop:4,width:'100%',background:'linear-gradient(135deg,#6a2a4a,#4a1a2a)',border:'2px solid #ff7ac8',borderRadius:8,color:'#ff9ad8',fontWeight:700,fontSize:'0.72rem',padding:'5px',pointerEvents:'all'}}>🔄 אפס נסט (שחק שוב)</button>
+        )}
         {/* PARTY MEMBERS — name + live HP, shown under the minimap */}
         {(()=>{
           const party = window.WOLNet && window.WOLNet.party;
@@ -8308,6 +8447,7 @@ function Modals(props){
               <div className="shop-info">
                 <div className="shop-nm" style={{color:rar.color}}>{set.name}</div>
                 <div className="shop-desc">{set.pieces.length} חלקים • {rar.name} • רמה {set.reqLv}</div>
+                <div style={{fontSize:'0.62rem',color:'#5aff8a',marginTop:2}}>⚡ {set.bonus.desc}</div>
               </div>
               <button className="shop-buy" disabled={!canBuy} onClick={()=>buySet(set)}>
                 <span>🪙{set.price}</span>
