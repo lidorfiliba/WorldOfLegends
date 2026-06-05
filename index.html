@@ -1018,6 +1018,22 @@ const WORLDS = [
       {type:'boss', boss:'flame_demon', name:'🔥 שד הלהבות העתיק'}
     ],
     desc:'⛰️ נסט קבוצתי (רמה 90+) — הכי קשה! 3 שלבים, בוסים ענקיים. עדיף קבוצה של 4. שלל מיתי מובטח!'},
+  {id:'nest_void', name:'🌌 קרע התהום', emoji:'🌌', reqLv:150, monLv:[150,180], bg:'#0a0618', accent:'#2a1a4a', tile:'void', ww:11000, wh:11000, xpMul:4.0,
+    monsters:['reaper','wraith','shadow','banshee'], boss:'oblivion_lord', nest:true, nestMode:'party',
+    nestStages:[
+      {type:'wave', mon:['reaper','wraith','shadow'], count:30, name:'🌑 שערי התהום'},
+      {type:'miniboss', boss:'soul_devourer', name:'👁️ זולל הנשמות'},
+      {type:'boss', boss:'oblivion_lord', name:'🌌 אדון האבדון'}
+    ],
+    desc:'🌌 נסט endgame (רמה 150+) — קבוצה חובה! שלל: סט התהום הקיצוני + חלקי יצירה נדירים'},
+  {id:'nest_genesis', name:'☀️ כס הבריאה', emoji:'☀️', reqLv:220, monLv:[220,260], bg:'#100818', accent:'#4a2a6a', tile:'celestial', ww:12000, wh:12000, xpMul:5.0,
+    monsters:['phoenix','reaper','elemental','banshee'], boss:'astral_god', nest:true, nestMode:'party',
+    nestStages:[
+      {type:'wave', mon:['phoenix','reaper','elemental'], count:36, name:'✨ מבואת הבריאה'},
+      {type:'miniboss', boss:'celestial', name:'⚡ השומר השמיימי'},
+      {type:'boss', boss:'astral_god', name:'☀️ אל האסטרל — הקרב הסופי'}
+    ],
+    desc:'☀️ נסט endgame אולטימטיבי (רמה 220+) — האתגר הגדול במשחק! שלל: סט הבריאה הקיצוני + חלקי יצירה אגדיים'},
 ];
 
 const ITEM_PREFIXES = ['','חד','קסום','ברוך','ארור','אכזרי','קדוש','עתיק','בוהק','גורלי'];
@@ -2961,6 +2977,8 @@ window.WOLNet = (function(){
         case 'partyXp':       if(this.onPartyXp) this.onPartyXp(m); break;
         case 'partyHealed':   if(this.onPartyHeal) this.onPartyHeal(m); break;
         case 'partyBuff':     if(this.onPartyBuff) this.onPartyBuff(m); break;
+        case 'gmTeleport':    if(this.onGmTeleport) this.onGmTeleport(m); break;
+        case 'gmSetLevel':    if(this.onGmSetLevel) this.onGmSetLevel(m); break;
         case 'worldBossSpawn': if(this.onBoss) this.onBoss('spawn', m); break;
         case 'worldBossHp':    if(this.onBoss) this.onBoss('hp', m); break;
         case 'worldBossDead':  if(this.onBoss) this.onBoss('dead', m); break;
@@ -3219,6 +3237,7 @@ function App(){
   const [modal, setModal] = useState(null); // inventory|equip|stats|shopSkill|shopGear|worldmap|null
   const openModalRef = useRef(null);
   openModalRef.current = setModal;
+  const teleportRef = useRef(null);
   const [selItem, setSelItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [lvlupFlash, setLvlupFlash] = useState(0);
@@ -3390,6 +3409,31 @@ function App(){
   const gmUnlockWorlds = ()=>{
     G.player.unlockedWorlds = D.WORLDS.map(w=>w.id);
     showToast('🗺️ כל העולמות פתוחים', '#5aff8a'); rerender();
+  };
+  // ── GM: craft ANY custom item (choose slot, rarity, level) ──
+  const gmCustomItem = (opts)=>{
+    const p=G.player;
+    const lv = E.clamp(opts.level||p.level, 1, 250);
+    const it = E.genItem(lv, opts.rarity||'mythic', 3);
+    if(opts.slot){ it.slot = opts.slot; }
+    if(opts.enh){ it._enh = E.clamp(opts.enh,0,15); }
+    it.name = '👑 ' + it.name;
+    if(p.inventory.length<40){ p.inventory.push(it); G.player._sig=E.signChar(p); E.save&&E.save(p);
+      log(`🛡️ GM: יצרת ${it.emoji} ${it.name} (${opts.rarity} L${lv} +${it._enh||0})`, 'lg-leg'); showToast('👑 חפץ נוצר!', '#ffd24a'); }
+    else showToast('התיק מלא!', '#ff7a3a');
+    rerender();
+  };
+  // ── GM: summon a player TO me (or teleport TO a player) ──
+  const gmSummonPlayer = (peerId)=>{
+    if(!window.WOLNet || !window.WOLNet.connected){ showToast('דרוש חיבור לשרת', '#ff7a3a'); return; }
+    window.WOLNet.send('gmSummon', { targetId: peerId, x: G.player.x, y: G.player.y, world: G.worldDef.id });
+    showToast('🌀 השחקן זומן אליך', '#5affc0');
+  };
+  // ── GM: set another player's level remotely ──
+  const gmSetPlayerLevel = (peerId, lv)=>{
+    if(!window.WOLNet || !window.WOLNet.connected){ showToast('דרוש חיבור לשרת', '#ff7a3a'); return; }
+    window.WOLNet.send('gmSetLevel', { targetId: peerId, level: E.clamp(lv,1,250) });
+    showToast(`🛡️ רמת השחקן הוגדרה ל-${lv}`, '#5aff8a');
   };
   // expose ALL GM functions for the admin panel's live-game section
   useEffect(()=>{
@@ -3995,6 +4039,21 @@ function App(){
           G.partyBuffs['peer_'+m.skillId] = { key:m.buffKey, val:m.buffVal, end:Date.now()+(m.dur||300000), src:'peer', name:m.name, emoji:m.emoji };
           showToast(`${m.emoji||'✨'} קיבלת באף קבוצתי: ${m.name}!`, '#5affc0');
         };
+        // ── GM summoned me to their location ──
+        window.WOLNet.onGmTeleport=(m)=>{
+          showToast(`🌀 ${m.by||'GM'} זימן אותך!`, '#ffd24a');
+          if(m.world && m.world!==G.worldDef.id && teleportRef.current){ teleportRef.current(m.world); }
+          setTimeout(()=>{ if(G.player){ G.player.x=m.x||G.player.x; G.player.y=m.y||G.player.y; } }, 400);
+        };
+        // ── GM set my level remotely ──
+        window.WOLNet.onGmSetLevel=(m)=>{
+          if(!G.player) return;
+          const lv=Math.max(1,Math.min(250,m.level|0));
+          G.player.level=lv; G.player.xp=0; G.player.statPoints=(lv-1)*5;
+          G.cs=E.computeStats(G.player); G.player.hp=G.cs.maxHp; G.player.mp=G.cs.maxMp;
+          E.save&&E.save(G.player);
+          showToast(`🛡️ ${m.by||'GM'} הגדיר את הרמה שלך ל-${lv}`, '#5aff8a');
+        };
         // ── PRIVATE CHAT (whisper) ──
         window.WOLNet.onWhisper=(m)=>{
           setWhispers(prev=>[...prev.slice(-30), {fromId:m.fromId, fromName:m.fromName, text:m.text, mine:m.mine}]);
@@ -4132,6 +4191,7 @@ function App(){
       requestAnimationFrame(loopRef.current);
     });
   };
+  teleportRef.current = teleport;
 
   // ════════ XP / LEVEL ════════
   const gainXP = useCallback((amt, isKill)=>{
@@ -8095,7 +8155,7 @@ function App(){
         buyConsumable={buyConsumable} useConsumable={useConsumable}
         teleport={teleport} canEquip={(it)=>E.canEquip(p,it)}
         rerender={rerender} showToast={showToast} setNestDiffPrompt={setNestDiffPrompt}
-        gm={{giveGold:gmGiveGold, giveXP:gmGiveXP, setLevel:gmSetLevel, spawnItem:gmSpawnItem, fullHeal:gmFullHeal, godMode:gmGodMode, killAll:gmKillAll, unlockWorlds:gmUnlockWorlds, startEvent:gmStartEvent,
+        gm={{giveGold:gmGiveGold, giveXP:gmGiveXP, setLevel:gmSetLevel, spawnItem:gmSpawnItem, customItem:gmCustomItem, summonPlayer:gmSummonPlayer, setPlayerLevel:gmSetPlayerLevel, fullHeal:gmFullHeal, godMode:gmGodMode, killAll:gmKillAll, unlockWorlds:gmUnlockWorlds, startEvent:gmStartEvent,
           allMaterials:()=>{ const pl=G.player; if(!pl.materials)pl.materials={}; Object.keys(D.MATERIALS).forEach(k=>pl.materials[k]=(pl.materials[k]||0)+50); showToast('🔨 +50 מכל חומר','#ffaa3a'); rerender(); },
           allMounts:()=>{ G.player.mounts=Object.keys(D.MOUNTS); showToast('🐎 כל החיות נפתחו','#5aff8a'); rerender(); },
           dungeonKey:()=>{ G.player.dungeonKey=true; showToast('🗝️ מפתח מבוך','#ff66ff'); rerender(); },
