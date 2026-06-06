@@ -3927,6 +3927,7 @@ function App(){
     if(changed){ E.save && E.save(p); }
   };
   window._bumpDaily = bumpDaily; // expose for fishing / other panels
+  window._grantXP = (amt)=>{ try{ gainXP(amt|0, false); }catch(e){} }; // level-aware XP for panels (daily quests etc.)
 
   // ══════════════ ENDLESS TOWER ══════════════
   // A self-contained, infinitely-scaling instanced challenge. Reuses the
@@ -4289,9 +4290,21 @@ function App(){
               p.level = m.level; p.xp = m.xp; p.xpNext = E.xpForLevel(m.level);
             }
           } else if(isGainMsg && m.gainXp){
-            // server processed a real kill but is behind our local total → just add the xp
-            // locally without touching level (local level-up handles thresholds).
+            // Server processed a real kill but its authoritative total is BEHIND our
+            // local total (this happens when early kills leveled us up locally before
+            // the server's _cs finished loading). Add the XP AND run the local level-up
+            // loop so the player keeps leveling instead of piling up XP past the cap.
+            // We never roll the LEVEL backward here, so the L60→L26 protection holds.
             p.xp = (p.xp||0) + (m.gainXp||0);
+            let _ld=0, _g=0;
+            while(p.xp >= E.xpForLevel(p.level) && p.level<250 && _g<300){ _g++; p.xp -= E.xpForLevel(p.level); p.level++; E.applyLevelGrowth(p); p._lastGrowthLevel = p.level; _ld++; }
+            if(_ld){
+              G.cs = E.computeStats(p);
+              p.hp = G.cs.maxHp; p.mp = G.cs.maxMp;
+              setLvlupFlash(Date.now()); setTimeout(()=>setLvlupFlash(0), 2500);
+              log(`⭐ עלית לרמה ${p.level}! (+${_ld*5} נקודות סטטיסטיקה)`, 'lg-xp');
+              window.SOUND&&window.SOUND.play('levelup'); G.shake=10;
+            }
           }
           if(m.gainXp || m.gainGold){
             const bonusTxt = m.bonus>1 ? ` (×${m.bonus})` : '';
@@ -6194,6 +6207,10 @@ function App(){
       // never hunt a brand-new player — stay calm/passive
       if(p.level < 8){ m._passive=true; m.aggro=false; }
     }
+    // ── WORLD BOSS: a shared event boss is aggressive by design, but it must NOT
+    //    hunt a brand-new player (level < 10) — who also can't be damaged by it.
+    //    Newbies who spawn near it are left alone until they choose to attack. ──
+    if(m._worldBoss && p.level < 10){ m._passive = true; m.aggro = false; }
     // ── PASSIVE roaming boss: ignores the player until first attacked (just idles) ──
     if(m._passive){
       m.state='idle';
@@ -9625,7 +9642,8 @@ function DailyQuestsSection({player, showToast, rerender, setT}){
   const claimQuest=(entry, def)=>{
     if(!entry.done || entry.claimed) return;
     const r = window.GAME_DATA.dailyQuestReward(player, def);
-    player.gold += r.gold; player.xp = (player.xp||0) + r.xp;
+    player.gold += r.gold;
+    if(window._grantXP) window._grantXP(r.xp); else player.xp = (player.xp||0) + r.xp;
     entry.claimed = true;
     showToast(`✅ ${def.name}: +${r.gold.toLocaleString()}🪙 +${r.xp.toLocaleString()}XP`, '#5aff8a');
     E.save && E.save(player); refresh(); rerender&&rerender();
