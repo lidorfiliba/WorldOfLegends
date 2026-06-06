@@ -39,6 +39,8 @@ canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;image
 .title-bg{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 35%,#2a0f28 0%,#0a0510 70%);z-index:0;}
 .title-bg::after{content:'';position:absolute;inset:0;background-image:radial-gradient(2px 2px at 20% 30%,#ffd24a44,transparent),radial-gradient(2px 2px at 70% 60%,#9b59b644,transparent),radial-gradient(1px 1px at 40% 80%,#ffffff33,transparent),radial-gradient(2px 2px at 85% 25%,#ffd24a33,transparent);background-size:400px 400px;animation:drift 20s linear infinite;}
 @keyframes drift{to{background-position:400px 400px;}}
+.conn-spinner{width:54px;height:54px;border-radius:50%;border:4px solid rgba(200,160,255,0.18);border-top-color:#ffd24a;border-right-color:#ff8ad8;animation:connspin 0.9s linear infinite;box-shadow:0 0 22px rgba(255,138,216,0.35);}
+@keyframes connspin{to{transform:rotate(360deg);}}
 .logo{font-family:'Cinzel Decorative',serif;font-size:clamp(2rem,9vw,5rem);font-weight:900;color:var(--gold);text-shadow:0 0 40px #ffd24a99,0 4px 0 #000,0 0 80px #ffaa0055;text-align:center;line-height:1;position:relative;z-index:2;letter-spacing:2px;animation:logoGlow 4s ease-in-out infinite;}
 @keyframes logoGlow{0%,100%{text-shadow:0 0 40px #ffd24a99,0 4px 0 #000;}50%{text-shadow:0 0 70px #ffd24acc,0 4px 0 #000,0 0 120px #ffaa0088;}}
 .logo-sword{font-size:clamp(3rem,12vw,7rem);display:block;text-align:center;animation:swordFloat 3s ease-in-out infinite;filter:drop-shadow(0 0 30px #ffd24a88);}
@@ -992,6 +994,7 @@ const WORLDS = [
   {id:'arena',    name:'⚔️ זירת PvP',     emoji:'⚔️', reqLv:1,   monLv:[1,1],    bg:'#1a0e14', accent:'#3a1828', tile:'castle',     ww:3600,  wh:3600,  xpMul:0,   monsters:[],                                                  boss:null,            desc:'⚔️ זירת קרב שחקן מול שחקן — תקוף כל מי שכאן! קבוצות מוגנות מאש ידידותית', pvp:true},
   {id:'town',     name:'🏰 העיר הראשית',   emoji:'🏰', reqLv:1,   monLv:[1,1],    bg:'#1a1614', accent:'#3a2e24', tile:'stone',      ww:2800,  wh:2800,  xpMul:0,   monsters:[],                                                  boss:null,            desc:'🏰 העיר הראשית — בטוחה. דבר עם ה-NPCs, צור נשקים אצל הנפח, וקח משימות', town:true},
   {id:'forge_dungeon', name:'🔨 מבוך הנפחייה', emoji:'🔨', reqLv:60, monLv:[60,120], bg:'#1c0f06', accent:'#3a2010', tile:'lava',   ww:11900,  wh:11900,  xpMul:2.0, monsters:['demon','drake','golem','elemental','behemoth'],   boss:'forge_titan',   desc:'🔨 מבוך מיוחד — 4 אזורים עם חומרי יצירה נדירים. הבוס דורש קבוצה!', dungeon:true, zones:4},
+  {id:'tower', name:'🗼 המגדל האינסופי', emoji:'🗼', reqLv:1, monLv:[1,300], bg:'#0a0818', accent:'#2a1a4a', tile:'metal', ww:4200, wh:4200, xpMul:1.0, monsters:['slime','goblin','skeleton'], boss:null, tower:true, desc:'🗼 קומות אינסופיות שמתקשות בהדרגה. כל קומה חמישית = בוס. כמה גבוה תגיע?'},
   // ══════════════ NESTS (Dragon-Nest style staged raids) ══════════════
   // 3 stages each: wave of monsters → mini-boss → final boss. Instanced, level-gated.
   {id:'nest_goblin', name:'🕳️ מאורת הגובלינים', emoji:'🕳️', reqLv:25, monLv:[25,38], bg:'#16210f', accent:'#2a3a16', tile:'forest', ww:6000, wh:6000, xpMul:2.2,
@@ -1149,7 +1152,156 @@ const QUESTS = [
   {id:'q_demon_legion',name:'לגיון השדים',       emoji:'😈',  type:'kill',  target:'demon', count:50, reward:{xp:120000,gold:50000,item:true}, reqLv:60, desc:'הרוג 50 שדים במבוך הנפחייה'},
 ];
 
-const _gd = {CLASSES, SKILLS, EVOLUTIONS, RARITY, ITEM_BASES, CONSUMABLES, SHOP_SETS, MONSTERS, BOSSES, WORLDS, QUESTS, ITEM_PREFIXES, ITEM_SUFFIXES, MATERIALS, CRAFT_RECIPES, MOUNTS, PETS, PET_PARTS, ACHIEVEMENTS, EVO_BRANCHES, EVO_PATHS, EVO_QUESTS, ELEMENTS, STATUS_FX, SKILL_ELEMENT, skillElement, ULT_BY_CLASS};
+// ════════════════════════════════════════════════════════════════
+//  DAILY QUESTS — a rotating pool. 3 are chosen deterministically each
+//  real-world day (same for everyone), reset at local midnight. Completing
+//  all 3 grants a bonus chest. Progress lives on player.dailyQuests.
+//  Reward scales with player level so it stays relevant at every stage.
+// ════════════════════════════════════════════════════════════════
+const DAILY_QUEST_POOL = [
+  {id:'dq_kill',    emoji:'⚔️', type:'kill',  count:60,  name:'מטהר העולם',     desc:'הרוג 60 מפלצות'},
+  {id:'dq_kill_big',emoji:'💀', type:'kill',  count:150, name:'קצירה גדולה',    desc:'הרוג 150 מפלצות'},
+  {id:'dq_boss',    emoji:'👑', type:'boss',  count:3,   name:'צייד בוסים',     desc:'הבס 3 בוסים'},
+  {id:'dq_gold',    emoji:'🪙', type:'gold',  count:8000,name:'אספן זהב',       desc:'אסוף 8,000 זהב ממפלצות'},
+  {id:'dq_tower',   emoji:'🗼', type:'tower', count:5,   name:'מטפס',           desc:'עלה 5 קומות במגדל האינסופי'},
+  {id:'dq_fish',    emoji:'🎣', type:'fish',  count:8,   name:'דייג היום',      desc:'דוג 8 דגים'},
+  {id:'dq_pvp',     emoji:'🗡️', type:'pvp',   count:3,   name:'גלדיאטור יומי',  desc:'חסל 3 שחקנים ב-PvP'},
+  {id:'dq_loot',    emoji:'🎁', type:'loot',  count:12,  name:'מלקט שלל',       desc:'הרם 12 חפצים מהרצפה'},
+  {id:'dq_kill_xl', emoji:'☠️', type:'kill',  count:300, name:'מכונת הרג יומית',desc:'הרוג 300 מפלצות'},
+  {id:'dq_event',   emoji:'🌟', type:'kill',  count:40,  name:'לוחם האירוע',    desc:'הרוג 40 מפלצות (בונוס באירוע פעיל)'},
+];
+// per-quest reward: gold = base*level, xp = base*level
+function dailyQuestReward(player, q){
+  const lv = Math.max(1, player.level||1);
+  const mult = q.id==='dq_kill_xl' || q.id==='dq_kill_big' ? 220 : 120;
+  return { gold: Math.round(mult*lv*1.5), xp: Math.round(mult*lv) };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  TITLES — selectable cosmetic titles shown above your head & name.
+//  Most come from achievements; a few are unlocked by the tower, fishing
+//  and dedication. unlock(p) decides whether the player owns the title.
+// ════════════════════════════════════════════════════════════════
+const TITLES = [
+  {id:'none',          name:'— ללא תואר —',   emoji:'',    color:'#9a8aa8', unlock:()=>true},
+  // achievement-derived
+  {id:'t_beginner',    name:'מתחיל',           emoji:'🔰', color:'#9adfff', unlock:p=>(p.kills||0)>=1},
+  {id:'t_hunter',      name:'צייד',            emoji:'🏹', color:'#9adfff', unlock:p=>(p.kills||0)>=100},
+  {id:'t_slayer',      name:'קוטל המונים',     emoji:'💀', color:'#ff8a5a', unlock:p=>(p.kills||0)>=1000},
+  {id:'t_machine',     name:'מכונת הרג',       emoji:'☠️', color:'#ff5a5a', unlock:p=>(p.kills||0)>=10000},
+  {id:'t_evolving',    name:'מתפתח',           emoji:'🌟', color:'#ffd24a', unlock:p=>(p.level||1)>=50},
+  {id:'t_demigod',     name:'אל למחצה',        emoji:'⚡', color:'#b89aff', unlock:p=>(p.level||1)>=110},
+  {id:'t_legend',      name:'אגדה חיה',        emoji:'👑', color:'#ffce4a', unlock:p=>(p.level||1)>=200},
+  {id:'t_immortal',    name:'בן אלמוות',       emoji:'🏆', color:'#ff66ff', unlock:p=>(p.level||1)>=250},
+  {id:'t_rich',        name:'עשיר',            emoji:'💰', color:'#ffd24a', unlock:p=>(p.gold||0)>=100000},
+  {id:'t_millionaire', name:'מיליונר',         emoji:'💎', color:'#5affd2', unlock:p=>(p.gold||0)>=1000000},
+  {id:'t_smith',       name:'נפח',             emoji:'🔨', color:'#ffaa3a', unlock:p=>(p.craftedUniques||[]).length>=1},
+  {id:'t_gladiator',   name:'גלדיאטור',        emoji:'⚔️', color:'#ff6a6a', unlock:p=>(p.pvpKills||0)>=10},
+  // tower
+  {id:'t_climber',     name:'מטפס המגדל',      emoji:'🗼', color:'#88ddff', unlock:p=>(p.towerBest||0)>=10},
+  {id:'t_skywalker',   name:'הולך השמיים',     emoji:'🌠', color:'#b0e0ff', unlock:p=>(p.towerBest||0)>=25},
+  {id:'t_tower_god',   name:'אדון המגדל',      emoji:'⛩️', color:'#ffd24a', unlock:p=>(p.towerBest||0)>=50},
+  // fishing
+  {id:'t_angler',      name:'דייג',            emoji:'🎣', color:'#7fd0ff', unlock:p=>(p.fishCount||0)>=50},
+  {id:'t_fishlord',    name:'אדון הים',        emoji:'🐋', color:'#5ab0ff', unlock:p=>(p.fishCount||0)>=300},
+  // dedication
+  {id:'t_devoted',     name:'נאמן',            emoji:'🔥', color:'#ff9a5a', unlock:p=>(p.dailyStreak||0)>=7},
+  {id:'t_eternal',     name:'נצחי',            emoji:'✨', color:'#ffd24a', unlock:p=>(p.dailyStreak||0)>=30},
+];
+
+// ════════════════════════════════════════════════════════════════
+//  ENDLESS TOWER — an instanced, infinitely-scaling challenge world.
+//  Each floor = a wave of scaling monsters; every 5th floor = a boss.
+//  Clearing a floor opens a portal up. Floors get harder forever and
+//  reward gold/XP that grows per floor; milestone floors drop loot.
+//  player.towerBest tracks the highest floor ever cleared.
+// ════════════════════════════════════════════════════════════════
+const TOWER = {
+  monstersByTier: [
+    ['slime','bat','spider','goblin'],          // floors 1-5
+    ['wolf','goblin','skeleton','orc'],          // 6-10
+    ['skeleton','wraith','orc','demon'],         // 11-15
+    ['vampire','shadow','orc','demon'],          // 16-20
+    ['demon','elemental','drake','golem_ice'],   // 21-25
+    ['shadow','banshee','minotaur','hydra'],     // 26-30
+    ['wyvern','hydra','behemoth','elemental'],   // 31-40
+    ['reaper','behemoth','phoenix','world_eater_spawn'], // 41+
+  ],
+  bosses: ['goblin_king','lich_lord','vampire_lord','flame_demon','shadow_king','frost_giant','great_drake','golem_titan','world_eater','soul_devourer','astral_god','oblivion_lord'],
+  // returns the monster id pool for a given floor
+  monPool(floor){
+    const idx = floor<=5?0 : floor<=10?1 : floor<=15?2 : floor<=20?3 : floor<=25?4 : floor<=30?5 : floor<=40?6 : 7;
+    return TOWER.monstersByTier[idx];
+  },
+  // boss id for a boss floor (every 5th)
+  bossFor(floor){ const i = Math.floor(floor/5)-1; return TOWER.bosses[Math.min(i, TOWER.bosses.length-1)]; },
+  isBossFloor(floor){ return floor%5===0; },
+  // monster level scales with floor (roughly +3 per floor)
+  monLv(floor){ return Math.max(1, 3 + floor*3); },
+  // count of monsters in a wave floor
+  waveCount(floor){ return Math.min(22, 6 + Math.floor(floor*0.6)); },
+  // per-floor clear reward
+  reward(floor, playerLevel){
+    const base = 600 + floor*floor*40;
+    return { gold: Math.round(base), xp: Math.round(E.xpForLevel(Math.max(1,playerLevel))*0.10*(1+floor*0.04)) };
+  },
+};
+
+// ════════════════════════════════════════════════════════════════
+//  FISHING — a relaxed timing mini-game. Cast, wait for a bite, then
+//  reel in within a short window. Better timing → better catch.
+//  Catches give gold, crafting parts, and occasionally items.
+// ════════════════════════════════════════════════════════════════
+const FISH_TABLE = [
+  {id:'minnow',  name:'דג קטן',      emoji:'🐟', weight:40, gold:[20,80]},
+  {id:'fish',    name:'דג רגיל',     emoji:'🐠', weight:30, gold:[80,220]},
+  {id:'puffer',  name:'דג נפוח',     emoji:'🐡', weight:14, gold:[200,500]},
+  {id:'squid',   name:'דיונון',      emoji:'🦑', weight:8,  gold:[400,900],  part:'spirit_dust'},
+  {id:'octopus', name:'תמנון',       emoji:'🐙', weight:5,  gold:[700,1500], part:'beast_fang'},
+  {id:'shark',   name:'כריש',        emoji:'🦈', weight:2.5,gold:[1500,4000],part:'ember_feather'},
+  {id:'whale',   name:'לווייתן נדיר', emoji:'🐋', weight:0.5,gold:[5000,12000],item:true},
+];
+
+// ════════════════════════════════════════════════════════════════
+//  WORLD EVENTS — global, time-synced events. Every real hour an event
+//  is active, computed purely from the wall clock so ALL players see the
+//  same one with no server needed. Events apply gentle global modifiers.
+// ════════════════════════════════════════════════════════════════
+const WORLD_EVENTS = [
+  {id:'calm',     emoji:'🕊️', name:'שקט',            color:'#9a8aa8', xpMul:1,   goldMul:1,   lootBonus:0, desc:'אין אירוע פעיל כרגע'},
+  {id:'doublexp', emoji:'⚡', name:'XP כפול',         color:'#88ddff', xpMul:2,   goldMul:1,   lootBonus:0, desc:'כל המפלצות מעניקות פי 2 ניסיון!'},
+  {id:'goldrush', emoji:'🪙', name:'בהלת הזהב',       color:'#ffd24a', xpMul:1,   goldMul:2,   lootBonus:0, desc:'מפלצות מפילות פי 2 זהב!'},
+  {id:'bloodmoon',emoji:'🌕', name:'ירח דמים',        color:'#ff5a5a', xpMul:1.5, goldMul:1.5, lootBonus:2, desc:'מפלצות חזקות יותר — אך השלל נדיב הרבה יותר!'},
+  {id:'lucky',    emoji:'🍀', name:'שעת המזל',        color:'#5aff8a', xpMul:1.2, goldMul:1.2, lootBonus:1, desc:'סיכויי שלל נדיר מוגברים!'},
+];
+// Which event is active right now? Pure function of the clock so it's
+// identical for every player worldwide. Rotates each hour; every 6th hour
+// is a Blood Moon. Returns the event def + ms remaining this hour.
+function activeWorldEvent(t){
+  t = t || Date.now();
+  const HOUR = 3600000;
+  const hourIndex = Math.floor(t / HOUR);
+  let ev;
+  if(hourIndex % 6 === 0) ev = WORLD_EVENTS.find(e=>e.id==='bloodmoon');
+  else { const cycle = ['doublexp','goldrush','lucky']; ev = WORLD_EVENTS.find(e=>e.id===cycle[hourIndex % cycle.length]); }
+  const remaining = HOUR - (t % HOUR);
+  return { event: ev || WORLD_EVENTS[0], remaining };
+}
+
+// resolve a player's display title: chosen title (if owned) overrides the
+// auto achievement title; 'none' clears it.
+function titleById(id){ return (TITLES||[]).find(t=>t.id===id); }
+function titleText(p){
+  if(!p) return '';
+  if(p.selectedTitle){
+    if(p.selectedTitle==='none') return '';
+    const t = titleById(p.selectedTitle);
+    if(t && (!t.unlock || t.unlock(p))) return (t.emoji?t.emoji+' ':'')+t.name;
+  }
+  return p.title || '';
+}
+
+const _gd = {CLASSES, SKILLS, EVOLUTIONS, RARITY, ITEM_BASES, CONSUMABLES, SHOP_SETS, MONSTERS, BOSSES, WORLDS, QUESTS, ITEM_PREFIXES, ITEM_SUFFIXES, MATERIALS, CRAFT_RECIPES, MOUNTS, PETS, PET_PARTS, ACHIEVEMENTS, EVO_BRANCHES, EVO_PATHS, EVO_QUESTS, ELEMENTS, STATUS_FX, SKILL_ELEMENT, skillElement, ULT_BY_CLASS, DAILY_QUEST_POOL, dailyQuestReward, TITLES, titleText, titleById, TOWER, FISH_TABLE, WORLD_EVENTS, activeWorldEvent};
 // SECURITY: deep-freeze all game-balance data so a tamperer can't rewrite item
 // prices, set bonuses, skill damage, drop tables, etc. from the console. (Frozen
 // objects silently reject writes; functions are left callable.)
@@ -1449,10 +1601,14 @@ function createPlayer(classId, name){
     petParts:{},           // pet crafting parts: partId -> count
     achievements:[],       // unlocked achievement ids
     title:'',              // active title from achievements
+    selectedTitle:'',      // player-chosen display title id (overrides auto title)
+    towerBest:0,           // highest Endless Tower floor ever cleared
+    fishCount:0,           // total fish caught (titles + daily quests)
+    guild:null,            // current guild name (cached from server)
     pvpKills:0,            // PvP kill count
     dailyClaim:0,          // last daily-reward claim timestamp
     dailyStreak:0,         // consecutive daily logins
-    dailyQuests:null,      // today's daily quests
+    dailyQuests:null,      // today's daily quests {date, list:[{id,prog,done,claimed}], bonusClaimed}
     weeklyXp:0,            // XP earned this week (for the weekly leaderboard)
     weekId:0,              // which ISO week the weeklyXp belongs to
     weeklyRewardClaimed:0, // weekId of the last claimed weekly-winner reward
@@ -2939,7 +3095,7 @@ window.WOLNet = (function(){
       this.profile=profile;
       if(!window.WOL_SERVER_URL){ return; } // offline mode
       try{ this.ws=new WebSocket(window.WOL_SERVER_URL); }catch(e){ return; }
-      this.ws.onopen=()=>{ this.connected=true; this.send('join',this.profile); };
+      this.ws.onopen=()=>{ this.connected=true; this.everConnected=true; this.send('join',this.profile); };
       this.ws.onclose=()=>{ this.connected=false; this.peers.clear(); clearTimeout(this._reconnectT); this._reconnectT=setTimeout(()=>this.connect(this.profile),3000); };
       this.ws.onerror=()=>{};
       this.ws.onmessage=(ev)=>{ let m; try{m=JSON.parse(ev.data);}catch{return;} this.handle(m); };
@@ -2995,6 +3151,39 @@ window.WOLNet = (function(){
         case 'tradeDeclined':  if(this.onTrade) this.onTrade('declined', m); break;
         case 'tradeBusy':      if(this.onTrade) this.onTrade('busy', m); break;
         case 'kicked': if(this.onKicked) this.onKicked(m); this.connected=false; break;
+        // ── Guilds ──
+        case 'guildList': this.guildListData = m.guilds||[]; if(window._guildRefresh) window._guildRefresh(); break;
+        case 'guildInfo': {
+          this.guild = m.guild || null;
+          if(this.guild){ if(!this.guild.chat) this.guild.chat=[]; }
+          if(window.G && window.G.player){ window.G.player.guild = this.guild ? this.guild.name : null; if(window.ENGINE&&window.ENGINE.save) window.ENGINE.save(window.G.player); }
+          if(window._guildRefresh) window._guildRefresh();
+          break;
+        }
+        case 'guildJoined': {
+          const prevChat = (this.guild&&this.guild.chat)||[];
+          this.guild = m.guild || {name:m.name, members:m.members||[], chat:[]};
+          if(!this.guild.chat) this.guild.chat = prevChat;
+          if(window.G && window.G.player){ window.G.player.guild = this.guild.name; if(window.ENGINE&&window.ENGINE.save) window.ENGINE.save(window.G.player); }
+          if(window._guildRefresh) window._guildRefresh();
+          break;
+        }
+        case 'guildLeft': {
+          this.guild = null;
+          if(window.G && window.G.player){ window.G.player.guild = null; if(window.ENGINE&&window.ENGINE.save) window.ENGINE.save(window.G.player); }
+          if(window._guildRefresh) window._guildRefresh();
+          break;
+        }
+        case 'guildChat': {
+          if(!this.guild) break; if(!this.guild.chat) this.guild.chat=[];
+          this.guild.chat.push({from:m.from, text:m.text});
+          if(this.guild.chat.length>50) this.guild.chat.shift();
+          if(window._guildRefresh) window._guildRefresh();
+          if(window.showToastGlobal) window.showToastGlobal(`🛡️ ${m.from}: ${m.text}`, '#88ddff');
+          break;
+        }
+        case 'guildError': if(window.showToastGlobal) window.showToastGlobal('🛡️ '+(m.reason||'שגיאת גילדה'), '#ff5a5a'); break;
+        case 'peerTitle': { const pr=this.peers.get(m.id); if(pr){ pr.title=m.title||''; pr.guild=m.guild||''; } break; }
       }
     },
     send(type,data){ if(this.ws&&this.ws.readyState===1) this.ws.send(JSON.stringify({type,...data})); },
@@ -3022,6 +3211,14 @@ window.WOLNet = (function(){
     tradeConfirm(){ this.send('tradeConfirm',{}); },
     tradeCancel(){ this.send('tradeCancel',{}); },
     isOnline(){ return this.connected; },
+    // ── Guild methods ──
+    guildCreate(name){ this.send('guildCreate',{name}); },
+    guildJoin(name){ this.send('guildJoin',{name}); },
+    guildLeave(){ this.send('guildLeave',{}); },
+    guildList(){ this.send('guildList',{}); },
+    guildInfo(){ this.send('guildInfo',{}); },
+    guildChat(text){ this.send('guildChat',{text}); },
+    updateTitle(title, guild){ this.send('titleUpdate',{title:title||'', guild:guild||''}); if(this.profile){ this.profile.title=title||''; this.profile.guild=guild||''; } },
   };
   return Net;
 })();
@@ -3310,6 +3507,7 @@ function App(){
     clearTimeout(showToast._t);
     showToast._t = setTimeout(()=>setToast(null), 2600);
   }, []);
+  useEffect(()=>{ window.showToastGlobal = showToast; return ()=>{ if(window.showToastGlobal===showToast) window.showToastGlobal=null; }; }, [showToast]);
 
   // ════════ START GAME ════════
   // ════════ LOGIN / ACCOUNTS ════════
@@ -3554,6 +3752,10 @@ function App(){
     if(!saved.petParts) saved.petParts = {};
     if(!saved.achievements) saved.achievements = [];
     if(saved.title===undefined) saved.title = '';
+    if(saved.selectedTitle===undefined) saved.selectedTitle = '';
+    if(saved.towerBest===undefined) saved.towerBest = 0;
+    if(saved.fishCount===undefined) saved.fishCount = 0;
+    if(saved.guild===undefined) saved.guild = null;
     if(saved.pvpKills===undefined) saved.pvpKills = 0;
     if(saved.dailyClaim===undefined) saved.dailyClaim = 0;
     if(saved.dailyStreak===undefined) saved.dailyStreak = 0;
@@ -3706,6 +3908,103 @@ function App(){
     showToast('✨ שלב נוקה! (+60% חיים)', '#5aff8a');
   };
 
+  // ══════════════ DAILY QUESTS ══════════════
+  // Deterministically pick 3 quests for today (so a player can't reroll), reset
+  // at local midnight. Progress is bumped from gameplay via bumpDaily().
+  // (Core rolling logic lives in the top-level wolEnsureDaily so panels share it.)
+  const ensureDailyQuests = (p)=>{ return wolEnsureDaily(p || G.player); };
+  const bumpDaily = (type, amount)=>{
+    const p = G.player; if(!p) return;
+    const dq = ensureDailyQuests(p); if(!dq) return;
+    const pool = window.GAME_DATA.DAILY_QUEST_POOL||[];
+    let changed=false;
+    dq.list.forEach(entry=>{
+      if(entry.done) return;
+      const def = pool.find(q=>q.id===entry.id); if(!def || def.type!==type) return;
+      entry.prog = Math.min(def.count, (entry.prog||0)+amount);
+      if(entry.prog>=def.count){ entry.done=true; changed=true; showToast(`✅ משימה יומית הושלמה: ${def.name}`, '#5aff8a'); }
+    });
+    if(changed){ E.save && E.save(p); }
+  };
+  window._bumpDaily = bumpDaily; // expose for fishing / other panels
+
+  // ══════════════ ENDLESS TOWER ══════════════
+  // A self-contained, infinitely-scaling instanced challenge. Reuses the
+  // monster/boss combat. Floor clear → portal up. Tracks player.towerBest.
+  const setupTowerFloor = (floor)=>{
+    const D2 = window.GAME_DATA, T = D2.TOWER;
+    G._towerFloor = floor;
+    G._towerWaveTotal = 0;
+    G._dungeonGate = null;
+    G.monsters = []; G.bosses = []; G.projectiles = []; G.effects = []; G.groundItems = G.groundItems||[];
+    const p = G.player;
+    p.x = WW/2; p.y = WH/2 + 160;
+    const lv = T.monLv(floor);
+    if(T.isBossFloor(floor)){
+      const bossBase = D2.BOSSES.find(b=>b.id===T.bossFor(floor)) || D2.BOSSES[0];
+      const boss = makeMonster(bossBase, lv, WW/2, WH/2-260, 0.95+lv*0.04, true, 1.0);
+      // tower bosses scale tankier with floor
+      const tank = 1 + floor*0.06;
+      boss.maxHp = Math.round(boss.maxHp*tank); boss.hp=boss.maxHp; boss._elite=true; boss._towerBoss=true;
+      G.bosses = [boss];
+      G.shake = 16;
+      showToast(`🗼 קומה ${floor} — בוס! ${bossBase.name}`, '#ff66cc');
+      log(`🗼 קומה ${floor}: בוס ${bossBase.name} (רמה ${lv})! הביסו אותו כדי לעלות`, 'lg-boss');
+    } else {
+      const count = T.waveCount(floor);
+      const pool = T.monPool(floor);
+      for(let i=0;i<count;i++){
+        const ang=(i/count)*Math.PI*2 + Math.random()*0.5, rad=240+Math.random()*260;
+        const x=E.clamp(WW/2+Math.cos(ang)*rad, 120, WW-120);
+        const y=E.clamp(WH/2+Math.sin(ang)*rad, 120, WH-120);
+        const base=D2.MONSTERS.find(m=>m.id===E.pick(pool)); if(!base) continue;
+        const mo=makeMonster(base, lv, x, y, 1+lv*0.06, false, 1.0);
+        const tank = 1 + floor*0.03;
+        mo.maxHp=Math.round(mo.maxHp*tank); mo.hp=mo.maxHp;
+        mo._ranged = Math.random()<0.3; mo._towerMon=true;
+        G.monsters.push(mo);
+      }
+      G._towerWaveTotal = G.monsters.length;
+      showToast(`🗼 קומה ${floor} — נקה ${G.monsters.length} מפלצות!`, '#88ddff');
+      log(`🗼 קומה ${floor}: הרוג ${G.monsters.length} מפלצות (רמה ${lv})`, 'lg-boss');
+    }
+    G.camera.x = p.x - window.innerWidth/2;
+    G.camera.y = p.y - window.innerHeight/2;
+  };
+  const towerNextFloor = ()=>{
+    if(!G.worldDef || !G.worldDef.tower) return;
+    const floor = (G._towerFloor||1) + 1;
+    setupTowerFloor(floor);
+    const p=G.player;
+    p.hp = Math.min(G.cs.maxHp, p.hp + G.cs.maxHp*0.5); p.mp = G.cs.maxMp;
+    showToast(`✨ עולה לקומה ${floor}! (+50% חיים)`, '#5aff8a');
+  };
+  // grant a floor-clear reward (called from killMonster when a tower floor ends)
+  const towerFloorCleared = (floor)=>{
+    const p=G.player, T=window.GAME_DATA.TOWER;
+    const r = T.reward(floor, p.level);
+    const ev = applyEventMods({gold:r.gold, xp:r.xp});
+    p.gold += ev.gold; gainXP(ev.xp, false);
+    if(floor > (p.towerBest||0)){ p.towerBest = floor; bumpDaily('tower', 1); }
+    else { bumpDaily('tower', 1); }
+    // milestone loot every 5 floors
+    if(floor%5===0){
+      const rar = floor>=40?'mythic' : floor>=25?'legendary' : floor>=10?'epic' : 'rare';
+      if(p.inventory.length<40){ p.inventory.push(E.genItem(Math.max(p.level, T.monLv(floor)), rar, floor>=25?2:1)); showToast(`🎁 קומה ${floor}: חפץ ${rar}!`, '#ffd24a'); }
+    }
+    checkAchievements(); E.save && E.save(p);
+    log(`🗼 קומה ${floor} נוקתה! +${ev.gold.toLocaleString()}🪙 +${ev.xp.toLocaleString()}XP`, 'lg-leg');
+  };
+
+  // ══════════════ WORLD EVENT MODIFIERS ══════════════
+  // Apply the currently-active global event's gold/xp multipliers to a reward.
+  const applyEventMods = (reward)=>{
+    try{
+      const {event} = window.GAME_DATA.activeWorldEvent();
+      return { gold: Math.round((reward.gold||0)*(event.goldMul||1)), xp: Math.round((reward.xp||0)*(event.xpMul||1)), lootBonus: event.lootBonus||0 };
+    }catch(e){ return { gold:reward.gold||0, xp:reward.xp||0, lootBonus:0 }; }
+  };
+
   const enterWorld = (worldId, freshStart)=>{
     const p = G.player;
     const wd = D.WORLDS.find(w=>w.id===worldId);
@@ -3720,11 +4019,12 @@ function App(){
     // Decide up-front whether this world's monsters come from the SERVER (shared).
     // If so, don't build local monsters at all — the server populates them and all
     // players see/fight the SAME ones together.
-    const _nonShared = ['town','arena','forge_dungeon'];
-    const _willShare = !!window.WOL_SERVER_URL && !_nonShared.includes(worldId) && !wd.dungeon && !wd.nest && !wd.pvp && !wd.town;
-    const {monsters, bosses} = (_willShare || wd.nest) ? {monsters:[], bosses:[]} : makeWorldEntities(wd, p.level);
+    const _nonShared = ['town','arena','forge_dungeon','tower'];
+    const _willShare = !!window.WOL_SERVER_URL && !_nonShared.includes(worldId) && !wd.dungeon && !wd.nest && !wd.pvp && !wd.town && !wd.tower;
+    const {monsters, bosses} = (_willShare || wd.nest || wd.tower) ? {monsters:[], bosses:[]} : makeWorldEntities(wd, p.level);
     if(_willShare) G._cages = []; // shared worlds don't use local fenced pens
     if(wd.nest) G._cages = [];    // nests are staged, no open-world cages
+    if(wd.tower) G._cages = [];   // tower is staged per-floor, no cages
     G.monsters = monsters; G.bosses = bosses;
     G.groundItems = []; G.particles = []; G.projectiles = []; G.effects = []; G.dmgNums = [];
     G.skillCd = {}; G.atkCd = 0; G.shield=false; G.buffAtk=0; G.nearBoss=null;
@@ -3732,6 +4032,8 @@ function App(){
     // ── DUNGEON: start at zone 1 (4-zone progression) ──
     G._dungeonZone = 0; G._dungeonGate = null; G._dungeonClear = false;
     if(wd.dungeon){ setupDungeonZone(0); }
+    // ── TOWER: always start a fresh climb at floor 1 ──
+    if(wd.tower){ G._towerFloor = 0; setupTowerFloor(1); }
     // ── NEST: start at stage 0 (wave → miniboss → final boss) ──
     G._nestStage = 0; G._nestClear = false;
     if(!wd.nest){ G._nestDifficulty = 'normal'; } // difficulty only applies inside nests
@@ -3775,7 +4077,7 @@ function App(){
       const prof={ name:p.name, cls:p.classId, level:p.level, evoStage:p.evoStage||0,
         world:netWorld, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp), worldTier:wtier,
         worldW:WW, worldH:WH,
-        account:p.account||'', slot:p.charSlot||0, gold:Math.round(p.gold||0) };
+        account:p.account||'', slot:p.charSlot||0, gold:Math.round(p.gold||0), title:D.titleText(p)||'', guild:p.guild||'' };
       if(window.WOLNet){
         if(!window.WOLNet.connected && !window.WOLNet.ws){ window.WOLNet.connect(prof); }
         else if(window.WOLNet.connected){ window.WOLNet.changeWorld(netWorld, Math.round(p.x), Math.round(p.y), wtier, WW, WH); }
@@ -3795,6 +4097,7 @@ function App(){
             showToast(`🏆 חיסלת את ${m.victimName}!`, '#5aff8a');
             p.gold += 200; window.__pvpKills=(window.__pvpKills||0)+1;
             p.pvpKills=(p.pvpKills||0)+1; checkAchievements();
+            if(window._bumpDaily) window._bumpDaily('pvp', 1);
           }
         };
         // ALWAYS-ON chat receiver: store every message globally and (if the chat
@@ -3820,13 +4123,13 @@ function App(){
         };
         // ── SHARED MONSTERS: in social overworld zones, the server owns monsters
         //    so all players fight the SAME ones. Not in town/arena/dungeon. ──
-        const NON_SHARED = ['town','arena','forge_dungeon'];
+        const NON_SHARED = ['town','arena','forge_dungeon','tower'];
         const tier = Math.max(1, D.WORLDS.findIndex(w=>w.id===worldId)+1);
         // Shared world = a server is configured AND this is a social overworld.
         // (Don't gate on isOnline() — the socket may still be opening; monsters
         //  arrive once connected and we suppress local spawns from the start.)
         const serverConfigured = !!window.WOL_SERVER_URL;
-        G.sharedWorld = serverConfigured && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.nest && !wd.pvp && !wd.town;
+        G.sharedWorld = serverConfigured && !NON_SHARED.includes(worldId) && !wd.dungeon && !wd.nest && !wd.pvp && !wd.town && !wd.tower;
         G._serverMons = {}; // mid -> local monster object
         G._enterWorldT = Date.now(); G._lastServerMonT = 0; G._usingFallbackMons = false; G._everGotServerMons = false;
         // server tells us where the cage clusters are → draw fenced pens there
@@ -3842,19 +4145,9 @@ function App(){
         };
         if(G.sharedWorld){
           G.monsters = []; // server will populate the shared monsters
-          // FALLBACK: if the server is asleep/slow and no monsters arrive within
-          // a few seconds, switch to FULL LOCAL mode so the player always has
-          // monsters AND they respawn normally (the offline respawn path runs only
-          // when G.sharedWorld is false).
-          G._sharedFallbackT = setTimeout(()=>{
-            if(G.sharedWorld && Object.keys(G._serverMons).length===0 && G.running){
-              G.sharedWorld = false;          // ← go fully offline so respawns work
-              G._usingFallbackMons = true;
-              const ents = makeWorldEntities(wd, p.level);
-              G.monsters = ents.monsters; G.bosses = ents.bosses;
-              showToast('⚠️ שרת לא זמין — משחק מקומי (מפלצות יחזרו כרגיל)', '#ffcc66');
-            }
-          }, 5000);
+          // ONLINE-ONLY: no offline fallback. If the server is still waking, the
+          // connecting overlay covers the wait; we never spawn local monsters
+          // (that would let offline progress diverge from the server economy).
         }
         window.WOLNet.onMonsters=(kind, m)=>{
           if(!G.sharedWorld) return;
@@ -4658,8 +4951,16 @@ function App(){
 
   const killMonster = useCallback((mon)=>{
     const p = G.player;
-    const goldAmt = E.randInt(mon.gold[0], mon.gold[1]);
+    // ── WORLD EVENT: apply the active global event's gold/xp multipliers ──
+    const _ev = applyEventMods({gold:E.randInt(mon.gold[0], mon.gold[1]), xp:mon.xp});
+    const goldAmt = _ev.gold;
+    const xpAmt = _ev.xp;
+    if(_ev.lootBonus){ mon._rarityBonus = (mon._rarityBonus||0) + _ev.lootBonus; } // world event boosts drop rarity
     p.gold += goldAmt; p.kills++;
+    // ── DAILY QUESTS: progress kills / boss kills / gold collected ──
+    bumpDaily('kill', 1);
+    if(mon.isBoss) bumpDaily('boss', 1);
+    bumpDaily('gold', goldAmt);
     if(mon.isBoss){ p._evoBossKills = (p._evoBossKills||0)+1; }
     checkAchievements();
     updateEvoQuests();
@@ -4679,8 +4980,8 @@ function App(){
       // phoenix ash: ~1% from endgame bosses
       if(mon.isBoss && eg && Math.random()<0.01) give('phoenix_ash');
     }
-    gainXP(mon.xp, true);
-    log(`💀 ${mon.base.name} +${mon.xp}XP +${goldAmt}🪙`, 'lg-xp');
+    gainXP(xpAmt, true);
+    log(`💀 ${mon.base.name} +${xpAmt}XP +${goldAmt}🪙`, 'lg-xp');
     // ── Quest kill tracking ──
     if(!p.questKills) p.questKills = {};
     if(!p.quests) p.quests = {};
@@ -4796,6 +5097,15 @@ function App(){
       }
       G.nearBoss=null;
       mon.hp=0; mon._dying=true;
+      // ── TOWER BOSS FLOOR: clear → reward → portal up ──
+      if(G.worldDef && G.worldDef.tower){
+        const floor = G._towerFloor||1;
+        towerFloorCleared(floor);
+        G.bosses = G.bosses.filter(b=>b!==mon);
+        if(!G._dungeonGate){ G._dungeonGate = {x:WW/2, y:WH/2-300, r:55, _tower:true}; }
+        showToast(`🗼 בוס קומה ${floor} הובס! עבור דרך השער למעלה →`, '#ffd24a');
+        return;
+      }
       // ── DUNGEON BOSS: completing it finishes the dungeon (no respawn) ──
       if(G.worldDef && G.worldDef.dungeon && mon.base.dungeon){
         G._dungeonClear = true;
@@ -4880,6 +5190,18 @@ function App(){
       // remove the monster
       const idx = G.monsters.indexOf(mon);
       if(idx>=0) G.monsters.splice(idx,1);
+      // ── TOWER: wave floor cleared → reward → portal up ──
+      if(G.worldDef && G.worldDef.tower){
+        const alive = G.monsters.filter(m=>m.hp>0).length;
+        if(alive===0 && !G._dungeonGate && (G._towerWaveTotal||0)>0){
+          const floor = G._towerFloor||1;
+          towerFloorCleared(floor);
+          G._towerWaveTotal = 0;
+          G._dungeonGate = {x:WW/2, y:WH/2-300, r:55, _tower:true};
+          showToast(`✨ קומה ${floor} נוקתה! עבור דרך השער למעלה →`, '#5aff8a');
+        }
+        return; // tower never respawns the floor
+      }
       // ── DUNGEON: don't respawn — check if the zone is cleared ──
       if(G.worldDef && G.worldDef.dungeon){
         const alive = G.monsters.filter(m=>m.hp>0).length;
@@ -5528,9 +5850,9 @@ function App(){
     if(G._dungeonGate){
       const g=G._dungeonGate;
       if(Math.hypot(p.x-g.x, p.y-g.y) < g.r+20){
-        const isNest = g._nest;
+        const isNest = g._nest, isTower = g._tower;
         G._dungeonGate=null;
-        if(isNest) advanceNest(); else advanceDungeonZone();
+        if(isTower) towerNextFloor(); else if(isNest) advanceNest(); else advanceDungeonZone();
       }
     }
     // ── TOWN: walking up to an NPC opens its panel (once, until you walk away) ──
@@ -5658,6 +5980,7 @@ function App(){
           log(`🎒 אספת ${gi.item.emoji} ${gi.item.name}`, D.RARITY[gi.item.rarity].color==='#ff8000'?'lg-leg':'lg-item');
           G.groundItems.splice(i,1);
           window.SOUND&&window.SOUND.play('pickup');
+          if(window._bumpDaily) window._bumpDaily('loot', 1);
         } else if(!G._bagFullWarned || Date.now()-G._bagFullWarned>5000){
           G._bagFullWarned = Date.now();
           showToast('🎒 התיק מלא! פנה מקום כדי לאסוף', '#ff5a5a');
@@ -5690,23 +6013,18 @@ function App(){
     }
     if(G.frame%180===0) G.monsters = G.monsters.filter(m=>!m._remove && (m._server ? !m._dying : m.hp>0));
 
-    // ── SHARED-WORLD WATCHDOG: if we're in shared mode but the server has given us
-    //    no monsters for a while (asleep / disconnected / dropped), fall back to a
-    //    FULL LOCAL world so the map is never empty and monsters respawn normally. ──
-    if(G.sharedWorld && !G._usingFallbackMons && G.worldDef && !G.worldDef.nest && !G.worldDef.dungeon){
+    // ── SHARED-WORLD WATCHDOG (ONLINE-ONLY): we NEVER fall back to a local world,
+    //    because mixing offline progress with the server's authoritative economy
+    //    causes duplicate levels/stats/items. Instead we just track whether the
+    //    server has delivered monsters yet; the connecting overlay covers the wait. ──
+    if(G.sharedWorld && G.worldDef && !G.worldDef.nest && !G.worldDef.dungeon){
       const haveServerMons = G._serverMons && Object.keys(G._serverMons).length>0;
-      const online = window.WOLNet && window.WOLNet.isOnline && window.WOLNet.isOnline();
       if(haveServerMons){ G._lastServerMonT = now; G._everGotServerMons = true; }
-      // Fall back to local if EITHER: (a) the server never delivered since we entered
-      // (asleep on arrival), OR (b) we're disconnected and the map has gone empty.
-      const neverDelivered = !G._everGotServerMons && now - (G._enterWorldT||now) > 5000;
-      const lostConnEmpty   = !online && !haveServerMons && now - (G._enterWorldT||now) > 5000;
-      if(neverDelivered || lostConnEmpty){
-        G.sharedWorld = false; G._usingFallbackMons = true;
-        const ents = makeWorldEntities(G.worldDef, G.player.level);
-        G.monsters = ents.monsters; G.bosses = ents.bosses;
-        showToast('⚠️ שרת לא זמין — משחק מקומי (מפלצות יחזרו כרגיל)', '#ffcc66');
-      }
+      // Flag used by the connecting overlay: in a shared world we're "ready" only
+      // once the server has actually sent monsters at least once.
+      G._waitingForServerMons = !G._everGotServerMons;
+    } else {
+      G._waitingForServerMons = false;
     }
 
     // ── NEST WATCHDOG: reliably open the stage portal once the wave is cleared,
@@ -5721,6 +6039,21 @@ function App(){
           G._nestWaveTotal = 0; // don't re-trigger
           showToast('✨ הגל נוקה! עבור דרך השער הזוהר →', '#5aff8a');
           log('✨ ניקית את הגל! שער לשלב הבא נפתח במרכז המפה', 'lg-leg');
+        }
+      }
+    }
+
+    // ── TOWER WATCHDOG: open the up-portal once a wave floor is cleared,
+    //    no matter how the monsters died. Boss floors are handled on boss death. ──
+    if(G.frame%15===0 && G.worldDef && G.worldDef.tower && !G._dungeonGate){
+      const floor = G._towerFloor||1;
+      if(!window.GAME_DATA.TOWER.isBossFloor(floor) && (G._towerWaveTotal||0)>0){
+        const aliveMons = G.monsters.filter(m=>m.hp>0 && !m._dying).length;
+        if(aliveMons===0){
+          towerFloorCleared(floor);
+          G._towerWaveTotal = 0;
+          G._dungeonGate = {x:WW/2, y:WH/2-300, r:55, _tower:true};
+          showToast(`✨ קומה ${floor} נוקתה! עבור דרך השער למעלה →`, '#5aff8a');
         }
       }
     }
@@ -6684,6 +7017,18 @@ function App(){
         ctx.strokeStyle='rgba(0,0,0,0.8)'; ctx.lineWidth=3;
         const label=`${peer.name} [${peer.level}]`;
         ctx.strokeText(label, px, py-44); ctx.fillText(label, px, py-44);
+        // peer title (above name) + guild tag
+        if(peer.title){
+          ctx.font='bold 10px Heebo';
+          ctx.fillStyle='#c8b0ff'; ctx.lineWidth=3;
+          const tline = peer.guild ? `<${peer.guild}> ${peer.title}` : peer.title;
+          ctx.strokeText(tline, px, py-58); ctx.fillText(tline, px, py-58);
+          ctx.font='bold 12px sans-serif';
+        } else if(peer.guild){
+          ctx.font='bold 10px Heebo'; ctx.fillStyle='#9ad0ff'; ctx.lineWidth=3;
+          ctx.strokeText('<'+peer.guild+'>', px, py-58); ctx.fillText('<'+peer.guild+'>', px, py-58);
+          ctx.font='bold 12px sans-serif';
+        }
         // HP bar
         if(peer.maxHp){
           const bw=46, hpPct=Math.max(0,Math.min(1,peer.hp/peer.maxHp));
@@ -6745,7 +7090,16 @@ function App(){
     ctx.font='bold 12px Cinzel'; ctx.textAlign='center';
     ctx.fillStyle='#ffd24a'; ctx.shadowColor='#000'; ctx.shadowBlur=4;
     ctx.fillText(p.name, p.x-cam.x, p.y-cam.y-46); ctx.shadowBlur=0;
-
+    // player title (above name)
+    {
+      const tt = D.titleText(p);
+      if(tt){
+        const tdef = p.selectedTitle ? D.titleById(p.selectedTitle) : null;
+        ctx.font='bold 10px Heebo'; ctx.textAlign='center';
+        ctx.fillStyle = (tdef && tdef.color) || '#c8b0ff'; ctx.shadowColor='#000'; ctx.shadowBlur=4;
+        ctx.fillText('— '+tt+' —', p.x-cam.x, p.y-cam.y-60); ctx.shadowBlur=0;
+      }
+    }
     // GM cloud above admin head
     if(p.gm){
       const gx = p.x-cam.x, gy = p.y-cam.y-72 + Math.sin(now/400)*3;
@@ -7580,6 +7934,7 @@ function App(){
   return (
     <div className="screen" style={{background:wd.bg}}>
       <canvas ref={canvasRef}></canvas>
+      <ConnectingOverlay />
 
       {/* zone tag */}
       <div className="zone-tag">{wd.emoji} {wd.name}</div>
@@ -7756,6 +8111,8 @@ function App(){
           <button className="mini-btn" onClick={()=>setModal('achievements')}>🏆 הישגים</button>
           <button className="mini-btn" onClick={()=>setModal('leaderboard')}>📊 דירוג</button>
           <button className="mini-btn" onClick={()=>setModal('daily')}>🎁 יומי</button>
+          <button className="mini-btn" style={{borderColor:'#c8a0ff',color:'#c8b0ff'}} onClick={()=>setModal('titles')}>🎖️ תארים</button>
+          <button className="mini-btn" style={{borderColor:'#88ddff',color:'#88ddff'}} onClick={()=>setModal('guild')}>🛡️ גילדה</button>
           {p.evoReady && <button className="mini-btn" style={{borderColor:'#ffd24a',color:'#ffd24a',animation:'ptsPulse 1.5s infinite'}} onClick={()=>setModal('evolution')}>⚡ התפתחות!</button>}
           {G.worldDef && G.worldDef.town && <button className="mini-btn" style={{borderColor:'#ff99cc',color:'#ff99cc'}} onClick={()=>setModal('pets')}>🐾 חיות</button>}
           <button className="mini-btn" onClick={()=>teleport('town')}>🏰 עיר</button>
@@ -7768,6 +8125,8 @@ function App(){
           }}>{p.activeMount?'🛑 רד':'🐎 רכב'}</button>
           {G.worldDef && G.worldDef.town && <button className="mini-btn" style={{borderColor:'#88ddff',color:'#88ddff'}} onClick={()=>setModal('stable')}>🐎 אורווה</button>}
           {G.worldDef && G.worldDef.town && <button className="mini-btn" style={{borderColor:'#ffaa3a',color:'#ffaa3a'}} onClick={()=>setModal('blacksmith')}>🔨 נפח</button>}
+          {G.worldDef && G.worldDef.town && <button className="mini-btn" style={{borderColor:'#b0e0ff',color:'#b0e0ff'}} onClick={()=>setModal('tower')}>🗼 מגדל</button>}
+          {G.worldDef && G.worldDef.town && <button className="mini-btn" style={{borderColor:'#7fd0ff',color:'#7fd0ff'}} onClick={()=>setModal('fishing')}>🎣 דיג</button>}
           {G.worldDef && G.worldDef.town && <button className="mini-btn" style={{borderColor:'#ff66ff',color:'#ff66ff'}} onClick={()=>setModal('dungeon')}>🔨 מבוך</button>}
           {(()=>{
             const readyQ=(D.QUESTS||[]).filter(q=>{const qs=p.quests&&p.quests[q.id];return qs&&qs.done&&!qs.claimed;}).length;
@@ -8710,6 +9069,26 @@ function Modals(props){
     body = <DailyPanel player={p} showToast={showToast} rerender={props.rerender} />;
   }
 
+  if(modal==='titles'){
+    title='🎖️ תארים';
+    body = <TitlesPanel player={p} showToast={showToast} rerender={props.rerender} />;
+  }
+
+  if(modal==='tower'){
+    title='🗼 המגדל האינסופי';
+    body = <TowerPanel player={p} showToast={showToast} teleport={teleport} setModal={setModal} />;
+  }
+
+  if(modal==='fishing'){
+    title='🎣 דיג';
+    body = <FishingPanel player={p} showToast={showToast} rerender={props.rerender} />;
+  }
+
+  if(modal==='guild'){
+    title='🛡️ גילדה';
+    body = <GuildPanel player={p} showToast={showToast} rerender={props.rerender} />;
+  }
+
   if(modal==='evolution'){
     title='⚡ דרך ההתפתחות';
     body = <EvolutionPanel player={p} showToast={showToast} rerender={props.rerender} teleport={teleport} setModal={setModal} />;
@@ -9166,6 +9545,23 @@ function PartyPanel({player, showToast}){
 }
 
 // ════════════════════════════════════════════════
+// DAILY QUESTS — shared helper (used by the game loop AND the panel).
+// Deterministically rolls today's 3 quests; resets at local midnight.
+// ════════════════════════════════════════════════
+function wolTodayKey(){ const d=new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+function wolEnsureDaily(p){
+  if(!p) return null;
+  const key = wolTodayKey();
+  if(p.dailyQuests && p.dailyQuests.date===key && Array.isArray(p.dailyQuests.list)) return p.dailyQuests;
+  let seed = 0; for(const ch of key) seed = (seed*31 + ch.charCodeAt(0))>>>0;
+  const pool = (window.GAME_DATA.DAILY_QUEST_POOL||[]).slice();
+  const picks = [];
+  for(let i=0;i<3 && pool.length;i++){ seed=(seed*1103515245+12345)>>>0; const idx=seed%pool.length; picks.push(pool.splice(idx,1)[0]); }
+  p.dailyQuests = { date:key, list: picks.map(q=>({id:q.id, prog:0, done:false, claimed:false})), bonusClaimed:false };
+  return p.dailyQuests;
+}
+
+// ════════════════════════════════════════════════
 // DAILY REWARD — escalating rewards for consecutive logins
 // ════════════════════════════════════════════════
 const DAILY_REWARDS = [
@@ -9213,6 +9609,391 @@ function DailyPanel({player, showToast, rerender}){
       <button className="btn btn-main" style={{width:'100%',opacity:canClaim?1:0.5}} disabled={!canClaim} onClick={claim}>
         {canClaim?'🎁 אסוף תגמול יומי':'✓ נאסף — חזור מחר'}
       </button>
+
+      {/* ── DAILY QUESTS ── */}
+      <DailyQuestsSection player={player} showToast={showToast} rerender={rerender} setT={setT} />
+    </div>
+  );
+}
+
+// Daily quests sub-panel: 3 rotating tasks + a bonus chest for finishing all 3.
+function DailyQuestsSection({player, showToast, rerender, setT}){
+  const dq = wolEnsureDaily(player);
+  const pool = window.GAME_DATA.DAILY_QUEST_POOL||[];
+  const [,setLocal]=useState(0); const refresh=()=>{ setLocal(n=>n+1); setT&&setT(n=>n+1); };
+  if(!dq) return null;
+  const claimQuest=(entry, def)=>{
+    if(!entry.done || entry.claimed) return;
+    const r = window.GAME_DATA.dailyQuestReward(player, def);
+    player.gold += r.gold; player.xp = (player.xp||0) + r.xp;
+    entry.claimed = true;
+    showToast(`✅ ${def.name}: +${r.gold.toLocaleString()}🪙 +${r.xp.toLocaleString()}XP`, '#5aff8a');
+    E.save && E.save(player); refresh(); rerender&&rerender();
+  };
+  const allDone = dq.list.every(e=>e.done);
+  const allClaimed = dq.list.every(e=>e.claimed);
+  const claimBonus=()=>{
+    if(!allClaimed || dq.bonusClaimed){ showToast('סיים ואסוף את כל 3 המשימות קודם','#ff5a5a'); return; }
+    dq.bonusClaimed = true;
+    const bonusGold = 5000 + player.level*200;
+    player.gold += bonusGold;
+    if(player.inventory.length<40){ player.inventory.push(E.genItem(player.level,'legendary',2)); }
+    showToast(`🎁 בונוס יומי! +${bonusGold.toLocaleString()}🪙 + חפץ אגדי!`, '#ffd24a');
+    E.save && E.save(player); refresh(); rerender&&rerender();
+  };
+  return (
+    <div style={{marginTop:18}}>
+      <div style={{fontFamily:"'Cinzel Decorative',serif",fontWeight:900,fontSize:'1rem',color:'#ffce6a',marginBottom:4,textAlign:'center'}}>📋 משימות יומיות</div>
+      <div style={{fontSize:'0.62rem',color:'#9a8aa8',textAlign:'center',marginBottom:10}}>3 משימות מתחלפות בכל יום. סיים את כולן לבונוס!</div>
+      {dq.list.map((entry,i)=>{
+        const def = pool.find(q=>q.id===entry.id); if(!def) return null;
+        const pct = Math.min(100, Math.round((entry.prog/def.count)*100));
+        return (
+          <div key={i} style={{background:'#140e24',border:`1px solid ${entry.done?'#3a6a3a':'#2a2238'}`,borderRadius:8,padding:'8px 10px',marginBottom:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:6}}>
+              <span style={{fontSize:'1rem'}}>{def.emoji}</span>
+              <span style={{fontWeight:700,fontSize:'0.78rem',color:'#e8def8'}}>{def.name}</span>
+              <span style={{marginInlineStart:'auto',fontSize:'0.62rem',color:'#9a8aa8'}}>{entry.prog}/{def.count}</span>
+            </div>
+            <div style={{fontSize:'0.6rem',color:'#9a8aa8',margin:'2px 0 5px'}}>{def.desc}</div>
+            <div style={{height:6,background:'#0a0612',borderRadius:4,overflow:'hidden'}}>
+              <div style={{height:'100%',width:pct+'%',background:entry.done?'#5aff8a':'#6a5acd',transition:'width 0.3s'}}></div>
+            </div>
+            {entry.done && !entry.claimed &&
+              <button className="btn btn-main" style={{width:'100%',marginTop:6,padding:'4px',fontSize:'0.7rem'}} onClick={()=>claimQuest(entry,def)}>✅ אסוף פרס</button>}
+            {entry.claimed && <div style={{fontSize:'0.62rem',color:'#5aff8a',marginTop:4,textAlign:'center'}}>✓ נאסף</div>}
+          </div>
+        );
+      })}
+      <button className="btn btn-main" style={{width:'100%',marginTop:6,opacity:(allClaimed&&!dq.bonusClaimed)?1:0.5,background:dq.bonusClaimed?'#2a4a2a':undefined}} disabled={!allClaimed||dq.bonusClaimed} onClick={claimBonus}>
+        {dq.bonusClaimed?'✓ בונוס נאסף':(allDone?'🎁 אסוף בונוס יומי (אגדי!)':'סיים את כל 3 המשימות לבונוס')}
+      </button>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// TITLES — choose a cosmetic title shown above your head
+// ════════════════════════════════════════════════
+function TitlesPanel({player, showToast, rerender}){
+  const [,setT]=useState(0); const refresh=()=>setT(n=>n+1);
+  const titles = window.GAME_DATA.TITLES||[];
+  const pick=(t)=>{
+    if(t.unlock && !t.unlock(player)){ showToast('עדיין לא פתחת את התואר הזה','#ff5a5a'); return; }
+    player.selectedTitle = t.id;
+    if(t.id==='none'){ showToast('התואר הוסר','#9a8aa8'); }
+    else showToast(`🎖️ התואר "${t.name}" נבחר!`, t.color||'#ffd24a');
+    // push the new title to other players in real time
+    try{ if(window.WOLNet && window.WOLNet.updateTitle) window.WOLNet.updateTitle(window.GAME_DATA.titleText(player)||'', player.guild||''); }catch(e){}
+    E.save && E.save(player); refresh(); rerender&&rerender();
+  };
+  const current = window.GAME_DATA.titleText(player);
+  const unlockedCount = titles.filter(t=>t.id!=='none' && (!t.unlock||t.unlock(player))).length;
+  return (
+    <div className="bs-panel">
+      <div className="bs-guide">🎖️ תארים מופיעים מעל הראש שלך ולצד שמך. פתח אותם דרך הישגים, המגדל, דיג, ונאמנות יומית.</div>
+      <div style={{textAlign:'center',marginBottom:10}}>
+        <div style={{fontSize:'0.7rem',color:'#9a8aa8'}}>תואר נוכחי</div>
+        <div style={{fontSize:'1.15rem',fontWeight:800,color:'#ffd24a'}}>{current?('— '+current+' —'):'ללא תואר'}</div>
+        <div style={{fontSize:'0.6rem',color:'#9a8aa8',marginTop:2}}>נפתחו {unlockedCount}/{titles.length-1} תארים</div>
+      </div>
+      {titles.map(t=>{
+        const owned = !t.unlock || t.unlock(player);
+        const active = (player.selectedTitle||'')===t.id || (!player.selectedTitle && t.id==='none' && !current);
+        return (
+          <div key={t.id} className="bs-recipe" style={{borderColor:active?(t.color||'#5aff8a'):(owned?'#3a5a8a':'#2a2238'),opacity:owned?1:0.5}}>
+            <div className="bs-r-head">
+              <span className="bs-r-emoji">{t.emoji||'🚫'}</span>
+              <span className="bs-r-name" style={{color:owned?(t.color||'#e8def8'):'#6a5a7a'}}>{t.name}</span>
+              {active && <span style={{marginInlineStart:'auto',fontSize:'0.65rem',color:'#5aff8a'}}>✓ פעיל</span>}
+            </div>
+            <button className="bs-craft" disabled={!owned} style={{background:active?'#2a6a3a':(owned?'#3a5a8a':'#2a2238')}} onClick={()=>pick(t)}>
+              {active?'פעיל':(owned?'בחר':'🔒 נעול')}
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// ENDLESS TOWER — entry & info
+// ════════════════════════════════════════════════
+function TowerPanel({player, showToast, teleport, setModal}){
+  const best = player.towerBest||0;
+  const enter=()=>{ setModal&&setModal(null); teleport&&teleport('tower'); };
+  return (
+    <div className="bs-panel">
+      <div className="bs-guide">🗼 המגדל האינסופי — קומות שמתקשות בהדרגה ללא סוף. כל קומה חמישית היא בוס. קומה שנוקתה פותחת שער כלפי מעלה. כמה גבוה תצליח להגיע?</div>
+      <div style={{textAlign:'center',margin:'14px 0'}}>
+        <div style={{fontSize:'0.7rem',color:'#9a8aa8'}}>שיא הקומות שלך</div>
+        <div style={{fontSize:'2.2rem',fontWeight:900,color:'#b0e0ff'}}>🗼 {best}</div>
+      </div>
+      <div style={{fontSize:'0.68rem',color:'#cbbfe0',lineHeight:1.7,marginBottom:12}}>
+        • כל קומה מעניקה זהב ו-XP שגדלים עם הגובה<br/>
+        • כל קומה חמישית = בוס עוצמתי<br/>
+        • כל 5 קומות מפילות חפץ (אגדי/מיתי בקומות גבוהות)<br/>
+        • מתרפא 50% בין הקומות<br/>
+        • <b style={{color:'#ff8a8a'}}>מוות במגדל מחזיר אותך לעיר</b> — אך השיא נשמר!
+      </div>
+      <div style={{fontSize:'0.62rem',color:'#9a8aa8',marginBottom:10}}>תארים: מטפס (10) • הולך השמיים (25) • אדון המגדל (50)</div>
+      <button className="btn btn-main" style={{width:'100%'}} onClick={enter}>🗼 כניסה למגדל (קומה 1)</button>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// FISHING — a relaxed timing mini-game
+// ════════════════════════════════════════════════
+function FishingPanel({player, showToast, rerender}){
+  const [phase,setPhase]=useState('idle'); // idle | casting | bite | reeling | result
+  const [result,setResult]=useState(null);
+  const [bar,setBar]=useState(0);      // 0..100 reeling bar position
+  const dirRef=useRef(1); const rafRef=useRef(null); const biteTimerRef=useRef(null); const missTimerRef=useRef(null);
+  const FISH = window.GAME_DATA.FISH_TABLE||[];
+
+  useEffect(()=>()=>{ // cleanup on unmount
+    clearTimeout(biteTimerRef.current); clearTimeout(missTimerRef.current); cancelAnimationFrame(rafRef.current);
+  },[]);
+
+  const rollFish=()=>{
+    const total = FISH.reduce((s,f)=>s+f.weight,0);
+    let r = Math.random()*total;
+    for(const f of FISH){ if(r<f.weight) return f; r-=f.weight; }
+    return FISH[0];
+  };
+  const cast=()=>{
+    setResult(null); setPhase('casting');
+    const wait = 1500 + Math.random()*4000;
+    biteTimerRef.current = setTimeout(()=>{
+      setPhase('bite');
+      window.SOUND && window.SOUND.play && window.SOUND.play('pickup');
+      // player must hit reel within 1.6s
+      missTimerRef.current = setTimeout(()=>{ setPhase('idle'); showToast('🎣 הדג ברח...','#ff8a5a'); }, 1600);
+    }, wait);
+  };
+  const startReel=()=>{
+    clearTimeout(missTimerRef.current);
+    setPhase('reeling'); setBar(0); dirRef.current=1;
+    const tick=()=>{
+      setBar(b=>{
+        let nb=b+dirRef.current*2.2;
+        if(nb>=100){ nb=100; dirRef.current=-1; }
+        if(nb<=0){ nb=0; dirRef.current=1; }
+        return nb;
+      });
+      rafRef.current=requestAnimationFrame(tick);
+    };
+    rafRef.current=requestAnimationFrame(tick);
+  };
+  const reelIn=()=>{
+    cancelAnimationFrame(rafRef.current);
+    // sweet spot is the middle (40-60) → better catch; quality scales with closeness
+    const closeness = 1 - Math.abs(bar-50)/50; // 0..1
+    const fish = rollFish();
+    const [g0,g1]=fish.gold;
+    let gold = Math.round(g0 + (g1-g0)*closeness);
+    gold = Math.round(gold * (1 + (player.level||1)*0.02)); // scale a bit with level
+    // world event gold bonus
+    try{ const {event}=window.GAME_DATA.activeWorldEvent(); gold=Math.round(gold*(event.goldMul||1)); }catch(e){}
+    player.gold += gold;
+    player.fishCount = (player.fishCount||0)+1;
+    let extra='';
+    if(fish.part && closeness>0.3){ if(!player.petParts)player.petParts={}; player.petParts[fish.part]=(player.petParts[fish.part]||0)+1; extra=` + ${window.GAME_DATA.PET_PARTS[fish.part].emoji}`; }
+    if(fish.item && player.inventory.length<40){ player.inventory.push(E.genItem(Math.max(player.level,10),'legendary',2)); extra=' + חפץ אגדי! 🎁'; }
+    if(window._bumpDaily) window._bumpDaily('fish', 1);
+    setResult({fish, gold, extra, perfect:closeness>0.85});
+    setPhase('result');
+    E.save && E.save(player); rerender&&rerender();
+  };
+  const barColor = (bar>=40&&bar<=60)?'#5aff8a':(bar>=25&&bar<=75)?'#ffd24a':'#ff6a6a';
+  return (
+    <div className="bs-panel">
+      <div className="bs-guide">🎣 הטל את החכה, חכה לנשיכה, ואז עצור את הסמן <b>באמצע הירוק</b> כדי לתפוס את הדג הגדול ביותר. דגים נדירים מפילים חלקי חיות ואף חפצים!</div>
+      <div style={{textAlign:'center',fontSize:'0.7rem',color:'#7fd0ff',margin:'4px 0 10px'}}>🐟 דגים שנתפסו: {player.fishCount||0}</div>
+
+      <div style={{background:'linear-gradient(180deg,#0a2540,#06182a)',border:'1px solid #1a4a6a',borderRadius:12,padding:'22px 14px',textAlign:'center',minHeight:150,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center'}}>
+        {phase==='idle' && <>
+          <div style={{fontSize:'2.4rem'}}>🎣</div>
+          <div style={{fontSize:'0.75rem',color:'#9ad0ff',margin:'8px 0'}}>מוכן לדוג?</div>
+          <button className="btn btn-main" onClick={cast}>🎣 הטל חכה</button>
+        </>}
+        {phase==='casting' && <>
+          <div style={{fontSize:'2.4rem'}}>🌊</div>
+          <div style={{fontSize:'0.78rem',color:'#9ad0ff',margin:'8px 0'}}>החכה במים... המתן לנשיכה</div>
+          <div style={{fontSize:'0.62rem',color:'#6a8aa8'}}>(אל תזוז...)</div>
+        </>}
+        {phase==='bite' && <>
+          <div style={{fontSize:'2.6rem',animation:'ptsPulse 0.4s infinite'}}>❗🐟</div>
+          <div style={{fontSize:'0.85rem',color:'#ffd24a',fontWeight:800,margin:'6px 0'}}>נשיכה! משוך עכשיו!</div>
+          <button className="btn btn-main" style={{background:'#ff8a3a'}} onClick={startReel}>🎣 משוך!</button>
+        </>}
+        {phase==='reeling' && <>
+          <div style={{fontSize:'0.78rem',color:'#ffd24a',marginBottom:8}}>עצור באמצע הירוק! 🎯</div>
+          <div style={{position:'relative',width:'100%',height:22,background:'#0a0612',borderRadius:11,overflow:'hidden',border:'1px solid #2a2238'}}>
+            <div style={{position:'absolute',left:'40%',width:'20%',height:'100%',background:'rgba(90,255,138,0.25)'}}></div>
+            <div style={{position:'absolute',left:`calc(${bar}% - 4px)`,top:0,width:8,height:'100%',background:barColor,borderRadius:4,boxShadow:`0 0 8px ${barColor}`}}></div>
+          </div>
+          <button className="btn btn-main" style={{marginTop:10,background:barColor}} onClick={reelIn}>🪝 תפוס!</button>
+        </>}
+        {phase==='result' && result && <>
+          <div style={{fontSize:'2.6rem'}}>{result.fish.emoji}</div>
+          <div style={{fontSize:'0.95rem',fontWeight:800,color:'#7fd0ff',margin:'4px 0'}}>{result.perfect?'תפיסה מושלמת! ':''}{result.fish.name}</div>
+          <div style={{fontSize:'0.8rem',color:'#ffd24a'}}>+{result.gold.toLocaleString()} 🪙{result.extra}</div>
+          <button className="btn btn-main" style={{marginTop:10}} onClick={cast}>🎣 שוב</button>
+        </>}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// GUILD — create / join a guild, members & guild chat (server-backed)
+// ════════════════════════════════════════════════
+function GuildPanel({player, showToast, rerender}){
+  const [,setT]=useState(0); const refresh=()=>setT(n=>n+1);
+  const [name,setName]=useState('');
+  const [tab,setTab]=useState('my');
+  const [chatText,setChatText]=useState('');
+  const net = window.WOLNet;
+  const online = net && net.connected;
+
+  useEffect(()=>{
+    if(!online) return;
+    // register a refresh hook + request fresh data
+    window._guildRefresh = ()=>refresh();
+    net.guildInfo && net.guildInfo();
+    net.guildList && net.guildList();
+    return ()=>{ window._guildRefresh = null; };
+  },[online]);
+
+  if(!online){
+    return <div className="bs-panel"><div className="bs-guide">🛡️ גילדות דורשות חיבור לשרת המשחק. ודא שאתה מחובר (מצב מרובה משתתפים) ונסה שוב.</div></div>;
+  }
+
+  const myGuild = (net.guild && net.guild.name) ? net.guild : (player.guild ? {name:player.guild, members:[]} : null);
+  const create=()=>{
+    const n = name.trim();
+    if(n.length<2||n.length>18){ showToast('שם גילדה: 2-18 תווים','#ff5a5a'); return; }
+    net.guildCreate(n); showToast('🛡️ יוצר גילדה...','#88ddff'); setName('');
+  };
+  const join=(gn)=>{ net.guildJoin(gn); showToast(`מצטרף ל-${gn}...`,'#88ddff'); };
+  const leave=()=>{ if(confirm('לעזוב את הגילדה?')){ net.guildLeave(); showToast('עזבת את הגילדה','#9a8aa8'); } };
+  const sendChat=()=>{ const t=chatText.trim(); if(!t)return; net.guildChat(t); setChatText(''); };
+
+  const list = net.guildListData || [];
+  const chat = (net.guild && net.guild.chat) || [];
+
+  return (
+    <div className="bs-panel">
+      <div className="bs-guide">🛡️ גילדות מאחדות שחקנים. צור גילדה משלך או הצטרף לאחת קיימת. שם הגילדה מוצג מעל ראש כל החברים, וצ׳אט הגילדה פרטי לחברים בלבד.</div>
+      <div style={{display:'flex',gap:6,marginBottom:10}}>
+        <button className="mini-btn" style={{flex:1,borderColor:tab==='my'?'#5aff8a':undefined}} onClick={()=>setTab('my')}>הגילדה שלי</button>
+        <button className="mini-btn" style={{flex:1,borderColor:tab==='browse'?'#5aff8a':undefined}} onClick={()=>{setTab('browse'); net.guildList&&net.guildList();}}>חיפוש גילדות</button>
+      </div>
+
+      {tab==='my' && (myGuild ? (
+        <div>
+          <div style={{textAlign:'center',margin:'6px 0 12px'}}>
+            <div style={{fontSize:'1.4rem',fontWeight:900,color:'#88ddff'}}>🛡️ {myGuild.name}</div>
+            <div style={{fontSize:'0.65rem',color:'#9a8aa8'}}>{(myGuild.members||[]).length} חברים</div>
+          </div>
+          <div style={{maxHeight:120,overflowY:'auto',marginBottom:10}}>
+            {(myGuild.members||[]).map((m,i)=>(
+              <div key={i} style={{display:'flex',alignItems:'center',gap:6,padding:'4px 8px',background:'#140e24',borderRadius:6,marginBottom:3}}>
+                <span style={{fontSize:'0.78rem',color:'#e8def8'}}>{m.name}</span>
+                <span style={{fontSize:'0.6rem',color:'#9a8aa8'}}>רמה {m.level||'?'}</span>
+                {m.leader && <span style={{marginInlineStart:'auto',fontSize:'0.6rem',color:'#ffd24a'}}>👑 מנהיג</span>}
+              </div>
+            ))}
+          </div>
+          {/* guild chat */}
+          <div style={{fontSize:'0.7rem',color:'#88ddff',marginBottom:4}}>💬 צ׳אט הגילדה</div>
+          <div style={{height:90,overflowY:'auto',background:'#0a0612',borderRadius:6,padding:6,marginBottom:6,fontSize:'0.66rem'}}>
+            {chat.length===0 && <div style={{color:'#6a5a7a'}}>אין הודעות עדיין...</div>}
+            {chat.map((c,i)=><div key={i} style={{marginBottom:2}}><b style={{color:'#9ad0ff'}}>{c.from}:</b> <span style={{color:'#d8d0e8'}}>{c.text}</span></div>)}
+          </div>
+          <div style={{display:'flex',gap:6,marginBottom:10}}>
+            <input value={chatText} onChange={e=>setChatText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')sendChat();}} placeholder="הודעה לגילדה..." style={{flex:1,background:'#140e24',border:'1px solid #2a2238',borderRadius:6,color:'#fff',padding:'6px 8px',fontSize:'0.7rem'}}/>
+            <button className="mini-btn" onClick={sendChat}>שלח</button>
+          </div>
+          <button className="btn btn-main btn-ghost" style={{width:'100%'}} onClick={leave}>🚪 עזוב גילדה</button>
+        </div>
+      ) : (
+        <div>
+          <div style={{fontSize:'0.75rem',color:'#cbbfe0',textAlign:'center',marginBottom:10}}>אינך חבר בגילדה. צור אחת חדשה:</div>
+          <div style={{display:'flex',gap:6}}>
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder="שם הגילדה" style={{flex:1,background:'#140e24',border:'1px solid #2a2238',borderRadius:6,color:'#fff',padding:'8px',fontSize:'0.8rem'}}/>
+            <button className="btn btn-main" onClick={create}>🛡️ צור</button>
+          </div>
+        </div>
+      ))}
+
+      {tab==='browse' && (
+        <div>
+          {list.length===0 && <div style={{fontSize:'0.72rem',color:'#9a8aa8',textAlign:'center',padding:'14px 0'}}>אין גילדות עדיין — היה הראשון ליצור אחת!</div>}
+          {list.map((g,i)=>(
+            <div key={i} className="bs-recipe">
+              <div className="bs-r-head"><span className="bs-r-emoji">🛡️</span><span className="bs-r-name">{g.name}</span>
+                <span style={{marginInlineStart:'auto',fontSize:'0.65rem',color:'#9a8aa8'}}>{g.count} חברים</span></div>
+              <button className="bs-craft" disabled={!!myGuild} onClick={()=>join(g.name)}>{myGuild?'כבר בגילדה':'הצטרף'}</button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════
+// CONNECTING OVERLAY — online-only gate. Blocks play with a nice loading
+// screen until the server connection is live (and, in shared worlds, until
+// the first monsters arrive). After the first connect, a transient drop just
+// shows a small "reconnecting" badge. No offline play → no economy dupes.
+// ════════════════════════════════════════════════
+function ConnectingOverlay(){
+  const [,setT]=useState(0);
+  const [dots,setDots]=useState('');
+  useEffect(()=>{
+    const iv=setInterval(()=>{ setT(n=>n+1); setDots(d=>d.length>=3?'':d+'•'); }, 450);
+    return ()=>clearInterval(iv);
+  },[]);
+  const net = window.WOLNet;
+  if(!window.WOL_SERVER_URL) return null;            // no server configured → nothing to wait on
+  const everConnected = !!(net && net.everConnected);
+  const connected = !!(net && net.connected);
+  const waitingMons = !!(window.G && window.G._waitingForServerMons);
+  const blocking = !everConnected || (connected && waitingMons);
+  if(!blocking){
+    if(everConnected && !connected){
+      return (
+        <div style={{position:'absolute',top:10,left:'50%',transform:'translateX(-50%)',zIndex:240,
+          background:'rgba(40,10,10,0.88)',border:'1px solid #ff6a6a',borderRadius:20,padding:'5px 16px',
+          color:'#ffb0b0',fontSize:'0.72rem',fontWeight:700,pointerEvents:'none',backdropFilter:'blur(6px)'}}>
+          🔌 מתחבר מחדש לשרת{dots}
+        </div>
+      );
+    }
+    return null;
+  }
+  const titleMsg = !connected ? 'מתחבר לשרת' : 'טוען את העולם';
+  const sub = !everConnected
+    ? 'השרת מתעורר — בכניסה הראשונה זה עשוי לקחת עד דקה. תודה על הסבלנות.'
+    : 'רק רגע, מסנכרן את העולם המשותף...';
+  return (
+    <div style={{position:'absolute',inset:0,zIndex:250,display:'flex',flexDirection:'column',
+      alignItems:'center',justifyContent:'center',gap:18,
+      background:'radial-gradient(ellipse at 50% 40%, #160a28 0%, #06030d 75%)',pointerEvents:'all'}}>
+      <div style={{fontFamily:"'Cinzel Decorative',serif",fontSize:'2rem',fontWeight:900,
+        background:'linear-gradient(135deg,#ffd24a,#ff8ad8,#88ddff)',WebkitBackgroundClip:'text',
+        WebkitTextFillColor:'transparent',textAlign:'center'}}>עולם האגדות</div>
+      <div className="conn-spinner"></div>
+      <div style={{fontSize:'1.05rem',fontWeight:800,color:'#e8def8'}}>{titleMsg}{dots}</div>
+      <div style={{fontSize:'0.72rem',color:'#9a8aa8',maxWidth:280,textAlign:'center',lineHeight:1.6}}>{sub}</div>
+      <div style={{fontSize:'0.62rem',color:'#6a5a7a',maxWidth:280,textAlign:'center',marginTop:6}}>
+        🛡️ המשחק פועל אונליין בלבד כדי לשמור על התקדמות, רמות וחפצים מסונכרנים תמיד.
+      </div>
     </div>
   );
 }
