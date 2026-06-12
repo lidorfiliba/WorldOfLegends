@@ -1,16 +1,15 @@
-// World of Legends — service worker.
-// PURPOSE: make the game INSTALLABLE as an app (PWA) only.
-// IT INTENTIONALLY DOES NOT CACHE ANYTHING — there is NO offline mode.
-// The game must always load fresh from the network and requires a live
-// connection (and the multiplayer server) to run. Do not add a 'fetch'
-// caching handler here.
-self.addEventListener('install', (e) => { self.skipWaiting(); });
-self.addEventListener('activate', (e) => {
-  // wipe any old caches a previous version may have created, then take control
-  e.waitUntil(
-    caches.keys()
-      .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+// World of Legends — service worker v35
+// PURPOSE: exists ONLY so the game can be installed as an app (PWA).
+// It caches NOTHING and actively DELETES any cache an older worker created,
+// so a new index.html upload is always picked up immediately.
+self.addEventListener('install', (e) => {
+  self.skipWaiting(); // replace any old worker right away
 });
-// No fetch handler on purpose → every request goes straight to the network. No offline.
+self.addEventListener('activate', (e) => {
+  e.waitUntil((async () => {
+    // nuke every cache an old version may have left behind
+    try { const keys = await caches.keys(); await Promise.all(keys.map(k => caches.delete(k))); } catch (err) {}
+    await self.clients.claim();
+  })());
+});
+// NO fetch handler on purpose — every request goes straight to the network.
