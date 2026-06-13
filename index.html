@@ -5413,10 +5413,10 @@ var _3D = (function(){
     // FOV 58 gives a natural "over the shoulder" look on phones.
     var aspect=W/H;
     var isPortrait=aspect<0.75;
-    _cam.fov=isPortrait?60:52; _cam.updateProjectionMatrix();
-    var back=isPortrait?42:34, high=isPortrait?26:21;
+    _cam.fov=isPortrait?72:65; _cam.updateProjectionMatrix();
+    var back=isPortrait?24:18, high=isPortrait?11:8;
     _cam.position.set(pos[0],high,pos[2]+back);
-    _cam.lookAt(pos[0],4,pos[2]-10);
+    _cam.lookAt(pos[0],3,pos[2]-2);
     _r.render(_s,_cam);
   }
   function screenPos(wx,wy,wd,W,H){
