@@ -9938,8 +9938,15 @@ function App(){
     // }
     G._3dReady = false;
 
-    // 2D canvas is the transparent HUD/effects overlay
+    // 2D canvas — draw world first, then HUD overlay
     ctx.clearRect(0,0,W,H);
+
+    // ── GROUND TEXTURE + SCENERY (trees/props/decor) ──
+    if(wd && cam){
+      SP.drawGround(ctx, W, H, cam, wd, now);
+      drawScenery(ctx, W, H, cam, wd, now);
+      drawTileDecor(ctx, W, H, cam, wd, now);
+    }
 
     // ── AMBIENT WEATHER & ATMOSPHERE per world ──
     ctx.save();
