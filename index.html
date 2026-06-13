@@ -516,7 +516,7 @@ canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;image
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<!-- Three.js removed — 2D top-down rendering only -->
 <!-- GAME MODULES INLINED BELOW -->
 <script>
 // ═══════════════════════════════════════════════════════════════
@@ -10131,14 +10131,15 @@ function App(){
     // 2D canvas — draw world first, then HUD overlay
     ctx.clearRect(0,0,W,H);
     ctx.save(); ctx.scale(zoom, zoom);
+    const EW = Math.ceil(W/zoom), EH = Math.ceil(H/zoom);
 
     // ── GROUND TEXTURE + SCENERY (trees/props/decor) ──
     if(wd && cam){
       ctx.fillStyle = wd.bg || '#1a3d1a';
-      ctx.fillRect(0, 0, W, H);
-      SP.drawGround(ctx, W, H, cam, wd, now);
-      drawScenery(ctx, W, H, cam, wd, now);
-      drawTileDecor(ctx, W, H, cam, wd, now);
+      ctx.fillRect(0, 0, EW, EH);
+      SP.drawGround(ctx, EW, EH, cam, wd, now);
+      drawScenery(ctx, EW, EH, cam, wd, now);
+      drawTileDecor(ctx, EW, EH, cam, wd, now);
     }
 
     // ── AMBIENT WEATHER & ATMOSPHERE per world ──
@@ -10146,8 +10147,8 @@ function App(){
     if(wd.tile==='snow'||wd.tile==='tundra'){
       // falling snowflakes
       for(let i=0;i<28;i++){
-        const spx = (i*197 + now*0.022*(0.5+(i%4)*0.3)) % (W+20);
-        const spy = (i*313 + now*0.04*(0.8+(i%3)*0.4)) % (H+20);
+        const spx = (i*197 + now*0.022*(0.5+(i%4)*0.3)) % (EW+20);
+        const spy = (i*313 + now*0.04*(0.8+(i%3)*0.4)) % (EH+20);
         ctx.globalAlpha=0.3+0.2*Math.sin(now/500+i);
         ctx.fillStyle='#ddeeff';
         const ssz=1+i%3;
@@ -10156,8 +10157,8 @@ function App(){
     } else if(wd.tile==='lava'||wd.tile==='inferno'){
       // rising embers
       for(let i=0;i<20;i++){
-        const epx = (i*233 + now*0.008*(i%3+1)) % W;
-        const epy = H - (i*197 + now*0.055*(0.5+i%4*0.5)) % (H+40);
+        const epx = (i*233 + now*0.008*(i%3+1)) % EW;
+        const epy = EH - (i*197 + now*0.055*(0.5+i%4*0.5)) % (EH+40);
         ctx.globalAlpha=0.4+0.3*Math.sin(now/300+i);
         ctx.fillStyle=i%3===0?'#ff8800':i%3===1?'#ffcc00':'#ff4400';
         ctx.shadowColor='#ff6600'; ctx.shadowBlur=6;
@@ -10167,8 +10168,8 @@ function App(){
     } else if(wd.tile==='void'||wd.tile==='celestial'){
       // drifting stars/motes
       for(let i=0;i<18;i++){
-        const vpx=(i*271+now*0.006*((i%3)+0.5))%(W+20);
-        const vpy=(i*373-now*0.009*((i%2)+0.5)+H)%(H+20);
+        const vpx=(i*271+now*0.006*((i%3)+0.5))%(EW+20);
+        const vpy=(i*373-now*0.009*((i%2)+0.5)+EH)%(EH+20);
         ctx.globalAlpha=0.1+0.15*Math.sin(now/600+i*0.7);
         ctx.fillStyle=wd.tile==='celestial'?'#ffeeaa':'#c060ff';
         ctx.beginPath(); ctx.arc(vpx, vpy, 1+(i%3)*0.5, 0, Math.PI*2); ctx.fill();
@@ -10176,8 +10177,8 @@ function App(){
     } else if(wd.tile==='forest'||wd.tile==='swamp'){
       // drifting leaves / spores
       for(let i=0;i<16;i++){
-        const lpx=(i*241+now*0.01*(i%3+0.5)+Math.sin(now/800+i)*20)%(W+30);
-        const lpy=(i*317+now*0.013*(i%2+0.5))%(H+30);
+        const lpx=(i*241+now*0.01*(i%3+0.5)+Math.sin(now/800+i)*20)%(EW+30);
+        const lpy=(i*317+now*0.013*(i%2+0.5))%(EH+30);
         ctx.globalAlpha=0.12+0.1*Math.sin(now/400+i);
         ctx.fillStyle=wd.tile==='swamp'?'#88ff44':'#88cc44';
         ctx.beginPath(); ctx.ellipse(lpx,lpy,3,1.5,now/1000+i,0,Math.PI*2); ctx.fill();
@@ -10186,8 +10187,8 @@ function App(){
       // default gentle motes
       const ambCol = wd.tile==='stone'?'#8a7aa0':wd.tile==='castle'?'#aa8888':'#9affc0';
       for(let i=0;i<10;i++){
-        const px=(i*271+now*0.012*((i%3)+1))%(W+40)-20;
-        const py=(i*373-now*0.018*((i%2)+1)+H)%(H+40)-20;
+        const px=(i*271+now*0.012*((i%3)+1))%(EW+40)-20;
+        const py=(i*373-now*0.018*((i%2)+1)+EH)%(EH+40)-20;
         ctx.globalAlpha=0.04+0.04*Math.sin(now/700+i);
         ctx.fillStyle=ambCol;
         ctx.beginPath(); ctx.arc(px, py, 1+(i%2), 0, Math.PI*2); ctx.fill();
@@ -10260,7 +10261,7 @@ function App(){
       // draw portals first (behind NPCs)
       G._worldPortals.forEach(pt=>{
         const gx=pt.x-cam.x, gy=pt.y-cam.y;
-        if(gx<-90||gx>W+90||gy<-90||gy>H+90) return;
+        if(gx<-90||gx>EW+90||gy<-90||gy>EH+90) return;
         const locked = p2.level < pt.w.reqLv;
         const near = Math.hypot(p2.x-pt.x, p2.y-pt.y) < 100;
         const col = locked ? '#6a5a7a' : (pt.w.accent || '#5ac8ff');
@@ -10291,7 +10292,7 @@ function App(){
       });
       npcs.forEach(npc=>{
         const nx=npc.x-cam.x, ny=npc.y-cam.y;
-        if(nx<-60||nx>W+60||ny<-60||ny>H+60) return;
+        if(nx<-60||nx>EW+60||ny<-60||ny>EH+60) return;
         // glow pad
         const near=Math.hypot(p.x-npc.x,p.y-npc.y)<90;
         ctx.save();
@@ -10359,10 +10360,10 @@ function App(){
       }
       if(!goal) return;
       const gx=goal.x-cam.x, gy=goal.y-cam.y;
-      const onScreen = gx>40 && gx<W-40 && gy>80 && gy<H-120;
+      const onScreen = gx>40 && gx<EW-40 && gy>80 && gy<EH-120;
       if(onScreen) return; // no need for an arrow when you can see it
-      const cx=W/2, cy=H/2, ang=Math.atan2(goal.y-p.y, goal.x-p.x);
-      const margin=70, rx=(W/2-margin), ry=(H/2-margin);
+      const cx=EW/2, cy=EH/2, ang=Math.atan2(goal.y-p.y, goal.x-p.x);
+      const margin=70, rx=(EW/2-margin), ry=(EH/2-margin);
       // position along screen edge in the goal direction (clamped ellipse)
       const ex=cx+Math.cos(ang)*rx, ey=cy+Math.sin(ang)*ry;
       const dist=Math.round(Math.hypot(goal.x-p.x,goal.y-p.y));
@@ -10382,7 +10383,7 @@ function App(){
     // ── 🗺️ TREASURE ✗ render ──
     if(G._digSpot){
       const dx2=G._digSpot.x-cam.x, dy2=G._digSpot.y-cam.y;
-      if(dx2>-80&&dx2<W+80&&dy2>-80&&dy2<H+80){
+      if(dx2>-80&&dx2<EW+80&&dy2>-80&&dy2<EH+80){
         ctx.save(); const pls=0.8+Math.sin(now/300)*0.2;
         ctx.globalAlpha=0.9; ctx.strokeStyle='#ffd24a'; ctx.lineWidth=6*pls; ctx.lineCap='round'; ctx.shadowColor='#ffd24a'; ctx.shadowBlur=16;
         ctx.beginPath(); ctx.moveTo(dx2-16,dy2-16); ctx.lineTo(dx2+16,dy2+16); ctx.moveTo(dx2+16,dy2-16); ctx.lineTo(dx2-16,dy2+16); ctx.stroke();
@@ -10398,7 +10399,7 @@ function App(){
     }
     // ── LIGHT WALLS render ──
     if(G._walls) for(const wll of G._walls){
-      const wx=wll.x-cam.x, wy=wll.y-cam.y; if(wx<-100||wx>W+100||wy<-260||wy>H+260) continue;
+      const wx=wll.x-cam.x, wy=wll.y-cam.y; if(wx<-100||wx>EW+100||wy<-260||wy>EH+260) continue;
       const lf2=Math.min(1,(wll.until-now)/800);
       ctx.save(); ctx.globalAlpha=0.8*lf2;
       const wg2=ctx.createLinearGradient(wx-wll.w/2,0,wx+wll.w/2,0);
@@ -10410,7 +10411,7 @@ function App(){
     }
     // ── TIME BUBBLES render ──
     if(G._tfs) for(const tf of G._tfs){
-      const tx=tf.x-cam.x, ty=tf.y-cam.y; if(tx<-300||tx>W+300||ty<-300||ty>H+300) continue;
+      const tx=tf.x-cam.x, ty=tf.y-cam.y; if(tx<-300||tx>EW+300||ty<-300||ty>EH+300) continue;
       const lf3=Math.min(1,(tf.until-now)/700);
       ctx.save(); ctx.globalAlpha=0.5*lf3; ctx.strokeStyle='#9adfff'; ctx.lineWidth=3; ctx.shadowColor='#9adfff'; ctx.shadowBlur=14;
       ctx.beginPath(); ctx.arc(tx,ty,tf.r,0,Math.PI*2); ctx.stroke();
@@ -10421,7 +10422,7 @@ function App(){
     // ── BURNING GROUND render: glowing scorched circle + flickering flames ──
     if(G._burns && G._burns.length){
       for(const b of G._burns){
-        const bx=b.x-cam.x, by=b.y-cam.y; if(bx<-260||bx>W+260||by<-260||by>H+260) continue;
+        const bx=b.x-cam.x, by=b.y-cam.y; if(bx<-260||bx>EW+260||by<-260||by>EH+260) continue;
         const lf=Math.max(0,(b.until-now)/1200); const ga=Math.min(1,lf);
         ctx.save(); ctx.globalAlpha=0.34*ga;
         const gg=ctx.createRadialGradient(bx,by,0,bx,by,b.r);
@@ -10441,7 +10442,7 @@ function App(){
     }
     G.groundItems.forEach(gi=>{
       const ix=gi.x-cam.x, iy=gi.y-cam.y;
-      if(ix<-40||ix>W+40||iy<-40||iy>H+40) return;
+      if(ix<-40||ix>EW+40||iy<-40||iy>EH+40) return;
       const bob = Math.sin(now/350+gi.bob)*5;
       ctx.save();
       if(gi.chest){
@@ -10496,7 +10497,7 @@ function App(){
       G._cages.forEach(c=>{
         const L=c.x-c.half-cam.x, R=c.x+c.half-cam.x, T=c.y-c.half-cam.y, B=c.y+c.half-cam.y;
         // cull if off-screen
-        if(R<-50||L>W+50||B<-50||T>H+50) return;
+        if(R<-50||L>EW+50||B<-50||T>EH+50) return;
         const gap=110; // entrance width
         ctx.save();
         ctx.strokeStyle='#6b4a2a'; ctx.lineWidth=7; ctx.shadowColor='#000'; ctx.shadowBlur=6;
@@ -10559,7 +10560,7 @@ function App(){
         ix=m.x-cam.x + lungeX;
         iy=m.y-cam.y + liftOff + lungeY;
         if(!isFinite(ix)||!isFinite(iy)) return;
-        if(ix<-160||ix>W+160||iy<-160||iy>H+160) return;
+        if(ix<-160||ix>EW+160||iy<-160||iy>EH+160) return;
       }
       // ── BOSS MELEE TELEGRAPH: a red sweep arc in front of the boss that fills up as
       //    the strike approaches. See it → dash/run out of the arc to dodge the hit. ──
@@ -10840,7 +10841,7 @@ function App(){
       window.WOLNet.peers.forEach(peer=>{
         if(peer.world && G.worldDef && peer.world!==G.worldDef.id) return;
         const px=peer.x-cam.x, py=peer.y-cam.y;
-        if(px<-80||px>W+80||py<-80||py>H+80) return; // cull off-screen
+        if(px<-80||px>EW+80||py<-80||py>EH+80) return; // cull off-screen
         ctx.save();
         if(peer._dead) ctx.globalAlpha=0.3;
         SP.drawPlayer(ctx, px, py, peer.cls||'warrior', false, now, peer.facing||1, peer.evoStage||0);
