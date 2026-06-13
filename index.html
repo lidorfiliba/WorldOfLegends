@@ -3217,7 +3217,7 @@ function drawPlayer(ctx, sx, sy, classId, moving, t, facing, evoStage, wings, co
     const evo = evos[evoStage-1];
     // BUG FIX: use evo color as trim/accent only; keep armor readable on all backgrounds
     pal.armor2 = evo.color;
-    pal.armor = darken(evo.color, 55); // darker variant for shading (was 40, increased for contrast)
+    pal.armor = darken(evo.color, 25); // darker variant for shading
     pal.trim = evo.glow;
     evoAura = evo.aura;
   }
@@ -3238,33 +3238,12 @@ function drawPlayer(ctx, sx, sy, classId, moving, t, facing, evoStage, wings, co
   const armSw = moving ? Math.sin(t/120+Math.PI)*0.3 : 0;
   const flip = facing<0 ? -1 : 1;
 
-  // evolution aura glow under/around the character
-  if(evoAura){
+  // evolution aura — tiny subtle shimmer at feet only (no large glow ring)
+  if(evoAura && evoStage>=2){
     ctx.save();
-    const pulse = 0.5 + Math.sin(t/200)*0.5;
-    ctx.globalAlpha = 0.25 + pulse*0.2;
-    const g = ctx.createRadialGradient(0, s*0.4, 0, 0, s*0.4, s*1.6);
-    g.addColorStop(0, evoAura); g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g;
-    ctx.beginPath(); ctx.arc(0, s*0.4, s*1.6, 0, Math.PI*2); ctx.fill();
-    // pulsing ring for stage 1+
-    if(evoStage>=1){
-      const ringA = 0.3 + Math.sin(t/180)*0.2;
-      ctx.save(); ctx.globalAlpha = ringA; ctx.strokeStyle = evoAura;
-      ctx.lineWidth = 2; ctx.shadowColor = evoAura; ctx.shadowBlur = 8;
-      ctx.beginPath(); ctx.arc(0, s*0.4, s*1.45, 0, Math.PI*2); ctx.stroke();
-      ctx.restore();
-    }
-    // orbiting motes for stage 2 (lv110)
-    if(evoStage>=2){
-      ctx.globalAlpha = 0.8; ctx.fillStyle = evoAura; ctx.shadowColor=evoAura; ctx.shadowBlur=10;
-      for(let i=0;i<5;i++){ const a=t/300+i*Math.PI*2/5; ctx.beginPath(); ctx.arc(Math.cos(a)*s*1.3, s*0.3+Math.sin(a)*s*0.5, 3, 0, Math.PI*2); ctx.fill(); }
-    }
-    // epic 8-mote spread for stage 3+
-    if(evoStage>=3){
-      ctx.globalAlpha = 0.85; ctx.fillStyle = evoAura; ctx.shadowColor=evoAura; ctx.shadowBlur=12;
-      for(let i=0;i<8;i++){ const a=t/300+i*Math.PI*2/8; ctx.beginPath(); ctx.arc(Math.cos(a)*s*(1.1+i*0.08), s*0.3+Math.sin(a)*s*0.5, 3, 0, Math.PI*2); ctx.fill(); }
-    }
+    ctx.globalAlpha = 0.30;
+    ctx.fillStyle = evoAura; ctx.shadowColor=evoAura; ctx.shadowBlur=8;
+    for(let i=0;i<4;i++){ const a=t/350+i*Math.PI*0.5; ctx.beginPath(); ctx.arc(Math.cos(a)*s*0.55, s*1.1+Math.sin(a)*s*0.18, 2.5, 0, Math.PI*2); ctx.fill(); }
     ctx.restore();
   }
 
@@ -10821,22 +10800,6 @@ function App(){
       ctx.textBaseline='alphabetic'; ctx.textAlign='left';
       ctx.restore();
     }
-    // ── CLASS SIGNATURE AURA — a subtle distinct ground glow per class so each class
-    //    reads differently at a glance (warrior=ember red, mage=arcane purple,
-    //    archer=wind green, paladin=holy gold). ──
-    (function(){
-      const sig = (CLASS_VFX[p.classId]||{}).color || '#ffffff';
-      const px=p.x-cam.x, py=p.y-cam.y;
-      const pulse=0.5+Math.sin(now/420)*0.18;
-      ctx.save(); ctx.globalCompositeOperation='lighter';
-      const g=ctx.createRadialGradient(px,py+14,0,px,py+14,40);
-      g.addColorStop(0, SP.withAlpha(sig, 0.22*pulse)); g.addColorStop(1, SP.withAlpha(sig,0));
-      ctx.fillStyle=g; ctx.beginPath(); ctx.ellipse(px,py+14,40,16,0,0,Math.PI*2); ctx.fill();
-      // class motif: a couple of slow orbiting motes when moving
-      if(G._moving){ ctx.fillStyle=SP.withAlpha(sig,0.5);
-        for(let k=0;k<2;k++){ const a=now/500+k*Math.PI; ctx.beginPath(); ctx.arc(px+Math.cos(a)*22, py+8+Math.sin(a)*6, 2, 0, Math.PI*2); ctx.fill(); } }
-      ctx.restore();
-    })();
     // attack lunge: a quick forward jab then settle (150ms), in the facing direction
     let lungeX=0;
     if(G._atkLunge){ const la=now-G._atkLunge; if(la<150){ const k=Math.sin((la/150)*Math.PI); lungeX = G.facing*k*7; } }
