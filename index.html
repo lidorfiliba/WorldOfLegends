@@ -2756,10 +2756,12 @@ const MONSTER_DRAW = {
     ctx.beginPath(); ctx.arc(-s*0.27,s*0.02,s*0.18,0,Math.PI*2); ctx.fill(); ctx.stroke();
     ctx.beginPath(); ctx.arc(s*0.27,s*0.02,s*0.18,0,Math.PI*2); ctx.fill(); ctx.stroke();
     ctx.fillStyle='#222';
-    ctx.beginPath(); ctx.arc(-s*0.24,s*0.04,s*0.09,0,Math.PI*2); ctx.arc(s*0.30,s*0.04,s*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.24,s*0.04,s*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.30,s*0.04,s*0.09,0,Math.PI*2); ctx.fill();
     // pupils glint
     ctx.fillStyle='rgba(255,255,255,0.7)';
-    ctx.beginPath(); ctx.arc(-s*0.20,-s*0.01,s*0.035,0,Math.PI*2); ctx.arc(s*0.34,-s*0.01,s*0.035,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.20,-s*0.01,s*0.035,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.34,-s*0.01,s*0.035,0,Math.PI*2); ctx.fill();
   },
   bat(ctx,s,c,t){
     const flap=Math.sin(t/120)*0.55;
@@ -2795,10 +2797,12 @@ const MONSTER_DRAW = {
     ctx.beginPath(); ctx.moveTo(s*0.2,-s*0.42); ctx.lineTo(s*0.32,-s*0.75); ctx.lineTo(s*0.04,-s*0.46); ctx.fill();
     // eyes
     ctx.fillStyle='#ff2020'; ctx.shadowColor='#ff0000'; ctx.shadowBlur=6;
-    ctx.beginPath(); ctx.arc(-s*0.16,-s*0.06,s*0.09,0,Math.PI*2); ctx.arc(s*0.16,-s*0.06,s*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.16,-s*0.06,s*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.16,-s*0.06,s*0.09,0,Math.PI*2); ctx.fill();
     ctx.shadowBlur=0;
     ctx.fillStyle='rgba(255,255,255,0.7)';
-    ctx.beginPath(); ctx.arc(-s*0.12,-s*0.10,s*0.03,0,Math.PI*2); ctx.arc(s*0.20,-s*0.10,s*0.03,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.12,-s*0.10,s*0.03,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.20,-s*0.10,s*0.03,0,Math.PI*2); ctx.fill();
   },
   spider(ctx,s,c,t){
     shadow(ctx,s);
@@ -2848,9 +2852,11 @@ const MONSTER_DRAW = {
     ctx.beginPath(); ctx.moveTo(s*0.38,-s*0.3); ctx.lineTo(s*0.7,-s*0.45); ctx.lineTo(s*0.35,-s*0.1); ctx.fill();
     // eyes
     ctx.fillStyle='#ffdd00';
-    ctx.beginPath(); ctx.arc(-s*0.15,-s*0.3,s*0.09,0,Math.PI*2); ctx.arc(s*0.15,-s*0.3,s*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.15,-s*0.3,s*0.09,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.15,-s*0.3,s*0.09,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#000';
-    ctx.beginPath(); ctx.arc(-s*0.15,-s*0.3,s*0.04,0,Math.PI*2); ctx.arc(s*0.15,-s*0.3,s*0.04,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.15,-s*0.3,s*0.04,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.15,-s*0.3,s*0.04,0,Math.PI*2); ctx.fill();
     // mouth + teeth
     ctx.fillStyle='#3a1a1a';
     ctx.beginPath(); ctx.arc(0,-s*0.08,s*0.15,0,Math.PI); ctx.fill();
@@ -2903,10 +2909,12 @@ const MONSTER_DRAW = {
     ctx.fillStyle=c;
     ctx.beginPath(); ctx.arc(0,-s*0.3,s*0.32,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#000';
-    ctx.beginPath(); ctx.arc(-s*0.12,-s*0.32,s*0.1,0,Math.PI*2); ctx.arc(s*0.12,-s*0.32,s*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.12,-s*0.32,s*0.1,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.12,-s*0.32,s*0.1,0,Math.PI*2); ctx.fill();
     // glowing eyes
     ctx.fillStyle='#44ddff';
-    ctx.beginPath(); ctx.arc(-s*0.12,-s*0.32,s*0.05,0,Math.PI*2); ctx.arc(s*0.12,-s*0.32,s*0.05,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.12,-s*0.32,s*0.05,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.12,-s*0.32,s*0.05,0,Math.PI*2); ctx.fill();
     // jaw
     ctx.strokeStyle=c; ctx.lineWidth=s*0.05;
     for(let i=-2;i<=2;i++){ ctx.beginPath(); ctx.moveTo(i*s*0.06,-s*0.12); ctx.lineTo(i*s*0.06,-s*0.02); ctx.stroke(); }
@@ -2934,7 +2942,8 @@ const MONSTER_DRAW = {
     ctx.beginPath(); ctx.moveTo(s*0.18,-s*0.02); ctx.lineTo(s*0.22,s*0.18); ctx.lineTo(s*0.1,0); ctx.fill();
     // eyes
     ctx.fillStyle='#ff4400';
-    ctx.beginPath(); ctx.arc(-s*0.18,-s*0.25,s*0.08,0,Math.PI*2); ctx.arc(s*0.18,-s*0.25,s*0.08,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.18,-s*0.25,s*0.08,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.18,-s*0.25,s*0.08,0,Math.PI*2); ctx.fill();
     ctx.restore();
   },
   golem(ctx,s,c,t){
@@ -2987,7 +2996,8 @@ const MONSTER_DRAW = {
     ctx.beginPath(); ctx.moveTo(s*0.25,-s*0.5); ctx.lineTo(s*0.45,-s*0.9); ctx.lineTo(s*0.12,-s*0.55); ctx.fill();
     // eyes
     ctx.fillStyle='#ffff00';
-    ctx.beginPath(); ctx.arc(-s*0.14,-s*0.32,s*0.08,0,Math.PI*2); ctx.arc(s*0.14,-s*0.32,s*0.08,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.14,-s*0.32,s*0.08,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.14,-s*0.32,s*0.08,0,Math.PI*2); ctx.fill();
     // mouth
     ctx.strokeStyle='#000'; ctx.lineWidth=s*0.04;
     ctx.beginPath(); ctx.arc(0,-s*0.15,s*0.15,0.2,Math.PI-0.2); ctx.stroke();
@@ -3012,7 +3022,8 @@ const MONSTER_DRAW = {
     ctx.beginPath(); ctx.arc(0,-s*0.35,s*0.4,Math.PI,0); ctx.lineTo(s*0.35,-s*0.1); ctx.lineTo(-s*0.35,-s*0.1); ctx.fill();
     // glowing eyes
     ctx.fillStyle='#00ffcc'; ctx.shadowColor='#00ffcc'; ctx.shadowBlur=s*0.3;
-    ctx.beginPath(); ctx.arc(-s*0.13,-s*0.35,s*0.07,0,Math.PI*2); ctx.arc(s*0.13,-s*0.35,s*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.13,-s*0.35,s*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.13,-s*0.35,s*0.07,0,Math.PI*2); ctx.fill();
     ctx.shadowBlur=0;
     ctx.restore();
   },
@@ -3036,14 +3047,16 @@ const MONSTER_DRAW = {
     ctx.fillStyle=lighten(c,20);
     ctx.beginPath(); ctx.ellipse(0,-s*0.1,s*0.25,s*0.18,0,0,Math.PI*2); ctx.fill();
     ctx.fillStyle='#000';
-    ctx.beginPath(); ctx.arc(-s*0.08,-s*0.08,s*0.04,0,Math.PI*2); ctx.arc(s*0.08,-s*0.08,s*0.04,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.08,-s*0.08,s*0.04,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.08,-s*0.08,s*0.04,0,Math.PI*2); ctx.fill();
     // horns (big)
     ctx.strokeStyle='#f0f0e0'; ctx.lineWidth=s*0.1; ctx.lineCap='round';
     ctx.beginPath(); ctx.moveTo(-s*0.3,-s*0.5); ctx.quadraticCurveTo(-s*0.7,-s*0.6,-s*0.65,-s*0.25); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(s*0.3,-s*0.5); ctx.quadraticCurveTo(s*0.7,-s*0.6,s*0.65,-s*0.25); ctx.stroke();
     // eyes
     ctx.fillStyle='#ff3300';
-    ctx.beginPath(); ctx.arc(-s*0.16,-s*0.38,s*0.07,0,Math.PI*2); ctx.arc(s*0.16,-s*0.38,s*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.16,-s*0.38,s*0.07,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.16,-s*0.38,s*0.07,0,Math.PI*2); ctx.fill();
   },
   drake(ctx,s,c,t){
     shadow(ctx,s);
@@ -3122,7 +3135,8 @@ const MONSTER_DRAW = {
       ctx.beginPath(); ctx.ellipse(hx*s*0.9+wob,-s*0.65,s*0.2,s*0.16,0,0,Math.PI*2); ctx.fill();
       // eyes
       ctx.fillStyle='#ffdd00';
-      ctx.beginPath(); ctx.arc(hx*s*0.9+wob-s*0.05,-s*0.68,s*0.04,0,Math.PI*2); ctx.arc(hx*s*0.9+wob+s*0.05,-s*0.68,s*0.04,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(hx*s*0.9+wob-s*0.05,-s*0.68,s*0.04,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.arc(hx*s*0.9+wob+s*0.05,-s*0.68,s*0.04,0,Math.PI*2); ctx.fill();
     });
   },
   reaper(ctx,s,c,t){
@@ -3146,7 +3160,8 @@ const MONSTER_DRAW = {
     ctx.beginPath(); ctx.arc(0,-s*0.35,s*0.25,0,Math.PI*2); ctx.fill();
     // glowing eyes in void
     ctx.fillStyle='#ff0000'; ctx.shadowColor='#ff0000'; ctx.shadowBlur=s*0.4;
-    ctx.beginPath(); ctx.arc(-s*0.08,-s*0.35,s*0.05,0,Math.PI*2); ctx.arc(s*0.08,-s*0.35,s*0.05,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.08,-s*0.35,s*0.05,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.08,-s*0.35,s*0.05,0,Math.PI*2); ctx.fill();
     ctx.shadowBlur=0;
     ctx.restore();
   },
@@ -3547,7 +3562,8 @@ function drawPlayer(ctx, sx, sy, classId, moving, t, facing, evoStage, wings, co
     }
     // eyes
     ctx.fillStyle='#1a1008';
-    ctx.beginPath(); ctx.arc(-s*0.09,s*0.03,s*0.045,0,Math.PI*2); ctx.arc(s*0.09,s*0.03,s*0.045,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s*0.09,s*0.03,s*0.045,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s*0.09,s*0.03,s*0.045,0,Math.PI*2); ctx.fill();
   }
   ctx.restore();
 
@@ -10211,15 +10227,15 @@ function App(){
         // emoji + name + level
         ctx.font='40px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.globalAlpha = locked?0.55:1; ctx.fillText(pt.w.emoji, gx, gy); ctx.globalAlpha=1;
-        ctx.font='bold 15px sans-serif'; ctx.fillStyle=col;
-        ctx.shadowColor='rgba(0,0,0,1)'; ctx.shadowBlur=6;
-        ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=4;
-        ctx.strokeText(pt.w.name, gx, gy-45); ctx.fillText(pt.w.name, gx, gy-45);
-        ctx.font='bold 13px sans-serif'; ctx.fillStyle=locked?'#ff9a9a':'#cfe9ff';
+        ctx.font='bold 17px sans-serif'; ctx.fillStyle=col;
+        ctx.shadowColor='rgba(0,0,0,1)'; ctx.shadowBlur=8;
+        ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=5;
+        ctx.strokeText(pt.w.name, gx, gy-48); ctx.fillText(pt.w.name, gx, gy-48);
+        ctx.font='bold 14px sans-serif'; ctx.fillStyle=locked?'#ff9a9a':'#cfe9ff';
         const lbl = locked?`🔒 רמה ${pt.w.reqLv}`:`רמה ${pt.w.reqLv}+`;
-        ctx.strokeText(lbl, gx, gy+42); ctx.fillText(lbl, gx, gy+42);
+        ctx.strokeText(lbl, gx, gy+44); ctx.fillText(lbl, gx, gy+44);
         ctx.shadowBlur=0;
-        if(near && !locked){ ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif'; ctx.fillText('▶ הִכנס', gx, gy+58); }
+        if(near && !locked){ ctx.fillStyle='#fff'; ctx.font='bold 14px sans-serif'; ctx.shadowColor='#000'; ctx.shadowBlur=5; ctx.fillText('▶ הִכנס', gx, gy+62); ctx.shadowBlur=0; }
         ctx.textBaseline='alphabetic'; ctx.textAlign='left';
       });
       npcs.forEach(npc=>{
@@ -10234,15 +10250,17 @@ function App(){
         ctx.fillStyle=gr; ctx.beginPath(); ctx.arc(nx,ny+10,50,0,Math.PI*2); ctx.fill();
         ctx.restore();
         // body
-        ctx.font='34px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.font='40px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.shadowColor='rgba(0,0,0,0.8)'; ctx.shadowBlur=8;
         ctx.fillText(npc.emoji, nx, ny);
-        // name
-        ctx.font='bold 15px sans-serif';
-        ctx.shadowColor='rgba(0,0,0,1)'; ctx.shadowBlur=6;
-        ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=4;
-        ctx.strokeText(npc.name, nx, ny-33); ctx.fillText(npc.name, nx, ny-33);
         ctx.shadowBlur=0;
-        if(near){ ctx.fillStyle='#ffee88'; ctx.font='bold 13px sans-serif'; ctx.strokeText('▶ לחץ לפתיחה', nx, ny+38); ctx.fillText('▶ לחץ לפתיחה', nx, ny+38); }
+        // name — bigger, high-contrast
+        ctx.font='bold 17px sans-serif';
+        ctx.shadowColor='#000'; ctx.shadowBlur=8;
+        ctx.fillStyle=npc.color; ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=5;
+        ctx.strokeText(npc.name, nx, ny-40); ctx.fillText(npc.name, nx, ny-40);
+        ctx.shadowBlur=0;
+        if(near){ ctx.fillStyle='#fff'; ctx.font='bold 14px sans-serif'; ctx.shadowColor='#000'; ctx.shadowBlur=6; ctx.strokeText('▶ לחץ לפתיחה', nx, ny+42); ctx.fillText('▶ לחץ לפתיחה', nx, ny+42); ctx.shadowBlur=0; }
         ctx.textBaseline='alphabetic'; ctx.textAlign='left';
       });
     }
