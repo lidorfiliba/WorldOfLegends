@@ -16,16 +16,17 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;900&family=Cinzel+Decorative:wght@700;900&family=Marcellus&family=Heebo:wght@400;500;700;800&display=swap');
+@import url('http://localhost:8080/fonts.css');
 :root{
-  --gold:#f5c563;--gold2:#e0a030;--gold-deep:#8a6420;
-  --bg:#080611;--bg2:#0d0a18;--panel:#140f20;--panel2:#1c1530;--panel3:#241a3a;
-  --border:#332447;--border2:#4a3565;--border-glow:#6b4a8f;
-  --text:#ece4d8;--text2:#c4b8d0;--dim:#8a7ca0;
-  --teal:#4ad6c8;--ember:#ff7a45;
+  --gold:#f5c563;--gold2:#e0a030;--gold-deep:#8a6420;--gold-glow:#ffd97a;
+  --bg:#070510;--bg2:#0c091a;--panel:#120e1e;--panel2:#1a1330;--panel3:#221840;
+  --border:#2e1f42;--border2:#432e60;--border-glow:#7a54a8;
+  --text:#ede5da;--text2:#c8bcda;--dim:#8a7ca0;
+  --teal:#4ad6c8;--ember:#ff7a45;--neon-blue:#4ac8ff;--neon-purple:#cc66ff;
   --hp:#e0444e;--mp:#4a90e2;--xp:#a865d8;
   --str:#e0556a;--agi:#3dc97a;--int:#4a90e2;--vit:#e8a838;
   --common:#9d9d9d;--uncommon:#3dd94a;--rare:#3a8fe8;--epic:#b35aef;--legendary:#ff9020;--mythic:#ffe08a;
+  --skill-dark:#0d0820;--skill-ready-glow:rgba(245,197,99,0.7);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;}
 html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Heebo','Cinzel',serif;color:var(--text);touch-action:none;position:fixed;}
@@ -150,16 +151,22 @@ canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;image
 .hand-left .joy-base{left:auto;right:18px;}
 .hand-left .atk-zone{right:auto;left:16px;align-items:flex-start;}
 .hand-left .dodge-btn{right:auto;left:calc(28px + clamp(72px,16vw,90px));}
-.hud-s .skill-btn{width:clamp(40px,9vw,48px)!important;height:clamp(40px,9vw,48px)!important;}
-.hud-s .atk-main{width:clamp(58px,13vw,72px)!important;height:clamp(58px,13vw,72px)!important;}
-.hud-l .skill-btn{width:clamp(54px,13vw,66px)!important;height:clamp(54px,13vw,66px)!important;}
-.hud-l .atk-main{width:clamp(84px,19vw,104px)!important;height:clamp(84px,19vw,104px)!important;}
-.skill-btn{width:clamp(44px,10vw,52px);height:clamp(44px,10vw,52px);border-radius:50%;background:rgba(10,5,16,0.8);border:2px solid var(--border2);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;font-size:clamp(1.05rem,2.8vw,1.4rem);cursor:pointer;position:relative;touch-action:none;overflow:hidden;}
-.skill-btn:active{transform:scale(0.9);border-color:var(--gold);box-shadow:0 0 20px #ffd24aaa,0 0 8px #ffd24a66 inset;filter:brightness(1.3);}
-.skill-cd{position:absolute;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#fff;font-weight:700;}
-.atk-main{width:clamp(72px,16vw,90px);height:clamp(72px,16vw,90px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#ff6b5b,#9b1a1a);border:3px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:clamp(1.6rem,4.5vw,2.2rem);cursor:pointer;box-shadow:0 0 24px #ff444466;touch-action:none;animation:atkPulse 2s ease-in-out infinite;}
-@keyframes atkPulse{0%,100%{box-shadow:0 0 24px #ff444466,0 0 0 0 #ff444433;}50%{box-shadow:0 0 40px #ff4444aa,0 0 18px 6px #ff222244;}}
-.dodge-btn{width:clamp(50px,12vw,64px);height:clamp(50px,12vw,64px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#5ac8ff,#1a5a9b);border:3px solid #7ad8ff;display:flex;align-items:center;justify-content:center;font-size:clamp(1.2rem,3.5vw,1.7rem);cursor:pointer;box-shadow:0 0 18px #4aaaff66;touch-action:none;position:absolute;bottom:calc(90px + env(safe-area-inset-bottom));right:calc(28px + clamp(72px,16vw,90px));z-index:46;}
+.hud-s .skill-btn{width:clamp(44px,10vw,56px)!important;height:clamp(44px,10vw,56px)!important;}
+.hud-s .atk-main{width:clamp(60px,14vw,76px)!important;height:clamp(60px,14vw,76px)!important;}
+.hud-l .skill-btn{width:clamp(60px,14vw,76px)!important;height:clamp(60px,14vw,76px)!important;}
+.hud-l .atk-main{width:clamp(88px,20vw,108px)!important;height:clamp(88px,20vw,108px)!important;}
+.skill-btn{width:clamp(52px,12vw,66px);height:clamp(52px,12vw,66px);border-radius:9px;background:linear-gradient(145deg,#1c1035 0%,#0d0820 50%,#180d2e 100%);border:2px solid rgba(100,70,180,0.55);display:flex;align-items:center;justify-content:center;font-size:clamp(1.25rem,3.2vw,1.65rem);cursor:pointer;position:relative;touch-action:none;overflow:hidden;box-shadow:0 4px 18px #000d,0 0 0 1px #ffffff06 inset,0 0 10px rgba(100,60,200,0.15);transition:border-color .18s,box-shadow .18s;}
+.skill-btn.sk-ready{border-color:rgba(245,197,99,0.85);box-shadow:0 0 16px #f5c56355,0 0 36px #f5c56322,0 4px 18px #000d;animation:skillReadyGlow 2s ease-in-out infinite;}
+.skill-btn:active{transform:scale(0.86);filter:brightness(1.5);}
+.skill-cd-sweep{position:absolute;inset:0;background:conic-gradient(rgba(0,0,0,0.84) calc(var(--cd-frac,0) * 360deg),transparent 0);border-radius:9px;pointer-events:none;z-index:1;}
+.skill-cd{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:0.68rem;color:#fff;font-weight:900;pointer-events:none;z-index:2;text-shadow:0 0 6px #000,0 0 12px #000;}
+.skill-key{position:absolute;top:2px;right:4px;font-size:0.52rem;font-weight:800;color:rgba(245,197,99,0.75);line-height:1;pointer-events:none;z-index:3;font-family:'Cinzel',serif;}
+.skill-shine{position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.12) 0%,transparent 55%);border-radius:9px;pointer-events:none;z-index:4;}
+@keyframes skillReadyGlow{0%,100%{box-shadow:0 0 12px #f5c56344,0 0 28px #f5c56316,0 4px 18px #000d;}50%{box-shadow:0 0 24px #f5c563aa,0 0 50px #f5c56344,0 4px 18px #000d,inset 0 0 8px #f5c56322;}}
+.atk-main{width:clamp(74px,17vw,94px);height:clamp(74px,17vw,94px);border-radius:50%;background:radial-gradient(circle at 38% 28%,#ff9a78,#d44030 55%,#8a1a1a);border:3px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:clamp(1.7rem,4.8vw,2.3rem);cursor:pointer;box-shadow:0 0 0 6px rgba(255,60,40,0.2),0 0 32px #ff333366,0 8px 32px #0008,0 0 0 1px #ffffff14 inset;touch-action:none;animation:atkBlast 1.8s ease-in-out infinite;}
+@keyframes atkBlast{0%,100%{box-shadow:0 0 0 4px rgba(255,60,40,0.18),0 0 26px #ff333355,0 8px 32px #000a;}40%{box-shadow:0 0 0 10px rgba(255,60,40,0.12),0 0 55px #ff333399,0 8px 32px #000a,0 0 80px #ff222233;}}
+.dodge-btn{width:clamp(52px,12vw,66px);height:clamp(52px,12vw,66px);border-radius:50%;background:radial-gradient(circle at 38% 32%,#70d8ff,#1a5a9b 60%,#0d2c52);border:2px solid #7ad8ff;display:flex;align-items:center;justify-content:center;font-size:clamp(1.2rem,3.5vw,1.7rem);cursor:pointer;box-shadow:0 0 22px #4aaaff66,0 0 0 4px rgba(74,170,255,0.12),0 6px 20px #000a;touch-action:none;position:absolute;bottom:calc(90px + env(safe-area-inset-bottom));right:calc(28px + clamp(72px,16vw,90px));z-index:46;animation:dodgePulse 3s ease-in-out infinite;}
+@keyframes dodgePulse{0%,100%{box-shadow:0 0 16px #4aaaff44,0 0 0 3px rgba(74,170,255,0.1),0 6px 20px #000a;}50%{box-shadow:0 0 30px #4aaaff88,0 0 0 7px rgba(74,170,255,0.08),0 6px 20px #000a;}}
 .atk-main:active{transform:scale(0.9);}
 
 /* ── MODALS / PANELS ── */
@@ -305,26 +312,25 @@ canvas{display:block;position:absolute;top:0;left:0;width:100%;height:100%;image
 .modal-title{font-family:'Cinzel',serif;font-weight:700;letter-spacing:0.5px;text-shadow:0 0 20px #f5c56344;}
 
 /* glassy HUD frames */
-.pf{background:linear-gradient(150deg,rgba(12,8,22,0.92),rgba(6,4,14,0.88));border:1px solid rgba(120,90,180,0.3);box-shadow:0 8px 32px #000a, 0 0 0 1px #ffffff08 inset, 0 0 20px rgba(80,40,120,0.15) inset;border-radius:12px;backdrop-filter:blur(12px);}
-.minimap,.gold-disp{background:linear-gradient(150deg,rgba(12,8,22,0.92),rgba(6,4,14,0.88))!important;border:1px solid rgba(120,90,180,0.3)!important;box-shadow:0 6px 24px #000a, 0 0 0 1px #ffffff06 inset;backdrop-filter:blur(12px);}
+.pf{background:linear-gradient(150deg,rgba(14,9,26,0.95),rgba(7,4,16,0.92));border:1px solid rgba(130,90,200,0.35);box-shadow:0 8px 36px #000c, 0 0 0 1px #ffffff0a inset, 0 0 28px rgba(90,45,140,0.2) inset;border-radius:12px;backdrop-filter:blur(16px);}
+.minimap,.gold-disp{background:linear-gradient(150deg,rgba(14,9,26,0.94),rgba(7,4,16,0.90))!important;border:1px solid rgba(130,90,200,0.32)!important;box-shadow:0 6px 26px #000b, 0 0 0 1px #ffffff07 inset;backdrop-filter:blur(14px);}
 .zone-tag{background:linear-gradient(150deg,rgba(12,8,22,0.94),rgba(6,4,14,0.90));border:1px solid rgba(180,140,80,0.4);box-shadow:0 6px 20px #000a, 0 0 12px rgba(180,140,80,0.12);font-family:'Cinzel',serif;letter-spacing:2px;text-transform:uppercase;}
 
-/* refined bars with inner glow */
-.bar{box-shadow:inset 0 1px 4px #000a, 0 1px 0 #ffffff08;}
-.hp-f{background:linear-gradient(90deg,#7a1520,#e0444e,#ff6a72)!important;animation:hpScanline 3s ease-in-out infinite;}
-.mp-f{background:linear-gradient(90deg,#163a6a,#4a90e2,#6ab0ff)!important;animation:mpScanline 3.4s ease-in-out infinite;}
-.xp-f{background:linear-gradient(90deg,#4a1a7a,#a865d8,#c88aff)!important;animation:xpScanline 3.8s ease-in-out infinite;}
-@keyframes hpScanline{0%,100%{filter:brightness(1);}50%{filter:brightness(1.2) saturate(1.3);}}
-@keyframes mpScanline{0%,100%{filter:brightness(1);}50%{filter:brightness(1.2) saturate(1.3);}}
-@keyframes xpScanline{0%,100%{filter:brightness(1);}50%{filter:brightness(1.2) saturate(1.3);}}
+/* refined bars with inner glow — BDO-style segmented */
+.bar{box-shadow:inset 0 1px 5px #000c, 0 1px 0 #ffffff0a;overflow:hidden;position:relative;}
+.bar::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0px,transparent 18px,rgba(0,0,0,0.28) 18px,rgba(0,0,0,0.28) 19px);pointer-events:none;z-index:2;}
+.hp-f{background:linear-gradient(90deg,#7a1520,#c03040,#e8454f,#ff7a82,#e8454f,#c03040)!important;background-size:200% 100%!important;animation:barFlow 2.2s linear infinite;box-shadow:0 0 8px #e8454f88 inset,0 0 2px #ff7a82 inset!important;}
+.mp-f{background:linear-gradient(90deg,#163a6a,#3070c8,#5aa0f0,#80c0ff,#5aa0f0,#3070c8)!important;background-size:200% 100%!important;animation:barFlow 2.6s linear infinite;box-shadow:0 0 8px #5aa0f088 inset,0 0 2px #80c0ff inset!important;}
+.xp-f{background:linear-gradient(90deg,#3a1060,#8840c8,#b070e8,#d0a0ff,#b070e8,#8840c8)!important;background-size:200% 100%!important;animation:barFlow 3s linear infinite;box-shadow:0 0 8px #b070e888 inset,0 0 2px #d0a0ff inset!important;}
+@keyframes barFlow{0%{background-position:100% 0;}100%{background-position:-100% 0;}}
 
 /* buttons refined */
 .mini-btn{background:linear-gradient(160deg,rgba(36,26,58,0.92),rgba(20,15,32,0.92));border:1px solid var(--border2);box-shadow:0 3px 12px #0008, 0 1px 0 #ffffff0a inset;border-radius:10px;letter-spacing:0.3px;color:var(--gold);transition:all .15s;}
 .mini-btn:active{transform:scale(0.93);border-color:var(--gold);box-shadow:0 0 14px #f5c56355;}
 
-/* skill + attack buttons get richer styling */
-.skill-btn{background:radial-gradient(circle at 35% 25%,rgba(35,25,55,0.97),rgba(10,6,18,0.97));border:2px solid rgba(100,70,160,0.5);box-shadow:0 6px 20px #000c, 0 0 0 1px #ffffff0a inset, 0 0 8px rgba(120,80,200,0.2);}
-.atk-main{background:radial-gradient(circle at 38% 28%,#ff9a78,#d44030 55%,#8a1a1a);border:3px solid var(--gold);box-shadow:0 8px 32px #ff333344, 0 0 0 1px #ffffff18 inset, 0 0 40px #ff3a2a55, 0 0 60px #ff222222;animation:atkPulse 2s ease-in-out infinite;}
+/* skill + attack buttons get richer styling — BDO dark metal */
+.skill-btn{background:linear-gradient(145deg,#1c1035 0%,#0d0820 50%,#180d2e 100%)!important;border:2px solid rgba(100,70,180,0.55)!important;}
+.atk-main{background:radial-gradient(circle at 38% 28%,#ff9a78,#d44030 55%,#8a1a1a)!important;border:3px solid var(--gold)!important;}
 .joy-base{background:radial-gradient(circle,rgba(28,21,48,0.6),rgba(13,10,24,0.5));border:1px solid var(--border2);box-shadow:inset 0 2px 12px #000a;}
 .joy-stick{background:radial-gradient(circle at 38% 32%,#ffe8a8,#f5c563 60%,#c89020);box-shadow:0 4px 16px #f5c56366, 0 0 0 1px #ffffff20 inset;}
 
@@ -7866,8 +7872,12 @@ function App(){
 
   // ════════ DAMAGE NUMBERS ════════
   function pushDmgNum(wx, wy, val, color, crit){
-    G.dmgNums.push({x:wx, y:wy, val:(crit?'⚡':'')+val, color, crit, life:1.0, maxLife:1.0, vy:-1.2});
+    const numVal = parseInt(val, 10);
+    const isBigCrit = crit && isFinite(numVal) && numVal > 200;
+    G.dmgNums.push({x:wx, y:wy, val:(crit?'⚡':'')+val, color, crit, life:1.0, maxLife:1.0, vy:-1.4, isBig:isBigCrit});
     if(G.dmgNums.length>40) G.dmgNums.shift();
+    if(crit){ burst(wx, wy, color, 8, 140); burst(wx, wy, '#ffffff', 4, 100); }
+    if(isBigCrit) doScreenFlash(color, 0.14, 280);
   }
 
   // ════════ PARTICLE / EFFECT HELPERS ════════
@@ -7893,9 +7903,18 @@ function App(){
     burst(wx, wy, v.edge, Math.ceil(count*0.4), speed*0.7, v.part, v.grav);
   }
   function deathBurst(wx, wy, color, big){
-    burst(wx, wy, color, big?40:16, big?260:160);
-    burst(wx, wy, '#ffffff', big?20:8, big?200:120);
-    G.effects.push({type:'ring', x:wx, y:wy, r:0, maxR:big?120:50, color, life:0.5, t:0});
+    burst(wx, wy, color, big?60:20, big?280:170);
+    burst(wx, wy, '#ffffff', big?28:10, big?220:130);
+    burst(wx, wy, '#ffee88', big?16:6, big?180:100);
+    G.effects.push({type:'ring', x:wx, y:wy, r:0, maxR:big?160:70, color, life:0.6, t:0});
+    G.effects.push({type:'ring', x:wx, y:wy, r:0, maxR:big?220:100, color:'#ffffff', life:0.4, t:0});
+    if(big) doScreenFlash(color, 0.22, 500);
+  }
+  // Screen flash: adds a timed full-screen color burst (crits, kills, ultimates)
+  function doScreenFlash(color, intensity, dur){
+    if(!G._sFlashes) G._sFlashes = [];
+    G._sFlashes.push({color, intensity:intensity||0.12, t0:Date.now(), dur:dur||300});
+    if(G._sFlashes.length > 8) G._sFlashes.shift();
   }
 
   // ════════ ATTACK (basic + skills) — uses currently equipped skill set ════════
@@ -10500,63 +10519,68 @@ function App(){
     });
     ctx.restore();
 
-    // damage numbers — pop in with a scale punch, crits bigger + glowing
+    // damage numbers — epic BDO-style pop-in, crits massive + glowing
     G.dmgNums.forEach(dn=>{
       ctx.save(); const baseAlpha=Math.max(0,dn.life); ctx.globalAlpha=baseAlpha;
       const age = 1-(dn.life/(dn.maxLife||1));
-      const pop = age<0.18 ? 0.6+age/0.18*0.6 : 1.15-Math.min(0.15,(age-0.18)*0.3); // quick scale-in punch
-      const base = dn.crit?28:17;
-      // heal numbers get special color/prefix
+      // dramatic overshoot: 0→1.6 in first 12%, bounce to 1.05, fade
+      const pop = age<0.12 ? age/0.12*1.6 : age<0.22 ? 1.6-(age-0.12)/0.10*0.55 : age<0.85 ? 1.05 : 1.05*(1-(age-0.85)/0.15);
+      const base = dn.crit ? (dn.isBig ? 54 : 42) : 22;
       const isHeal = dn.heal===true;
       const displayVal = isHeal ? (dn.val.startsWith('+') ? dn.val : '+'+dn.val) : dn.val;
       const fillColor = isHeal ? '#5aff8a' : dn.color;
       const shadowCol = isHeal ? '#00ffcc' : dn.color;
       const [_dnSx,_dnSy]=worldToScreen(dn.x,dn.y,cam,wd,W,H);
-      ctx.translate(_dnSx, _dnSy - (G._3dReady ? 60 : 0)); ctx.scale(pop,pop);
+      ctx.translate(_dnSx, _dnSy - (G._3dReady ? 70 : 0)); ctx.scale(pop,pop);
       ctx.textAlign='center'; ctx.lineJoin='round';
       if(dn.crit){
-        // crit: rich double outline + hot-core bloom
-        ctx.font=`900 ${base}px Cinzel`;
-        ctx.shadowColor=shadowCol; ctx.shadowBlur=20;
-        // first stroke pass — thick, semi-transparent
-        ctx.strokeStyle='#000'; ctx.lineWidth=6;
-        ctx.globalAlpha=baseAlpha*0.6;
+        // crit: multi-layer glow cascade
+        ctx.font=`900 ${base}px 'Cinzel',serif`;
+        // outer mega glow
+        ctx.shadowColor=shadowCol; ctx.shadowBlur=dn.isBig?40:26;
+        ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.lineWidth=8;
+        ctx.globalAlpha=baseAlpha*0.5;
         ctx.strokeText(displayVal, 0, 0);
-        // second stroke pass — thinner, full alpha
-        ctx.lineWidth=4;
+        ctx.lineWidth=5;
         ctx.globalAlpha=baseAlpha;
         ctx.strokeText(displayVal, 0, 0);
-        // main fill
         ctx.fillStyle=fillColor;
         ctx.fillText(displayVal, 0, 0);
-        // hot core bloom — white overlay, smaller, offset up 1px
+        // inner white core bloom
         ctx.shadowBlur=0;
         ctx.fillStyle='#ffffff';
-        ctx.globalAlpha=baseAlpha*0.25;
-        ctx.font=`900 ${Math.round(base*0.7)}px Cinzel`;
+        ctx.globalAlpha=baseAlpha*0.32;
+        ctx.font=`900 ${Math.round(base*0.72)}px 'Cinzel',serif`;
         ctx.fillText(displayVal, 0, -1);
-        // gold "!" suffix for crits (only if not already present)
+        // gold "!" suffix
         if(!displayVal.includes('!')){
           ctx.globalAlpha=baseAlpha;
-          ctx.font=`900 ${base}px Cinzel`;
+          ctx.font=`900 ${base}px 'Cinzel',serif`;
           const numW = ctx.measureText(displayVal).width;
-          ctx.shadowColor='#ffd700'; ctx.shadowBlur=8;
+          ctx.shadowColor='#ffd700'; ctx.shadowBlur=dn.isBig?18:10;
+          ctx.strokeStyle='#000'; ctx.lineWidth=3; ctx.strokeText('!', numW*0.5+5, -base*0.08);
           ctx.fillStyle='#ffd700';
-          ctx.font=`900 ${Math.round(base*0.75)}px Cinzel`;
-          ctx.fillText('!', numW*0.5+4, -base*0.1);
+          ctx.font=`900 ${Math.round(base*0.82)}px 'Cinzel',serif`;
+          ctx.fillText('!', numW*0.5+5, -base*0.08);
+        }
+        // extra energy rings for massive crits
+        if(dn.isBig && age < 0.3){
+          ctx.globalAlpha = baseAlpha * (1-age/0.3) * 0.6;
+          ctx.strokeStyle = shadowCol; ctx.lineWidth = 2; ctx.shadowBlur = 10;
+          const rr = base * (0.5 + age*2);
+          ctx.beginPath(); ctx.arc(0, -base*0.3, rr, 0, Math.PI*2); ctx.stroke();
         }
       } else {
-        // normal hit: subtle glow + highlight shimmer
-        ctx.font=`900 ${base}px Cinzel`;
-        ctx.shadowColor=shadowCol; ctx.shadowBlur=7;
-        ctx.strokeStyle='#000'; ctx.lineWidth=4;
+        // normal hit: clean glow + shimmer
+        ctx.font=`900 ${base}px 'Cinzel',serif`;
+        ctx.shadowColor=shadowCol; ctx.shadowBlur=10;
+        ctx.strokeStyle='rgba(0,0,0,0.85)'; ctx.lineWidth=5;
         ctx.strokeText(displayVal, 0, 0);
         ctx.fillStyle=fillColor;
         ctx.fillText(displayVal, 0, 0);
-        // white highlight shimmer pass
         ctx.shadowBlur=0;
         ctx.fillStyle='#ffffff';
-        ctx.globalAlpha=baseAlpha*0.2;
+        ctx.globalAlpha=baseAlpha*0.22;
         ctx.fillText(displayVal, 0, 0);
       }
       ctx.restore();
@@ -10786,6 +10810,25 @@ function App(){
         ctx.restore();
         G._isNight = night>0.5;
       } else G._isNight=false;
+    }
+
+    // ── CRIT / KILL SCREEN FLASHES ──
+    if(G._sFlashes && G._sFlashes.length > 0){
+      const nowFlash = Date.now();
+      G._sFlashes = G._sFlashes.filter(f => nowFlash - f.t0 < f.dur);
+      G._sFlashes.forEach(f => {
+        const age = (nowFlash - f.t0) / f.dur;
+        const fa = f.intensity * (age < 0.25 ? age/0.25 : 1 - (age-0.25)/0.75);
+        if(fa > 0.005){
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.globalAlpha = fa;
+          const fg = ctx.createRadialGradient(W/2,H*0.45,0,W/2,H/2,Math.max(W,H)*0.7);
+          fg.addColorStop(0, f.color); fg.addColorStop(0.5, SP.withAlpha(f.color, 0.6)); fg.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = fg; ctx.fillRect(0,0,W,H);
+          ctx.restore();
+        }
+      });
     }
 
     // ── ULTIMATE CINEMATIC FLASH: a colored screen flash + skill name banner ──
@@ -11052,9 +11095,25 @@ function App(){
         }
       }
       else if(ef.type==='ring'||ef.type==='explosion'){
-        ctx.globalAlpha=fade*0.8;
-        ctx.strokeStyle=ef.color; ctx.lineWidth=3; ctx.shadowColor=ef.color; ctx.shadowBlur=10;
+        const prog = ef.t/ef.life;
+        // outer ring — expands and fades
+        ctx.globalAlpha=fade*0.85;
+        ctx.strokeStyle=ef.color; ctx.lineWidth=4-prog*2; ctx.shadowColor=ef.color; ctx.shadowBlur=18;
         ctx.beginPath(); ctx.arc(ix,iy,ef.r,0,Math.PI*2); ctx.stroke();
+        // white inner trailing ring
+        ctx.globalAlpha=fade*(1-prog)*0.5;
+        ctx.strokeStyle='#ffffff'; ctx.lineWidth=2; ctx.shadowBlur=10;
+        ctx.beginPath(); ctx.arc(ix,iy,ef.r*0.75,0,Math.PI*2); ctx.stroke();
+        // radial burst lines from center
+        if(prog<0.5){
+          const spokes=8;
+          ctx.globalAlpha=fade*(0.5-prog)*1.4*0.7;
+          ctx.strokeStyle=ef.color; ctx.lineWidth=1.5; ctx.shadowBlur=8;
+          for(let s=0;s<spokes;s++){
+            const sa=(s/spokes)*Math.PI*2; const s0=ef.r*0.3, s1=ef.r*0.85;
+            ctx.beginPath(); ctx.moveTo(ix+Math.cos(sa)*s0,iy+Math.sin(sa)*s0); ctx.lineTo(ix+Math.cos(sa)*s1,iy+Math.sin(sa)*s1); ctx.stroke();
+          }
+        }
       }
       else if(ef.type==='hammerfall'){
         // 🔨 paladin: a colossal hammer of light descending onto the marked zone
@@ -11084,43 +11143,85 @@ function App(){
       }
       else if(ef.type==='slash'){
         ctx.globalAlpha=fade;
-        const r = ef.big?86:58;
+        const r = ef.big?96:66;
         const a0 = ef.dir>0 ? -1.2 : Math.PI+1.2;
         const a1 = ef.dir>0 ? 1.2 : Math.PI-1.2;
-        // layered glowing arcs
+        // layered glowing arcs — significantly upgraded visual impact
         if(fx==='smash'){
-          // heavy downward crush + shockwave
-          ctx.strokeStyle=ef.color; ctx.lineWidth=10; ctx.shadowColor=ef.color; ctx.shadowBlur=20;
-          ctx.beginPath(); ctx.arc(ix+ef.dir*20, iy, r*(0.6+prog*0.5), a0, a1, ef.dir<0); ctx.stroke();
-          ctx.globalAlpha=fade*0.5; ctx.lineWidth=3;
-          ctx.beginPath(); ctx.arc(ix, iy+20, r*(0.8+prog*0.6), 0.2, Math.PI-0.2); ctx.stroke();
+          // heavy downward crush + shockwave rings
+          ctx.strokeStyle=ef.color; ctx.lineWidth=12; ctx.shadowColor=ef.color; ctx.shadowBlur=30;
+          ctx.beginPath(); ctx.arc(ix+ef.dir*22, iy, r*(0.6+prog*0.55), a0, a1, ef.dir<0); ctx.stroke();
+          ctx.globalAlpha=fade*0.7; ctx.lineWidth=5; ctx.strokeStyle='#fff'; ctx.shadowBlur=16;
+          ctx.beginPath(); ctx.arc(ix+ef.dir*22, iy, r*(0.6+prog*0.55)*0.82, a0, a1, ef.dir<0); ctx.stroke();
+          // ground crack shockwave
+          ctx.globalAlpha=fade*0.55; ctx.strokeStyle=ef.color; ctx.lineWidth=3; ctx.shadowBlur=14;
+          ctx.beginPath(); ctx.arc(ix, iy+18, r*(0.9+prog*0.7), 0.15, Math.PI-0.15); ctx.stroke();
+          ctx.globalAlpha=fade*0.3; ctx.lineWidth=1.5;
+          ctx.beginPath(); ctx.arc(ix, iy+28, r*(1.1+prog*0.9), 0.25, Math.PI-0.25); ctx.stroke();
+          // impact sparks radiating outward
+          if(prog < 0.6){ for(let s=0;s<8;s++){const sa=(s/8)*Math.PI*2; const sr=30+prog*90; ctx.globalAlpha=fade*(1-prog*1.5)*0.7; ctx.fillStyle=ef.color; ctx.shadowBlur=8; ctx.beginPath(); ctx.arc(ix+Math.cos(sa)*sr*ef.dir,iy+Math.sin(sa)*sr*0.7,3-prog*2,0,Math.PI*2); ctx.fill();} }
         } else if(fx==='holy'){
-          ctx.strokeStyle='#fff'; ctx.lineWidth=7; ctx.shadowColor=ef.color; ctx.shadowBlur=24;
-          ctx.beginPath(); ctx.arc(ix+ef.dir*30, iy, r*(0.6+prog*0.4), a0, a1, ef.dir<0); ctx.stroke();
-          ctx.strokeStyle=ef.color; ctx.lineWidth=3;
-          ctx.beginPath(); ctx.arc(ix+ef.dir*30, iy, r*(0.6+prog*0.4)*0.7, a0, a1, ef.dir<0); ctx.stroke();
+          ctx.strokeStyle='#fff'; ctx.lineWidth=8; ctx.shadowColor=ef.color; ctx.shadowBlur=30;
+          ctx.beginPath(); ctx.arc(ix+ef.dir*32, iy, r*(0.6+prog*0.44), a0, a1, ef.dir<0); ctx.stroke();
+          ctx.strokeStyle=ef.color; ctx.lineWidth=4; ctx.shadowBlur=20;
+          ctx.beginPath(); ctx.arc(ix+ef.dir*32, iy, r*(0.6+prog*0.44)*0.72, a0, a1, ef.dir<0); ctx.stroke();
+          // holy radiance rings
+          ctx.globalAlpha=fade*0.4; ctx.strokeStyle='#ffffc8'; ctx.lineWidth=2; ctx.shadowBlur=14;
+          ctx.beginPath(); ctx.arc(ix+ef.dir*32, iy, r*(0.6+prog*0.44)*1.25, a0, a1, ef.dir<0); ctx.stroke();
+          // cross-shaped light burst at peak
+          if(prog>0.15&&prog<0.6){ ctx.globalAlpha=fade*(0.6-prog)*2*0.5; ctx.strokeStyle='#ffffff'; ctx.lineWidth=3; ctx.shadowColor='#fffff0'; ctx.shadowBlur=20; const ch=r*0.6; ctx.beginPath(); ctx.moveTo(ix,-ch+iy); ctx.lineTo(ix,ch+iy); ctx.moveTo(ix-ch,iy); ctx.lineTo(ix+ch,iy); ctx.stroke(); }
         } else if(fx==='poison'){
-          // venom slash: green crescent with dripping motes
-          const rr=r*(0.6+prog*0.45), cx=ix+ef.dir*28;
-          ctx.globalAlpha=fade*0.5; ctx.fillStyle=SP.withAlpha(ef.color,0.5); ctx.shadowColor=ef.color; ctx.shadowBlur=16;
-          ctx.beginPath(); ctx.arc(cx,iy,rr*1.1,a0,a1,ef.dir<0); ctx.arc(cx,iy,rr*0.5,a1,a0,ef.dir>0); ctx.closePath(); ctx.fill();
-          ctx.globalAlpha=fade; ctx.strokeStyle='#dfffb0'; ctx.lineWidth=ef.big?5:3; ctx.beginPath(); ctx.arc(cx,iy,rr*1.08,a0,a1,ef.dir<0); ctx.stroke();
-          ctx.fillStyle=ef.color; for(let i=0;i<5;i++){ const a=a0+(a1-a0)*(i/4); ctx.globalAlpha=fade*0.8; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*rr, iy+Math.sin(a)*rr+prog*10, 2.4,0,Math.PI*2); ctx.fill(); }
+          // venom slash: green crescent with dripping motes + acid spray
+          const rr=r*(0.6+prog*0.48), cx=ix+ef.dir*30;
+          ctx.globalAlpha=fade*0.55; ctx.fillStyle=SP.withAlpha(ef.color,0.5); ctx.shadowColor=ef.color; ctx.shadowBlur=20;
+          ctx.beginPath(); ctx.arc(cx,iy,rr*1.12,a0,a1,ef.dir<0); ctx.arc(cx,iy,rr*0.5,a1,a0,ef.dir>0); ctx.closePath(); ctx.fill();
+          ctx.globalAlpha=fade; ctx.strokeStyle='#dfffb0'; ctx.lineWidth=ef.big?6:4; ctx.shadowBlur=14; ctx.beginPath(); ctx.arc(cx,iy,rr*1.1,a0,a1,ef.dir<0); ctx.stroke();
+          ctx.strokeStyle=ef.color; ctx.lineWidth=ef.big?3:2; ctx.shadowBlur=8; ctx.beginPath(); ctx.arc(cx,iy,rr*0.72,a0,a1,ef.dir<0); ctx.stroke();
+          ctx.fillStyle=ef.color; for(let i=0;i<7;i++){ const a=a0+(a1-a0)*(i/6); ctx.globalAlpha=fade*0.85; ctx.shadowBlur=6; ctx.beginPath(); ctx.arc(cx+Math.cos(a)*rr, iy+Math.sin(a)*rr+prog*14, 2.8,0,Math.PI*2); ctx.fill(); }
         } else if(ef.cls && CLASS_VFX[ef.cls] && drawClassSlash(ctx, ix, iy, ef, prog, fade, r, a0, a1, now)){
-          // ✦ per-class signature slash drawn (warrior cleave / paladin radiance /
-          //   assassin twin-cut / dragon claw rake / archer wind flick) ✦
+          // ✦ per-class signature slash drawn ✦
         } else {
-          // ✦ sweeping crescent blade-arc: a filled glowing slash with a bright leading edge ✦
-          const rr=r*(0.6+prog*0.45), cx=ix+ef.dir*26;
-          ctx.globalAlpha=fade*0.5; ctx.shadowColor=ef.color; ctx.shadowBlur=18;
-          const grd=ctx.createRadialGradient(cx,iy,rr*0.45,cx,iy,rr*1.15);
-          grd.addColorStop(0,'rgba(0,0,0,0)'); grd.addColorStop(0.7,SP.withAlpha(ef.color,0.55)); grd.addColorStop(1,'rgba(255,255,255,0)');
-          ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(cx,iy,rr*1.15,a0,a1,ef.dir<0); ctx.arc(cx,iy,rr*0.55,a1,a0,ef.dir>0); ctx.closePath(); ctx.fill();
-          ctx.globalAlpha=fade; ctx.strokeStyle='#fff'; ctx.lineWidth=ef.big?6:4; ctx.shadowBlur=14;
-          ctx.beginPath(); ctx.arc(cx,iy,rr*1.12,a0,a1,ef.dir<0); ctx.stroke();
-          ctx.strokeStyle=ef.color; ctx.lineWidth=ef.big?3:2;
-          ctx.beginPath(); ctx.arc(cx,iy,rr*0.92,a0,a1,ef.dir<0); ctx.stroke();
+          // ✦ sweeping crescent blade-arc — multi-layer epic slash ✦
+          const rr=r*(0.6+prog*0.48), cx=ix+ef.dir*28;
+          // outer atmosphere fill
+          ctx.globalAlpha=fade*0.45; ctx.shadowColor=ef.color; ctx.shadowBlur=24;
+          const grd=ctx.createRadialGradient(cx,iy,rr*0.4,cx,iy,rr*1.25);
+          grd.addColorStop(0,'rgba(0,0,0,0)'); grd.addColorStop(0.65,SP.withAlpha(ef.color,0.65)); grd.addColorStop(1,'rgba(255,255,255,0)');
+          ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(cx,iy,rr*1.22,a0,a1,ef.dir<0); ctx.arc(cx,iy,rr*0.5,a1,a0,ef.dir>0); ctx.closePath(); ctx.fill();
+          // bright leading edge
+          ctx.globalAlpha=fade; ctx.strokeStyle='#fff'; ctx.lineWidth=ef.big?7:5; ctx.shadowBlur=18;
+          ctx.beginPath(); ctx.arc(cx,iy,rr*1.18,a0,a1,ef.dir<0); ctx.stroke();
+          // color inner arc
+          ctx.strokeStyle=ef.color; ctx.lineWidth=ef.big?4:3; ctx.shadowBlur=12;
+          ctx.beginPath(); ctx.arc(cx,iy,rr*0.96,a0,a1,ef.dir<0); ctx.stroke();
+          // outer faint glow arc
+          ctx.globalAlpha=fade*0.35; ctx.strokeStyle=ef.color; ctx.lineWidth=ef.big?2:1.5; ctx.shadowBlur=8;
+          ctx.beginPath(); ctx.arc(cx,iy,rr*1.42,a0,a1,ef.dir<0); ctx.stroke();
+          // expansion shockwave ring on big slashes
+          if(ef.big){
+            const sr = r*(0.3+prog*2.0);
+            ctx.globalAlpha=fade*(1-prog)*0.55; ctx.strokeStyle='#ffffff'; ctx.lineWidth=2.5; ctx.shadowColor=ef.color; ctx.shadowBlur=16;
+            ctx.beginPath(); ctx.arc(ix,iy,sr,0,Math.PI*2); ctx.stroke();
+            // second ring slightly delayed
+            const sr2 = r*(0.1+prog*1.5);
+            ctx.globalAlpha=fade*(1-prog*0.8)*0.4;
+            ctx.strokeStyle=ef.color; ctx.lineWidth=1.5;
+            ctx.beginPath(); ctx.arc(ix,iy,sr2,0,Math.PI*2); ctx.stroke();
+          }
         }
+        // impact sparks at arc center — always (big=more)
+        if(prog<0.55){
+          const sparkCount=ef.big?12:6;
+          for(let s=0;s<sparkCount;s++){
+            const sa=(s/sparkCount)*Math.PI*2+prog*4;
+            const sbase=ef.big?40:22, sr=sbase+prog*80;
+            ctx.globalAlpha=fade*(0.55-prog)*1.6*0.8;
+            ctx.fillStyle=s%2===0?'#ffffff':ef.color; ctx.shadowColor=ef.color; ctx.shadowBlur=6;
+            const sx2=ix+Math.cos(sa)*sr, sy2=iy+Math.sin(sa)*sr*0.6;
+            ctx.beginPath(); ctx.arc(sx2,sy2,ef.big?3.5-prog*3:2-prog*2,0,Math.PI*2); ctx.fill();
+          }
+        }
+        ctx.shadowBlur=0;
       }
       else if(ef.type==='danger'){
         // expanding elemental telegraph: ring + filling interior shows time-to-boom
@@ -11157,33 +11258,58 @@ function App(){
         ctx.shadowBlur=0;
       }
       else if(ef.type==='heal'){
-        ctx.globalAlpha=fade; ctx.fillStyle=ef.color; ctx.shadowColor=ef.color; ctx.shadowBlur=12;
-        ctx.font='bold 16px serif'; ctx.textAlign='center';
-        for(let i=0;i<7;i++){ const a=i/7*Math.PI*2+now/300; const rr=20+prog*36; ctx.fillText('✚', ix+Math.cos(a)*rr, iy+Math.sin(a)*rr-prog*40); }
+        ctx.globalAlpha=fade; ctx.fillStyle=ef.color; ctx.shadowColor=ef.color; ctx.shadowBlur=18;
+        ctx.font='bold 18px serif'; ctx.textAlign='center';
+        // orbiting crosses + rising sparkles
+        for(let i=0;i<8;i++){ const a=i/8*Math.PI*2+now/280; const rr=24+prog*44; ctx.globalAlpha=fade*(1-prog*0.5)*0.9; ctx.fillText('✚', ix+Math.cos(a)*rr, iy+Math.sin(a)*rr-prog*50); }
+        // central glow burst
+        ctx.globalAlpha=fade*(1-prog)*0.6; ctx.strokeStyle='#ffffff'; ctx.lineWidth=2; ctx.shadowBlur=20;
+        ctx.beginPath(); ctx.arc(ix,iy,prog*55,0,Math.PI*2); ctx.stroke();
         ctx.textAlign='left';
       }
       else if(ef.type==='cast'){
-        // expanding glyph circle when buff/cast starts
-        ctx.globalAlpha=fade; ctx.strokeStyle=ef.color; ctx.lineWidth=3; ctx.shadowColor=ef.color; ctx.shadowBlur=18;
-        const rr=20+prog*40; ctx.beginPath(); ctx.arc(ix,iy,rr,0,Math.PI*2); ctx.stroke();
-        ctx.beginPath(); for(let i=0;i<6;i++){ const a=i/6*Math.PI*2-now/200; (i?ctx.lineTo:ctx.moveTo).call(ctx, ix+Math.cos(a)*rr, iy+Math.sin(a)*rr); } ctx.closePath(); ctx.stroke();
+        // BDO-style magic circle: dual ring + rotating hex + inner glow
+        ctx.globalAlpha=fade; ctx.strokeStyle=ef.color; ctx.lineWidth=3; ctx.shadowColor=ef.color; ctx.shadowBlur=22;
+        const rr=24+prog*48;
+        ctx.beginPath(); ctx.arc(ix,iy,rr,0,Math.PI*2); ctx.stroke();
+        ctx.lineWidth=1.5; ctx.globalAlpha=fade*0.6;
+        ctx.beginPath(); ctx.arc(ix,iy,rr*0.7,0,Math.PI*2); ctx.stroke();
+        // rotating hex
+        ctx.lineWidth=2; ctx.globalAlpha=fade*0.8; ctx.shadowBlur=14;
+        ctx.beginPath(); for(let i=0;i<6;i++){ const a=i/6*Math.PI*2-now/180; (i?ctx.lineTo:ctx.moveTo).call(ctx, ix+Math.cos(a)*rr, iy+Math.sin(a)*rr); } ctx.closePath(); ctx.stroke();
+        // inner rune marks
+        ctx.globalAlpha=fade*0.5; ctx.lineWidth=1;
+        for(let i=0;i<3;i++){ const a=i/3*Math.PI*2+now/240; ctx.beginPath(); ctx.moveTo(ix,iy); ctx.lineTo(ix+Math.cos(a)*rr*0.65,iy+Math.sin(a)*rr*0.65); ctx.stroke(); }
       }
       else if(ef.type==='dash'){
-        ctx.globalAlpha=fade; ctx.strokeStyle=ef.color; ctx.lineWidth=8; ctx.shadowColor=ef.color; ctx.shadowBlur=16;
+        ctx.globalAlpha=fade; ctx.strokeStyle=ef.color; ctx.lineWidth=9; ctx.shadowColor=ef.color; ctx.shadowBlur=22;
         const fx0=(ef.fromX!=null?ef.fromX:ef.x)-cam.x, fy0=(ef.fromY!=null?ef.fromY:ef.y)-cam.y;
         ctx.beginPath(); ctx.moveTo(fx0,fy0); ctx.lineTo(ix,iy); ctx.stroke();
+        // white core streak
+        ctx.strokeStyle='#ffffff'; ctx.lineWidth=3; ctx.shadowBlur=10; ctx.globalAlpha=fade*0.7;
+        ctx.beginPath(); ctx.moveTo(fx0,fy0); ctx.lineTo(ix,iy); ctx.stroke();
         // afterimages
-        ctx.globalAlpha=fade*0.4; ctx.lineWidth=3;
-        for(let i=1;i<=3;i++){ ctx.beginPath(); ctx.moveTo(fx0,fy0-i*4); ctx.lineTo(ix,iy-i*4); ctx.stroke(); }
+        ctx.globalAlpha=fade*0.35; ctx.strokeStyle=ef.color; ctx.lineWidth=4;
+        for(let i=1;i<=3;i++){ ctx.globalAlpha=fade*(0.35-i*0.08); ctx.beginPath(); ctx.moveTo(fx0+i*2,fy0-i*3); ctx.lineTo(ix+i*2,iy-i*3); ctx.stroke(); }
       }
       else if(ef.type==='aura'){
-        // persistent buff/shield ring under player (follows player)
+        // persistent buff/shield ring under player
         const px=G.player.x-cam.x, py=G.player.y-cam.y;
-        ctx.globalAlpha=0.35+Math.sin(now/150)*0.15; ctx.strokeStyle=ef.color; ctx.lineWidth=3; ctx.shadowColor=ef.color; ctx.shadowBlur=14;
-        ctx.beginPath(); ctx.arc(px,py,40+Math.sin(now/180)*5,0,Math.PI*2); ctx.stroke();
-        // orbiting motes
-        ctx.globalAlpha=0.6; ctx.fillStyle=ef.color;
-        for(let i=0;i<4;i++){ const a=now/300+i*Math.PI/2; ctx.beginPath(); ctx.arc(px+Math.cos(a)*42, py+Math.sin(a)*42, 3, 0, Math.PI*2); ctx.fill(); }
+        const pulse = 0.35+Math.sin(now/140)*0.18;
+        // outer glow ring
+        ctx.globalAlpha=pulse*0.5; ctx.strokeStyle=ef.color; ctx.lineWidth=8; ctx.shadowColor=ef.color; ctx.shadowBlur=28;
+        ctx.beginPath(); ctx.arc(px,py,46+Math.sin(now/160)*6,0,Math.PI*2); ctx.stroke();
+        // main ring
+        ctx.globalAlpha=pulse*0.9; ctx.lineWidth=2.5; ctx.shadowBlur=18;
+        ctx.beginPath(); ctx.arc(px,py,38+Math.sin(now/160)*4,0,Math.PI*2); ctx.stroke();
+        // orbiting motes with trails
+        for(let i=0;i<6;i++){
+          const a=now/260+i*Math.PI/3;
+          ctx.globalAlpha=0.75; ctx.fillStyle=ef.color; ctx.shadowBlur=12;
+          ctx.beginPath(); ctx.arc(px+Math.cos(a)*44,py+Math.sin(a)*44,3.5,0,Math.PI*2); ctx.fill();
+          ctx.globalAlpha=0.3; ctx.fillStyle='#ffffff';
+          ctx.beginPath(); ctx.arc(px+Math.cos(a)*44,py+Math.sin(a)*44,1.5,0,Math.PI*2); ctx.fill();
+        }
       }
       // ── CINEMATIC spectacle effects (sky rain, tornado, sun pillar, slam) ──
       if(ef.type==='cine'){ drawCinematic(ctx, ix, iy, ef, now); ctx.restore(); return; }
@@ -12150,10 +12276,20 @@ function App(){
         <div className="atk-zone" style={{width:zoneW, height:zoneH, display:'block', touchAction:'none'}}
           onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd} onPointerLeave={dragEnd}
           onWheel={e=>{ e.preventDefault(); setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP + (e.deltaY>0?STEP:-STEP)))); }}>
-          {/* faint guide arc so the wheel reads as a wheel */}
-          {N>0 && <svg width={zoneW} height={zoneH} style={{position:'absolute',inset:0,pointerEvents:'none',opacity:0.35}}>
+          {/* BDO-style arc guide: dual ring with glow */}
+          {N>0 && <svg width={zoneW} height={zoneH} style={{position:'absolute',inset:0,pointerEvents:'none',overflow:'visible'}}>
+            <defs>
+              <filter id="arcGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <path d={(()=>{ const p1=pos(A0-10), p2=pos(A0+SPAN+10); return `M ${p1.x} ${p1.y} A ${R+8} ${R+8} 0 0 ${xSign>0?0:1} ${p2.x} ${p2.y}`; })()}
+              fill="none" stroke="rgba(120,80,200,0.25)" strokeWidth="16" strokeLinecap="round"/>
             <path d={(()=>{ const p1=pos(A0-8), p2=pos(A0+SPAN+8); return `M ${p1.x} ${p1.y} A ${R} ${R} 0 0 ${xSign>0?0:1} ${p2.x} ${p2.y}`; })()}
-              fill="none" stroke="#8a7ab0" strokeWidth="3" strokeDasharray="2 7" strokeLinecap="round"/>
+              fill="none" stroke="rgba(160,110,240,0.5)" strokeWidth="2" strokeDasharray="3 8" strokeLinecap="round" filter="url(#arcGlow)"/>
+            <path d={(()=>{ const p1=pos(A0-6), p2=pos(A0+SPAN+6); return `M ${p1.x} ${p1.y} A ${R-12} ${R-12} 0 0 ${xSign>0?0:1} ${p2.x} ${p2.y}`; })()}
+              fill="none" stroke="rgba(100,60,180,0.2)" strokeWidth="1" strokeLinecap="round"/>
           </svg>}
           {skills.map((sid,i)=>{
             const sk = D.SKILLS[sid];
@@ -12164,13 +12300,28 @@ function App(){
             const {x,y} = pos(th);
             const cd = G.skillCd[sid]||0;
             const rem = Math.max(0, cd-Date.now());
+            const totalCd = sk.cd || 1000;
+            const cdFrac = rem > 0 ? rem / totalCd : 0;
+            const isReady = rem <= 0;
+            const btnColor = sk.ultimate ? (isReady ? '#ff66cc' : '#553355') : (isReady ? sk.color : 'rgba(80,60,120,0.5)');
             return (
-              <div key={sid} className="skill-btn" style={{position:'absolute', left:x, top:y, transform:'translate(-50%,-50%)', zIndex:2, opacity:op, pointerEvents:op>0.55?'auto':'none',
-                  ...(sk.ultimate?{borderColor:rem>0?'#553355':'#ff66cc',boxShadow:rem>0?'none':'0 0 14px #ff66cc, 0 0 24px #aa44cc'}:{borderColor:rem>0?'#444':sk.color})}}
+              <div key={sid} className={'skill-btn'+(isReady?' sk-ready':'')} style={{
+                  position:'absolute', left:x, top:y, transform:'translate(-50%,-50%)', zIndex:2, opacity:op,
+                  pointerEvents:op>0.55?'auto':'none',
+                  borderColor: btnColor,
+                  boxShadow: isReady
+                    ? (sk.ultimate
+                        ? '0 0 18px #ff66ccaa, 0 0 36px #aa44cc44, 0 4px 18px #000d'
+                        : `0 0 14px ${sk.color}66, 0 0 28px ${sk.color}22, 0 4px 18px #000d`)
+                    : '0 4px 18px #000d'
+                }}
                 onTouchStart={e=>{e.preventDefault();e.stopPropagation();useSkill(sid);}}
                 onMouseDown={e=>{e.preventDefault();e.stopPropagation();useSkill(sid);}}>
                 {sk.emoji}
+                <div className="skill-shine"/>
+                {rem>0 && <div className="skill-cd-sweep" style={{'--cd-frac':cdFrac}}/>}
                 {rem>0 && <div className="skill-cd">{(rem/1000).toFixed(rem>10000?0:1)}</div>}
+                <div className="skill-key">{i+1}</div>
               </div>
             );
           })}
