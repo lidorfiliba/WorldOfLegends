@@ -15057,6 +15057,378 @@ if('serviceWorker' in navigator){
   });
 }
 </script>
+<script>
+// ════════════════════════════════════════════════════════════════
+// SHIELD OF LEGENDS v1.0 — Anti-Cheat, Anti-Tamper, Encryption
+// הוסף את הקוד הזה ממש לפני התג </body>
+// ════════════════════════════════════════════════════════════════
 
+(function(){
+'use strict';
+
+// ─── 1. CONFIG ─────────────────────────────────────────────
+const CFG = {
+  SALT: 'WoL_Shield_2026_' + Math.random().toString(36).slice(2,10),
+  CHECK_INTERVAL: 777,   // ms בין בדיקות integrity
+  MAX_ACTIONS_PER_SEC: 8,
+  ENCRYPT: true,
+  DESTROY_ON_CHEAT: true // true = לאפס save, false = רק להזהיר
+};
+
+// ─── 2. CRYPTO UTILITIES ──────────────────────────────────
+const Crypto = {
+  // Hash פשוט אך אפקטיבי (לא SHA256 אמיתי אבל מרתיע)
+  hash(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return 'h' + Math.abs(hash).toString(36) + 
+           Array.from(str).reduce((a,c) => a + c.charCodeAt(0), 0).toString(36);
+  },
+  
+  // חתימה על אובייקט
+  sign(obj) {
+    const str = JSON.stringify(obj);
+    return this.hash(str + CFG.SALT + str.length);
+  },
+  
+  // אימות חתימה
+  verify(obj, signature) {
+    return this.sign(obj) === signature;
+  },
+  
+  // XOR פשוט להסתרת הנתונים ב-localStorage
+  obfuscate(str) {
+    const key = CFG.SALT.slice(0, 8);
+    let result = '';
+    for (let i = 0; i < str.length; i++) {
+      result += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return btoa(result);
+  },
+  
+  deobfuscate(encoded) {
+    const key = CFG.SALT.slice(0, 8);
+    const str = atob(encoded);
+    let result = '';
+    for (let i = 0; i < str.length; i++) {
+      result += String.fromCharCode(str.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return result;
+  }
+};
+
+// ─── 3. SECURE STORAGE ────────────────────────────────────
+const SecureStorage = {
+  _keys: new Set(),
+  
+  // מחליף את localStorage.setItem המקורי
+  setItem(key, value) {
+    if (!this._keys.has(key)) {
+      this._keys.add(key);
+    }
+    
+    if (CFG.ENCRYPT) {
+      // מנסה לפענח כדי לראות אם זה JSON
+      let data;
+      try { data = JSON.parse(value); } catch(e) { data = value; }
+      
+      const payload = {
+        d: data,
+        t: Date.now(),
+        s: Crypto.hash(JSON.stringify(data) + CFG.SALT)
+      };
+      
+      const encrypted = Crypto.obfuscate(JSON.stringify(payload));
+      localStorage.setItem('🔒_' + key, encrypted);
+    } else {
+      localStorage.setItem(key, value);
+    }
+  },
+  
+  getItem(key) {
+    if (CFG.ENCRYPT) {
+      const encrypted = localStorage.getItem('🔒_' + key);
+      if (!encrypted) return null;
+      try {
+        const decoded = Crypto.deobfuscate(encrypted);
+        const payload = JSON.parse(decoded);
+        
+        // אימות חתימה
+        const expected = Crypto.hash(JSON.stringify(payload.d) + CFG.SALT);
+        if (payload.s !== expected) {
+          this.detectCheat('Data tampered: ' + key);
+          return null;
+        }
+        
+        return typeof payload.d === 'string' ? payload.d : JSON.stringify(payload.d);
+      } catch(e) {
+        return null;
+      }
+    }
+    return localStorage.getItem(key);
+  },
+  
+  removeItem(key) {
+    if (CFG.ENCRYPT) {
+      localStorage.removeItem('🔒_' + key);
+    }
+    localStorage.removeItem(key);
+  },
+  
+  detectCheat(reason) {
+    console.warn('[SHIELD] Cheat detected:', reason);
+    if (CFG.DESTROY_ON_CHEAT) {
+      this.destroySave();
+    }
+  },
+  
+  destroySave() {
+    // איפוס כל הנתונים
+    for (const key of this._keys) {
+      localStorage.removeItem(key);
+      localStorage.removeItem('🔒_' + key);
+    }
+    // איפוס כל מפתח שנמצא תחת המנעול
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k.startsWith('🔒_')) localStorage.removeItem(k);
+    }
+    alert('⚠️ זוהתה פעילות חריגה. נתוני המשחק אופסו.');
+    location.reload();
+  }
+};
+
+// ─── 4. ANTI-TAMPER ───────────────────────────────────────
+const AntiTamper = {
+  _originalFunctions: new Map(),
+  _protectedKeys: new Set(),
+
+  // הגנה על פונקציות קריטיות
+  protect(obj, fnName) {
+    if (typeof obj[fnName] !== 'function') return;
+    
+    const original = obj[fnName].toString();
+    this._originalFunctions.set(fnName, original);
+    this._protectedKeys.add(fnName);
+    
+    const self = this;
+    const wrapper = function() {
+      // בדיקה שהפונקציה לא שונתה
+      if (self._originalFunctions.get(fnName) !== obj[fnName].toString()) {
+        SecureStorage.detectCheat('Function tampered: ' + fnName);
+        return undefined;
+      }
+      return original.call(obj, ...arguments);
+    };
+    
+    Object.defineProperty(obj, fnName, {
+      value: wrapper,
+      writable: false,
+      configurable: false
+    });
+  },
+  
+  // בדיקת תקינות כללית
+  check() {
+    for (const [name, original] of this._originalFunctions) {
+      try {
+        if (window[name] && window[name].toString() !== original) {
+          SecureStorage.detectCheat('Function modified: ' + name);
+          return false;
+        }
+      } catch(e) {}
+    }
+    return true;
+  },
+  
+  // מניעת Proxy ו-ReDefine
+  seal() {
+    // מונע הוספת Proxy ל-localStorage
+    if (window.localStorage && !window.localStorage.__shield_sealed) {
+      Object.seal(window.localStorage);
+      window.localStorage.__shield_sealed = true;
+    }
+  }
+};
+
+// ─── 5. ACTIONS MONITOR (Rate Limiting) ───────────────────
+const ActionMonitor = {
+  _log: [],
+  _lastWarn: 0,
+  
+  track(action) {
+    const now = Date.now();
+    this._log.push({ action, time: now });
+    
+    // ניקוי כניסות ישנות (מעל 2 שניות)
+    while (this._log.length > 0 && this._log[0].time < now - 2000) {
+      this._log.shift();
+    }
+    
+    // יותר מ CFG.MAX_ACTIONS_PER_SEC פעולות בשנייה?
+    if (this._log.length > CFG.MAX_ACTIONS_PER_SEC * 2) {
+      if (now - this._lastWarn > 5000) {
+        this._lastWarn = now;
+        SecureStorage.detectCheat('Rate limit exceeded (' + this._log.length + ' actions in 2s)');
+      }
+      return false;
+    }
+    return true;
+  }
+};
+
+// ─── 6. DEVTOOLS DETECTION ────────────────────────────────
+const DevToolsDetector = {
+  _detected: false,
+  
+  init() {
+    // שיטה 1: זיהוי via debugger
+    const self = this;
+    setInterval(function() {
+      const start = performance.now();
+      debugger; // אם DevTools פתוח, ה-debugger עוצר כאן
+      const end = performance.now();
+      if (end - start > 100) {
+        self._onDetected();
+      }
+    }, 3000);
+    
+    // שיטה 2: זיהוי via console.log
+    const originalConsole = console.log;
+    console.log = function() {
+      // ברגע שמישהו משתמש בקונסול, אנחנו יודעים
+      SecureStorage.detectCheat('Console used');
+      originalConsole.apply(console, arguments);
+    };
+    
+    // שיטה 3: זיהוי גודל חלון
+    window.addEventListener('resize', function() {
+      // DevTools בצד יוצר שינוי גודל אופייני
+      if (window.outerWidth - window.innerWidth > 200 || 
+          window.outerHeight - window.innerHeight > 200) {
+        // לא תמיד מעיד על DevTools, לא מפעילים אמצעי חריף
+      }
+    });
+  },
+  
+  _onDetected() {
+    if (this._detected) return;
+    this._detected = true;
+    console.warn('[SHIELD] DevTools detected - anti-cheat engaged');
+    // לא הורסים מיד, אבל מתחילים לפקח יותר צמוד
+  }
+};
+
+// ─── 7. OVERRIDE LOCALSTORAGE ─────────────────────────────
+function overrideLocalStorage() {
+  // שומר הפנייה למקור
+  const _origSet = Storage.prototype.setItem;
+  const _origGet = Storage.prototype.getItem;
+  const _origRemove = Storage.prototype.removeItem;
+  const _origClear = Storage.prototype.clear;
+  
+  // מחליף את הפונקציות
+  Storage.prototype.setItem = function(key, value) {
+    // לא מיירטים את המפתחות המוצפנים של המערכת עצמה
+    if (key.startsWith('🔒_')) {
+      return _origSet.call(this, key, value);
+    }
+    // שולח לאחסון המאובטח
+    SecureStorage.setItem(key, value);
+    // בכל זאת שומר גם מקורית בשביל תאימות
+    return _origSet.call(this, key, value);
+  };
+  
+  Storage.prototype.getItem = function(key) {
+    if (key.startsWith('🔒_')) {
+      return _origGet.call(this, key);
+    }
+    return SecureStorage.getItem(key) || _origGet.call(this, key);
+  };
+  
+  Storage.prototype.removeItem = function(key) {
+    SecureStorage.removeItem(key);
+    return _origRemove.call(this, key);
+  };
+  
+  Storage.prototype.clear = function() {
+    SecureStorage.detectCheat('localStorage.clear called');
+    return _origClear.call(this);
+  };
+}
+
+// ─── 8. INTEGRITY LOOP ────────────────────────────────────
+function startIntegrityCheck() {
+  setInterval(function() {
+    // בדיקת פונקציות
+    AntiTamper.check();
+    
+    // בדיקה שהמטמון לא שונה
+    try {
+      const test = SecureStorage.getItem('__shield_test');
+      if (test !== null && test !== undefined) {
+        // נמצא מפתח חשוד
+      }
+    } catch(e) {}
+    
+    // בדיקת חתימות
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith('🔒_')) {
+        try {
+          const encrypted = localStorage.getItem(key);
+          const decoded = Crypto.deobfuscate(encrypted);
+          const payload = JSON.parse(decoded);
+          const expected = Crypto.hash(JSON.stringify(payload.d) + CFG.SALT);
+          if (payload.s !== expected) {
+            SecureStorage.detectCheat('Signature mismatch: ' + key);
+          }
+        } catch(e) {}
+      }
+    }
+  }, CFG.CHECK_INTERVAL);
+}
+
+// ─── 9. KEYHOLE — הגנה על מפתחות localStorage קיימים ──────
+function protectExistingData() {
+  // מעביר את כל המפתחות הקיימים למפתחות מוצפנים
+  const keysToProtect = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key.startsWith('🔒_') && key !== '__shield_test') {
+      keysToProtect.push(key);
+    }
+  }
+  
+  for (const key of keysToProtect) {
+    const value = localStorage.getItem(key);
+    SecureStorage.setItem(key, value);
+  }
+}
+
+// ─── 10. INIT ─────────────────────────────────────────────
+function init() {
+  console.log('[SHIELD] ⚔️ World of Legends — Anti-Cheat Active');
+  
+  // אתחול
+  overrideLocalStorage();
+  AntiTamper.seal();
+  DevToolsDetector.init();
+  protectExistingData();
+  startIntegrityCheck();
+  
+  // סימון
+  SecureStorage.setItem('__shield_active', true);
+}
+
+// מפעילים הכל
+init();
+
+})();
+         </script>
 </body>
 </html>
