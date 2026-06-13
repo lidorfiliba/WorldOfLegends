@@ -3873,40 +3873,48 @@ function drawGround(ctx, W, H, cam, wd, now){
 function drawGroundCell(ctx, sx, sy, CELL, gx, gy, tile, wd){
   const h=hashCell(gx,gy), h2=hashCell(gx+31,gy+57), h3=hashCell(gx+17,gy+83);
   if(tile==='grass'){
-    // Multi-tone grass — BDO bright lush palette
-    const shade = h<0.25?'#3e8828':h<0.55?'#48982e':h<0.8?'#52a634':'#5cb040';
+    // BDO lush meadow — warm saturated greens with golden light
+    const shade = h<0.22?'#428c24':h<0.50?'#4ea02c':h<0.78?'#5ab436':'#66c840';
     ctx.fillStyle=shade; ctx.fillRect(sx-1,sy-1,CELL+3,CELL+3);
     ctx.save();
-    const blobData=[[0.15,0.25,'#2e721e',0.72,0.52],[0.72,0.65,'#60bc44',0.58,0.62],[0.42,0.82,'#3a8228',0.68,0.42],[0.88,0.18,'#70c84e',0.42,0.56]];
-    blobData.forEach(([bx,by,bc,brx,bry],i)=>{ const bh=hashCell(gx*11+i,gy*13+i); ctx.globalAlpha=0.32+bh*0.24; ctx.fillStyle=bc; ctx.beginPath(); ctx.ellipse(sx+bx*CELL+(bh-0.5)*14,sy+by*CELL+(bh-0.5)*10,brx*CELL*(0.82+bh*0.36),bry*CELL*(0.72+bh*0.28),bh*Math.PI*2,0,Math.PI*2); ctx.fill(); });
+    // organic color variation blobs (darker hollows + brighter ridges)
+    [[0.15,0.25,'#2e7818',0.72,0.52],[0.72,0.65,'#64c446',0.58,0.62],[0.42,0.82,'#3c8a28',0.68,0.42],[0.88,0.18,'#74cc50',0.42,0.56],[0.55,0.45,'#3a8420',0.60,0.50]].forEach(([bx,by,bc,brx,bry],i)=>{
+      const bh=hashCell(gx*11+i,gy*13+i); ctx.globalAlpha=0.28+bh*0.28; ctx.fillStyle=bc;
+      ctx.beginPath(); ctx.ellipse(sx+bx*CELL+(bh-0.5)*16,sy+by*CELL+(bh-0.5)*12,brx*CELL*(0.80+bh*0.38),bry*CELL*(0.70+bh*0.30),bh*Math.PI*2,0,Math.PI*2); ctx.fill();
+    });
     ctx.globalAlpha=1; ctx.restore();
-    // dirt patches
-    if(h3<0.18){ ctx.save(); ctx.fillStyle='rgba(110,75,40,0.28)'; ctx.beginPath(); ctx.ellipse(sx+CELL*0.5,sy+CELL*0.5,CELL*0.38,CELL*0.28,h*3,0,Math.PI*2); ctx.fill(); ctx.restore(); }
-    // sunlit highlight blobs (warm yellow-green)
-    if(h2>0.72){ ctx.save(); ctx.globalAlpha=0.14+h3*0.10; ctx.fillStyle='#c8f060'; ctx.beginPath(); ctx.ellipse(sx+h3*CELL*0.6+CELL*0.2,sy+h2*CELL*0.6+CELL*0.1,CELL*0.28,CELL*0.18,h*2,0,Math.PI*2); ctx.fill(); ctx.restore(); }
-    // grass blades — bright
-    ctx.strokeStyle='rgba(160,240,100,0.70)'; ctx.lineWidth=1.5; ctx.lineCap='round';
-    for(let b=0;b<5;b++){ const bh=hashCell(gx*7+b,gy*13); const bh2=hashCell(gx*3+b,gy*5+1); const bx=sx+bh*CELL*0.85+CELL*0.05, by=sy+CELL*0.6+bh2*CELL*0.35; ctx.beginPath(); ctx.moveTo(bx,by); ctx.quadraticCurveTo(bx+(bh-0.5)*6,by-10,bx+2,by-18); ctx.stroke(); }
-    // flowers — vivid colours
-    if(h>0.88){ const fc=['#ff5a8a','#ffe040','#cc66ff','#66ffcc','#ff8840'][Math.floor(h2*5)]; ctx.fillStyle=fc; for(let pp=0;pp<5;pp++){ const a=pp/5*6.28; ctx.beginPath(); ctx.arc(sx+CELL*0.5+Math.cos(a)*5.5,sy+CELL*0.4+Math.sin(a)*5.5,4,0,6.28); ctx.fill(); } ctx.fillStyle='#ffe866'; ctx.beginPath(); ctx.arc(sx+CELL*0.5,sy+CELL*0.4,3.5,0,6.28); ctx.fill(); }
-    // subtle grid lines (trail effect)
+    // warm dirt/mud patch
+    if(h3<0.14){ ctx.save(); ctx.fillStyle='rgba(115,78,38,0.32)'; ctx.beginPath(); ctx.ellipse(sx+CELL*0.5,sy+CELL*0.55,CELL*0.36,CELL*0.24,h*3,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+    // golden sunlight pools (BDO signature warm highlight)
+    if(h2>0.68){ ctx.save(); ctx.globalAlpha=0.13+h3*0.12; ctx.fillStyle='#d4f45a'; ctx.beginPath(); ctx.ellipse(sx+h3*CELL*0.55+CELL*0.22,sy+h2*CELL*0.55+CELL*0.14,CELL*0.32,CELL*0.20,h*2,0,Math.PI*2); ctx.fill(); ctx.restore(); }
+    // grass micro-blades (tight cluster)
+    ctx.strokeStyle='rgba(155,240,90,0.65)'; ctx.lineWidth=1.4; ctx.lineCap='round';
+    for(let b=0;b<7;b++){ const bh=hashCell(gx*7+b,gy*13); const bh2=hashCell(gx*3+b,gy*5+1); const bx2=sx+bh*CELL*0.82+CELL*0.08, by2=sy+CELL*0.58+bh2*CELL*0.36; ctx.beginPath(); ctx.moveTo(bx2,by2); ctx.quadraticCurveTo(bx2+(bh-0.5)*7,by2-11,bx2+(bh-0.5)*3,by2-20); ctx.stroke(); }
+    // vivid wildflowers
+    if(h>0.86){ const fc=['#ff4a84','#ffde38','#cc55ff','#55ffcc','#ff7830','#44ccff'][Math.floor(h2*6)]; ctx.fillStyle=fc; for(let pp=0;pp<5;pp++){ const a=pp/5*6.28; ctx.beginPath(); ctx.arc(sx+CELL*0.48+Math.cos(a)*5,sy+CELL*0.38+Math.sin(a)*5,3.5,0,6.28); ctx.fill(); } ctx.fillStyle='#ffee60'; ctx.beginPath(); ctx.arc(sx+CELL*0.48,sy+CELL*0.38,3,0,6.28); ctx.fill(); }
   }
   else if(tile==='forest'){
-    const shade = h<0.3?'#1e4814':h<0.6?'#266020':h<0.82?'#2e7028':'#367830';
+    // BDO deep forest — dark canopy with dappled light and autumn litter
+    const shade = h<0.28?'#1c4412':h<0.56?'#245c1a':h<0.80?'#2c6c22':'#347030';
     ctx.fillStyle=shade; ctx.fillRect(sx-1,sy-1,CELL+3,CELL+3);
-    // organic color blobs
     ctx.save();
-    [[0.2,0.3,'#173a10',0.65,0.5],[0.7,0.7,'#3a7c24',0.5,0.6],[0.45,0.85,'#1e4c18',0.62,0.38]].forEach(([bx,by,bc,brx,bry],i)=>{ const bh=hashCell(gx*9+i,gy*11+i); ctx.globalAlpha=0.36+bh*0.24; ctx.fillStyle=bc; ctx.beginPath(); ctx.ellipse(sx+bx*CELL+(bh-0.5)*12,sy+by*CELL+(bh-0.5)*10,brx*CELL*(0.78+bh*0.3),bry*CELL*(0.68+bh*0.25),bh*Math.PI*2,0,Math.PI*2); ctx.fill(); });
+    [[0.2,0.3,'#153810',0.65,0.50],[0.68,0.68,'#386c20',0.50,0.58],[0.45,0.85,'#1c4816',0.62,0.36],[0.82,0.22,'#2a6018',0.48,0.42]].forEach(([bx,by,bc,brx,bry],i)=>{
+      const bh=hashCell(gx*9+i,gy*11+i); ctx.globalAlpha=0.34+bh*0.26; ctx.fillStyle=bc;
+      ctx.beginPath(); ctx.ellipse(sx+bx*CELL+(bh-0.5)*14,sy+by*CELL+(bh-0.5)*10,brx*CELL*(0.76+bh*0.32),bry*CELL*(0.66+bh*0.26),bh*Math.PI*2,0,Math.PI*2); ctx.fill();
+    });
     ctx.globalAlpha=1; ctx.restore();
-    // dappled sunlight patches
-    if(h2>0.55){ ctx.fillStyle='rgba(120,200,60,0.16)'; ctx.beginPath(); ctx.ellipse(sx+h3*CELL,sy+h*CELL,CELL*0.28,CELL*0.18,h*Math.PI,0,Math.PI*2); ctx.fill(); }
-    // leaf litter dots
-    ctx.fillStyle='rgba(110,180,70,0.42)';
-    for(let s=0;s<5;s++){ const sh=hashCell(gx*5+s,gy*9); ctx.beginPath(); ctx.arc(sx+sh*CELL,sy+hashCell(gx,gy*3+s)*CELL,1.5+sh*2,0,6.28); ctx.fill(); }
-    // root lines
-    if(h3>0.75){ ctx.strokeStyle='rgba(30,18,10,0.4)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(sx+CELL*0.1,sy+CELL*0.8); ctx.bezierCurveTo(sx+CELL*0.3,sy+CELL*0.5,sx+CELL*0.6,sy+CELL*0.6,sx+CELL*0.9,sy+CELL*0.2); ctx.stroke(); }
-    // glowing mushrooms
-    if(h>0.88&&h2>0.7){ ctx.fillStyle='rgba(180,255,100,0.65)'; ctx.beginPath(); ctx.ellipse(sx+h2*CELL*0.8+CELL*0.1,sy+h3*CELL*0.8+CELL*0.1,3,2,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(210,255,140,0.35)'; ctx.beginPath(); ctx.arc(sx+h2*CELL*0.8+CELL*0.1,sy+h3*CELL*0.8+CELL*0.1,6,0,6.28); ctx.fill(); }
+    // dappled sunlight patches — warm golden-green
+    if(h2>0.52){ ctx.fillStyle='rgba(140,210,60,0.14)'; ctx.beginPath(); ctx.ellipse(sx+h3*CELL,sy+h*CELL,CELL*0.30,CELL*0.20,h*Math.PI,0,Math.PI*2); ctx.fill(); }
+    // autumn leaf litter (orange/brown dots)
+    ctx.fillStyle='rgba(160,100,30,0.40)';
+    for(let s=0;s<6;s++){ const sh=hashCell(gx*5+s,gy*9); ctx.beginPath(); ctx.ellipse(sx+sh*CELL,sy+hashCell(gx,gy*3+s)*CELL,2+sh*2.5,1.2+sh*1.2,sh*Math.PI,0,6.28); ctx.fill(); }
+    // green leaf dots over litter
+    ctx.fillStyle='rgba(80,160,50,0.36)';
+    for(let s=0;s<4;s++){ const sh=hashCell(gx*8+s,gy*6); ctx.beginPath(); ctx.arc(sx+sh*CELL,sy+hashCell(gx+s,gy*4+2)*CELL,1.5+sh*2,0,6.28); ctx.fill(); }
+    // exposed root curves
+    if(h3>0.72){ ctx.strokeStyle='rgba(34,20,10,0.45)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(sx+CELL*0.08,sy+CELL*0.78); ctx.bezierCurveTo(sx+CELL*0.28,sy+CELL*0.48,sx+CELL*0.62,sy+CELL*0.58,sx+CELL*0.92,sy+CELL*0.18); ctx.stroke(); }
+    // glowing spore mushroom
+    if(h>0.90&&h2>0.72){ ctx.fillStyle='rgba(170,255,80,0.70)'; ctx.beginPath(); ctx.ellipse(sx+h2*CELL*0.78+CELL*0.11,sy+h3*CELL*0.78+CELL*0.11,3.5,2.2,0,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(200,255,120,0.28)'; ctx.beginPath(); ctx.arc(sx+h2*CELL*0.78+CELL*0.11,sy+h3*CELL*0.78+CELL*0.11,7,0,6.28); ctx.fill(); }
   }
   else if(tile==='swamp'){
     const shade = h<0.4?'#1a2e10':h<0.7?'#1f3318':'#253d1c';
@@ -4181,6 +4189,10 @@ function drawProp(ctx, type, x, y, s, now){
     case 'flowers': drawFlowers(ctx,x,y,s); break;
     case 'deadtree': drawTree(ctx,x,y,s,3); break;
     case 'mushroom': drawMushroom(ctx,x,y,s); break;
+    case 'bush': drawBush(ctx,x,y,s); break;
+    case 'fern': drawFern(ctx,x,y,s); break;
+    case 'log': drawLog(ctx,x,y,s); break;
+    case 'boulder': drawBoulder(ctx,x,y,s); break;
     default: drawRock(ctx,x,y,s); break;
   }
 }
@@ -4218,6 +4230,54 @@ function drawMushroom(ctx,x,y,s){ ctx.save(); const k=s/100;
   ctx.fillStyle='#d0402a'; ctx.beginPath(); ctx.ellipse(x,y-8*k,10*k,7*k,0,Math.PI,0); ctx.fill(); // cap
   ctx.fillStyle='#fff'; [-5,0,5].forEach(d=>{ ctx.beginPath(); ctx.arc(x+d*k,y-10*k,1.6*k,0,Math.PI*2); ctx.fill(); });
   ctx.restore();
+}
+function drawBush(ctx,x,y,s){ ctx.save(); const k=s/100;
+  const sg=ctx.createRadialGradient(x,y+4*k,0,x,y+4*k,s*0.58); sg.addColorStop(0,'rgba(0,0,0,0.24)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(x,y+4*k,s*0.58,s*0.16,0,0,Math.PI*2); ctx.fill();
+  [['#2a7c1a',-12*k,-3*k,22*k,18*k],['#38961e',0,-10*k,28*k,22*k],['#44aa24',14*k,-2*k,20*k,16*k]].forEach(([col,ox,oy,rw,rh])=>{
+    ctx.fillStyle=col; ctx.beginPath(); ctx.ellipse(x+ox,y+oy,rw,rh,0,0,Math.PI*2); ctx.fill();
+  });
+  ctx.fillStyle='rgba(180,255,100,0.20)'; ctx.beginPath(); ctx.ellipse(x-8*k,y-12*k,14*k,8*k,0,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+function drawFern(ctx,x,y,s){ ctx.save(); const k=s/100;
+  const sg=ctx.createRadialGradient(x,y+2*k,0,x,y+2*k,s*0.45); sg.addColorStop(0,'rgba(0,0,0,0.18)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(x,y+2*k,s*0.45,s*0.12,0,0,Math.PI*2); ctx.fill();
+  ctx.globalAlpha=0.88;
+  [['#1e6a14',1.0],['#268c1c',-1.0],['#2e9a22',0.35],['#246010',1.6],['#2a8018',-1.5]].forEach(([col,dir],i)=>{
+    ctx.fillStyle=col;
+    const angle=(dir*0.85+i*0.3-0.6)*0.9;
+    const len=22*k+i*2*k;
+    ctx.beginPath(); ctx.moveTo(x,y);
+    ctx.bezierCurveTo(x+Math.cos(angle-0.5)*len,y+Math.sin(angle-0.5)*len-14*k,x+Math.cos(angle+0.5)*len*1.1,y+Math.sin(angle+0.5)*len*0.6-10*k,x+Math.cos(angle)*len*1.4,y+Math.sin(angle)*len*0.4-20*k);
+    ctx.bezierCurveTo(x+Math.cos(angle)*len*1.2,y+Math.sin(angle)*len*0.2-16*k,x+Math.cos(angle)*len*0.7,y+Math.sin(angle)*len*0.1-8*k,x,y);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+function drawLog(ctx,x,y,s){ ctx.save(); const k=s/100;
+  const sg=ctx.createRadialGradient(x,y+6*k,0,x,y+6*k,s*0.6); sg.addColorStop(0,'rgba(0,0,0,0.28)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(x,y+6*k,s*0.6,s*0.16,0,0,Math.PI*2); ctx.fill();
+  ctx.save(); ctx.translate(x,y); ctx.rotate(0.38);
+  ctx.fillStyle='#4a2e14'; ctx.fillRect(-26*k,-5*k,52*k,11*k);
+  ctx.fillStyle='#3a2210'; ctx.fillRect(-26*k,-5*k,5*k,11*k); ctx.fillRect(21*k,-5*k,5*k,11*k);
+  ctx.fillStyle='#5a3820'; ctx.fillRect(-26*k,-5*k,52*k,4*k);
+  ctx.strokeStyle='#2e1a0c'; ctx.lineWidth=1*k;
+  for(let i=-20;i<22;i+=8){ ctx.beginPath(); ctx.moveTo(i*k,-4*k); ctx.lineTo(i*k,5*k); ctx.stroke(); }
+  // moss on top
+  ctx.fillStyle='rgba(50,110,30,0.35)'; ctx.fillRect(-18*k,-5*k,36*k,3*k);
+  ctx.restore(); ctx.restore();
+}
+function drawBoulder(ctx,x,y,s){ ctx.save(); const k=s/100;
+  const sg=ctx.createRadialGradient(x+8*k,y+8*k,0,x+8*k,y+8*k,s*0.75); sg.addColorStop(0,'rgba(0,0,0,0.40)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(x+8*k,y+6*k,s*0.75,s*0.24,0,0,Math.PI*2); ctx.fill();
+  const col='#7a7880';
+  ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(x-40*k,y+4*k); ctx.lineTo(x-22*k,y-44*k); ctx.lineTo(x+10*k,y-54*k); ctx.lineTo(x+40*k,y-20*k); ctx.lineTo(x+30*k,y+6*k); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=darken(col,22); ctx.beginPath(); ctx.moveTo(x-40*k,y+4*k); ctx.lineTo(x+30*k,y+6*k); ctx.lineTo(x+40*k,y-20*k); ctx.lineTo(x+8*k,y-14*k); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=lighten(col,30); ctx.beginPath(); ctx.moveTo(x-22*k,y-44*k); ctx.lineTo(x+10*k,y-54*k); ctx.lineTo(x+6*k,y-24*k); ctx.lineTo(x-16*k,y-30*k); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle=lighten(col,42); ctx.lineWidth=1.5*k; ctx.globalAlpha=0.65;
+  ctx.beginPath(); ctx.moveTo(x-22*k,y-44*k); ctx.lineTo(x+10*k,y-54*k); ctx.stroke();
+  ctx.globalAlpha=1; ctx.restore();
 }
 
 // ════════════════════════════════════════════════════
@@ -9823,77 +9883,131 @@ function App(){
   // ════════ RENDER ════════
   // Deterministic scenery: which props appear per world, placed on a coarse grid.
   const SCENERY_BY_TILE = {
-    grass:   [{t:'tree',w:6},{t:'tree2',w:4},{t:'rock',w:2},{t:'flowers',w:4},{t:'mushroom',w:2},{t:'signpost',w:1},{t:'campfire',w:1}],
-    forest:  [{t:'pine',w:6},{t:'darktree',w:5},{t:'rock',w:2},{t:'tree',w:2},{t:'mushroom',w:3},{t:'flowers',w:2},{t:'campfire',w:1}],
-    swamp:   [{t:'darktree',w:5},{t:'rock',w:3},{t:'pine',w:2},{t:'mushroom',w:3},{t:'ruins',w:2}],
-    stone:   [{t:'building',w:4},{t:'house',w:4},{t:'tower',w:2},{t:'fountain',w:1},{t:'lamp',w:3},{t:'signpost',w:2},{t:'ruins',w:2}],
-    castle:  [{t:'tower',w:5},{t:'building',w:3},{t:'lamp',w:3},{t:'rock',w:1},{t:'ruins',w:3},{t:'signpost',w:1}],
-    snow:    [{t:'pine',w:4},{t:'icerock',w:5},{t:'rock',w:1},{t:'campfire',w:2},{t:'ruins',w:1}],
-    lava:    [{t:'darkrock',w:6},{t:'firecrystal',w:3},{t:'ruins',w:2}],
-    inferno: [{t:'darkrock',w:6},{t:'firecrystal',w:4},{t:'ruins',w:2}],
-    void:    [{t:'crystal',w:5},{t:'darkrock',w:3},{t:'ruins',w:2}],
-    celestial:[{t:'crystal',w:6},{t:'tower',w:2},{t:'ruins',w:1}],
-    astral:  [{t:'crystal',w:6},{t:'firecrystal',w:2}],
-    oblivion:[{t:'darkrock',w:4},{t:'crystal',w:4},{t:'ruins',w:2}],
-    metal:   [{t:'tower',w:4},{t:'darkrock',w:4},{t:'ruins',w:2}],
+    grass:   [{t:'tree',w:5},{t:'tree2',w:4},{t:'rock',w:2},{t:'boulder',w:1},{t:'flowers',w:5},{t:'mushroom',w:2},{t:'bush',w:7},{t:'log',w:2},{t:'signpost',w:1},{t:'campfire',w:1}],
+    forest:  [{t:'pine',w:5},{t:'darktree',w:5},{t:'tree',w:3},{t:'rock',w:2},{t:'mushroom',w:4},{t:'fern',w:6},{t:'log',w:3},{t:'bush',w:4},{t:'campfire',w:1}],
+    swamp:   [{t:'darktree',w:5},{t:'rock',w:3},{t:'pine',w:2},{t:'mushroom',w:5},{t:'fern',w:4},{t:'ruins',w:2},{t:'log',w:2}],
+    stone:   [{t:'building',w:5},{t:'house',w:5},{t:'tower',w:3},{t:'fountain',w:2},{t:'lamp',w:5},{t:'signpost',w:3},{t:'ruins',w:3},{t:'boulder',w:2}],
+    castle:  [{t:'tower',w:6},{t:'building',w:4},{t:'lamp',w:4},{t:'boulder',w:3},{t:'ruins',w:5},{t:'signpost',w:2}],
+    snow:    [{t:'pine',w:5},{t:'icerock',w:5},{t:'boulder',w:3},{t:'rock',w:2},{t:'campfire',w:2},{t:'ruins',w:2}],
+    lava:    [{t:'darkrock',w:5},{t:'boulder',w:4},{t:'firecrystal',w:4},{t:'ruins',w:3}],
+    inferno: [{t:'darkrock',w:5},{t:'boulder',w:4},{t:'firecrystal',w:5},{t:'ruins',w:3}],
+    void:    [{t:'crystal',w:5},{t:'darkrock',w:4},{t:'boulder',w:3},{t:'ruins',w:3}],
+    celestial:[{t:'crystal',w:6},{t:'tower',w:3},{t:'boulder',w:2},{t:'ruins',w:2}],
+    astral:  [{t:'crystal',w:5},{t:'firecrystal',w:3},{t:'boulder',w:2}],
+    oblivion:[{t:'darkrock',w:5},{t:'crystal',w:4},{t:'boulder',w:3},{t:'ruins',w:3}],
+    metal:   [{t:'tower',w:5},{t:'darkrock',w:4},{t:'boulder',w:4},{t:'ruins',w:3}],
   };
   // Town gets a hand-placed village look
   function _hashSc(gx,gy){ const v=Math.sin(gx*127.1+gy*311.7)*43758.5453; return v-Math.floor(v); }
   function drawPaths(ctx, W, H, cam, wd){
-    // Stone paths radiating from the spawn give the map structure & a sense of direction
-    // (so it doesn't feel like featureless open field). Skip in nests (compact arenas).
     if(wd.nest || wd.dungeon) return;
-    const cxw=WW/2, cyw=WH/2;
-    const pathCol = wd.town ? '#7a6a4c' : '#6a5a3e';
-    ctx.save();
-    // outer soft shadow of path
-    ctx.strokeStyle='rgba(30,18,8,0.35)'; ctx.lineWidth=62; ctx.lineCap='round'; ctx.globalAlpha=1;
+    const cxw=WW/2, cyw=WH/2, len=3000;
+    const isTown = wd.tile==='stone' || wd.tile==='castle' || wd.town;
     const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
-    dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*2600-cam.x,cyw+dy*2600-cam.y); ctx.stroke(); });
-    // main dirt path
-    ctx.strokeStyle=pathCol; ctx.lineWidth=46; ctx.globalAlpha=0.72;
-    dirs.forEach(([dx,dy])=>{
-      ctx.beginPath();
-      ctx.moveTo(cxw-cam.x, cyw-cam.y);
-      ctx.lineTo(cxw+dx*2600-cam.x, cyw+dy*2600-cam.y);
-      ctx.stroke();
-    });
-    // lighter worn center
-    ctx.strokeStyle=SP.lighten?SP.lighten(pathCol,28):'#9a8a6a'; ctx.lineWidth=16; ctx.globalAlpha=0.45; ctx.setLineDash([18,26]);
-    dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*2600-cam.x,cyw+dy*2600-cam.y); ctx.stroke(); });
-    ctx.setLineDash([]); ctx.restore();
+    ctx.save(); ctx.lineCap='round';
+
+    if(isTown){
+      // BDO town: cobblestone — layered stone road
+      ctx.strokeStyle='rgba(18,12,8,0.45)'; ctx.lineWidth=80; ctx.globalAlpha=1;
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      ctx.strokeStyle='#504858'; ctx.lineWidth=68; ctx.globalAlpha=0.95;
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      ctx.strokeStyle='#5e5468'; ctx.lineWidth=52; ctx.globalAlpha=0.88;
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      ctx.strokeStyle='#6a6070'; ctx.lineWidth=28; ctx.globalAlpha=0.65;
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      // grout lines as faint dashes
+      ctx.strokeStyle='rgba(20,15,28,0.38)'; ctx.lineWidth=2; ctx.globalAlpha=0.7; ctx.setLineDash([14,18]);
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      ctx.setLineDash([]);
+    } else {
+      // BDO wilderness: packed earth dirt road with pebble edges
+      ctx.strokeStyle='rgba(20,10,4,0.42)'; ctx.lineWidth=76; ctx.globalAlpha=1;
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      ctx.strokeStyle='#7a5e38'; ctx.lineWidth=62; ctx.globalAlpha=0.82;
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      ctx.strokeStyle='#8a6e46'; ctx.lineWidth=44; ctx.globalAlpha=0.75;
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      // lighter center (worn smooth by feet)
+      ctx.strokeStyle='#9e7e54'; ctx.lineWidth=20; ctx.globalAlpha=0.55;
+      dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
+      // two wagon rut dashes
+      ctx.strokeStyle='#6a5030'; ctx.lineWidth=6; ctx.globalAlpha=0.38; ctx.setLineDash([28,20]);
+      dirs.forEach(([dx,dy])=>{
+        const px=dy*12, py=dx*12; // perpendicular offset for dual ruts
+        ctx.beginPath(); ctx.moveTo(cxw-cam.x+px,cyw-cam.y+py); ctx.lineTo(cxw+dx*len-cam.x+px,cyw+dy*len-cam.y+py); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(cxw-cam.x-px,cyw-cam.y-py); ctx.lineTo(cxw+dx*len-cam.x-px,cyw+dy*len-cam.y-py); ctx.stroke();
+      });
+      ctx.setLineDash([]);
+      // scattered pebbles on path edges
+      ctx.globalAlpha=0.42; ctx.fillStyle='#8a7860';
+      for(let i=0;i<100;i++){
+        const ph=_hashSc(i*7+13, i*11+5), ph2=_hashSc(i*3+2, i*17+8), ph3=_hashSc(i*13+7, i*5+19);
+        const dir2=Math.floor(ph3*4), t2=ph2*len*0.88+len*0.06;
+        let px,py;
+        if(dir2===0)      { px=cxw+t2; py=cyw+(ph-0.5)*50; }
+        else if(dir2===1) { px=cxw-t2; py=cyw+(ph-0.5)*50; }
+        else if(dir2===2) { px=cxw+(ph-0.5)*50; py=cyw+t2; }
+        else              { px=cxw+(ph-0.5)*50; py=cyw-t2; }
+        ctx.beginPath(); ctx.ellipse(px-cam.x,py-cam.y,1.5+ph*2.5,1+ph*1.5,ph*Math.PI,0,Math.PI*2); ctx.fill();
+      }
+    }
+    ctx.restore();
   }
   function drawScenery(ctx, W, H, cam, wd, now){
     drawPaths(ctx, W, H, cam, wd);
-    const GRID = 300; // prop spacing (denser than before for richer maps)
     const tile = wd.tile;
     const palette = SCENERY_BY_TILE[tile] || SCENERY_BY_TILE.grass;
+    const props = [];
+
+    // ── MAIN PROPS: trees, rocks, buildings at 220px grid ──
+    const GRID = 220;
     const startGX = Math.floor(cam.x/GRID)-1, startGY = Math.floor(cam.y/GRID)-1;
     const cols = Math.ceil(W/GRID)+3, rows = Math.ceil(H/GRID)+3;
-    const props = [];
     for(let cy=0; cy<rows; cy++){
       for(let cx=0; cx<cols; cx++){
         const gx=startGX+cx, gy=startGY+cy;
         const h=_hashSc(gx*1.7, gy*2.3);
-        if(h > 0.62) continue;  // slightly denser scenery
-        const wx = gx*GRID + _hashSc(gx*5+1,gy*3)*GRID*0.7 + GRID*0.15;
-        const wy = gy*GRID + _hashSc(gx*3,gy*5+2)*GRID*0.7 + GRID*0.15;
-        if(Math.hypot(wx-WW/2, wy-WH/2) < (wd.town?260:SAFE_R+80)) continue;
-        // keep props off the radiating paths (within ~40px of an axis through center)
-        if(!wd.nest && (Math.abs(wx-WW/2)<46 || Math.abs(wy-WH/2)<46)) continue;
+        if(h > 0.52) continue;
+        const wx = gx*GRID + _hashSc(gx*5+1,gy*3)*GRID*0.72 + GRID*0.14;
+        const wy = gy*GRID + _hashSc(gx*3,gy*5+2)*GRID*0.72 + GRID*0.14;
+        if(Math.hypot(wx-WW/2, wy-WH/2) < (wd.town?280:SAFE_R+100)) continue;
+        if(!wd.nest && (Math.abs(wx-WW/2)<52 || Math.abs(wy-WH/2)<52)) continue;
         const h2=_hashSc(gx*11+7, gy*13+3);
         let total=palette.reduce((s,p)=>s+p.w,0), r=h2*total, pick=palette[0].t;
         for(const p of palette){ if(r<p.w){ pick=p.t; break; } r-=p.w; }
-        const s = 90 + _hashSc(gx+9,gy+4)*70;
-        props.push({x:wx, y:wy, s, type:pick});
+        const s = 95 + _hashSc(gx+9,gy+4)*85;
+        props.push({x:wx, y:wy, s, type:pick, micro:false});
       }
     }
+
+    // ── MICRO VEGETATION: bushes, ferns, flowers at 150px grid ──
+    const microTypes = tile==='grass'?['bush','bush','flowers','fern']:tile==='forest'?['fern','fern','bush','mushroom']:tile==='swamp'?['fern','mushroom','fern']:null;
+    if(microTypes){
+      const MG=150;
+      const msx=Math.floor(cam.x/MG)-1, msy=Math.floor(cam.y/MG)-1;
+      const mc=Math.ceil(W/MG)+3, mr=Math.ceil(H/MG)+3;
+      for(let cy=0; cy<mr; cy++){
+        for(let cx=0; cx<mc; cx++){
+          const gx=msx+cx, gy=msy+cy;
+          const h=_hashSc(gx*3.1+5, gy*2.7+9);
+          if(h>0.40) continue;
+          const wx=gx*MG+_hashSc(gx*7,gy*4)*MG*0.80+MG*0.10;
+          const wy=gy*MG+_hashSc(gx*4,gy*6)*MG*0.80+MG*0.10;
+          if(Math.hypot(wx-WW/2, wy-WH/2) < (wd.town?220:SAFE_R+60)) continue;
+          if(!wd.nest && (Math.abs(wx-WW/2)<36 || Math.abs(wy-WH/2)<36)) continue;
+          const h2=_hashSc(gx*9+2,gy*11+4);
+          const pick=microTypes[Math.floor(h2*microTypes.length)];
+          const s=48+_hashSc(gx+2,gy+6)*44;
+          props.push({x:wx, y:wy, s, type:pick, micro:true});
+        }
+      }
+    }
+
     props.sort((a,b)=>a.y-b.y);
     props.forEach(pr=>{
       const sx=pr.x-cam.x, sy=pr.y-cam.y;
-      if(sx<-120||sx>W+120||sy<-160||sy>H+120) return;
-      ctx.save(); ctx.globalAlpha=0.42; ctx.fillStyle='#000';
-      ctx.beginPath(); ctx.ellipse(sx, sy+6, pr.s*0.48, pr.s*0.18, 0,0,Math.PI*2); ctx.fill(); ctx.restore();
+      if(sx<-180||sx>W+180||sy<-220||sy>H+160) return;
       SP.drawProp(ctx, pr.type, sx, sy, pr.s, now);
     });
   }
