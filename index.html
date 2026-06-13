@@ -10020,12 +10020,15 @@ function App(){
     const _vv = window.visualViewport;
     const want_w = (_vv && _vv.width ? Math.round(_vv.width) : window.innerWidth) || 360;
     const want_h = (_vv && _vv.height ? Math.round(_vv.height) : window.innerHeight) || 640;
-    if(cv.width !== want_w || cv.height !== want_h){
-      cv.width = want_w; cv.height = want_h;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    const phys_w = Math.round(want_w * dpr), phys_h = Math.round(want_h * dpr);
+    if(cv.width !== phys_w || cv.height !== phys_h){
+      cv.width = phys_w; cv.height = phys_h;
       cv.style.width = want_w+'px'; cv.style.height = want_h+'px';
     }
     const ctx = cv.getContext('2d');
-    const W = cv.width, H = cv.height;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const W = want_w, H = want_h;
     if(W===0 || H===0) return;
     const wd = G.worldDef, p = G.player, cam = G.camera;
     if(!isFinite(cam.x) || !isFinite(cam.y)){
