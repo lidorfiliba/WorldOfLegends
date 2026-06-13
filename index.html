@@ -10041,8 +10041,8 @@ function App(){
     ctx.clearRect(0,0,W,H);
 
     // ── GROUND TEXTURE + SCENERY (trees/props/decor) ──
-    if(wd && cam){
-      // fill background so nothing shows as transparent black
+    // When Three.js is active it owns the world — 2D canvas stays transparent so 3D shows through.
+    if(wd && cam && !G._3dReady){
       ctx.fillStyle = wd.bg || '#1a3d1a';
       ctx.fillRect(0, 0, W, H);
       SP.drawGround(ctx, W, H, cam, wd, now);
