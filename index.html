@@ -5835,6 +5835,7 @@ function App(){
   const missionSide = hudCfg.missionSide==='left' ? 'left' : 'right';
   const hudScale = hudCfg.scale || 'm';
   G._gfx = hudCfg.gfx || 'normal'; // graphics quality: 'off' | 'normal' | 'high' (read by render())
+  G._hudCfg = hudCfg; // expose to render loop for zoom access
   if(window.VOICE) window.VOICE.enabled = hudCfg.voice !== 'off';
   if(window.MUSIC){ if(hudCfg.music === 'off') window.MUSIC.stop(); else { window.MUSIC._want = (screen==='game'); if(screen==='game' && !window.MUSIC.on) window.MUSIC.start(); } }
   // Dodge button can be freely repositioned (drag in edit mode); position saved per device.
@@ -5864,6 +5865,53 @@ function App(){
     window.addEventListener('touchmove', move, {passive:false}); window.addEventListener('touchend', up);
     move(e.nativeEvent || e);
   };
+  // Draggable attack zone + joystick
+  const [atkZoneXY, setAtkZoneXY] = useState(()=>{ const c=hudCfg.atkZonePos; return c||null; });
+  const [joyXY, setJoyXY] = useState(()=>{ const c=hudCfg.joyPos; return c||null; });
+  const [hudEditMode, setHudEditMode] = useState(false);
+
+  const startAtkDrag = (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const t0 = e.touches&&e.touches[0]?e.touches[0]:e;
+    const ox = t0.clientX - rect.left, oy = t0.clientY - rect.top;
+    const move = (ev)=>{
+      const t = ev.touches&&ev.touches[0]?ev.touches[0]:ev;
+      const x = Math.max(0, Math.min(window.innerWidth - rect.width, t.clientX - ox));
+      const y = Math.max(54, Math.min(window.innerHeight - rect.height, t.clientY - oy));
+      setAtkZoneXY({x,y});
+    };
+    const up = ()=>{
+      window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up);
+      window.removeEventListener('touchmove',move); window.removeEventListener('touchend',up);
+      setAtkZoneXY(cur=>{ if(cur) setHud({atkZonePos:cur}); return cur; });
+    };
+    window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+    window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
+  };
+
+  const startJoyDrag = (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const t0 = e.touches&&e.touches[0]?e.touches[0]:e;
+    const ox = t0.clientX - rect.left, oy = t0.clientY - rect.top;
+    const move = (ev)=>{
+      const t = ev.touches&&ev.touches[0]?ev.touches[0]:ev;
+      const x = Math.max(0, Math.min(window.innerWidth - rect.width, t.clientX - ox));
+      const y = Math.max(54, Math.min(window.innerHeight - rect.height, t.clientY - oy));
+      setJoyXY({x,y});
+    };
+    const up = ()=>{
+      window.removeEventListener('mousemove',move); window.removeEventListener('mouseup',up);
+      window.removeEventListener('touchmove',move); window.removeEventListener('touchend',up);
+      setJoyXY(cur=>{ if(cur) setHud({joyPos:cur}); return cur; });
+    };
+    window.addEventListener('mousemove',move); window.addEventListener('mouseup',up);
+    window.addEventListener('touchmove',move,{passive:false}); window.addEventListener('touchend',up);
+  };
+
   const [muted, setMuted] = useState(()=>window.SOUND?window.SOUND.isMuted():false);
   const [vol, setVol] = useState(()=>window.SOUND?Math.round(window.SOUND.getVolume()*100):50);
   // ── New-player tutorial (null = not showing; 0..N = current step) ──
@@ -9124,8 +9172,9 @@ function App(){
     if(G.atkHeld) doBasicAttack();
 
     // camera follows
-    G.camera.x += (p.x - window.innerWidth/2 - G.camera.x)*0.15;
-    G.camera.y += (p.y - window.innerHeight/2 - G.camera.y)*0.15;
+    const _camZoom = G._hudCfg ? (G._hudCfg.zoom || 0.85) : 0.85;
+    G.camera.x += (p.x - window.innerWidth/(2*_camZoom) - G.camera.x)*0.15;
+    G.camera.y += (p.y - window.innerHeight/(2*_camZoom) - G.camera.y)*0.15;
     // ── DUNGEON/NEST: stepping into the glowing portal advances to the next stage ──
     if(G._dungeonGate){
       const g=G._dungeonGate;
@@ -10062,9 +10111,10 @@ function App(){
     const W = cv.width, H = cv.height;
     if(W===0 || H===0) return;
     const wd = G.worldDef, p = G.player, cam = G.camera;
+    const zoom = G._hudCfg ? (G._hudCfg.zoom || 0.85) : 0.85;
     if(!isFinite(cam.x) || !isFinite(cam.y)){
-      cam.x = isFinite(p?.x) ? p.x - W/2 : 0;
-      cam.y = isFinite(p?.y) ? p.y - H/2 : 0;
+      cam.x = isFinite(p?.x) ? p.x - W/(2*zoom) : 0;
+      cam.y = isFinite(p?.y) ? p.y - H/(2*zoom) : 0;
     }
     if(p && (!isFinite(p.x) || !isFinite(p.y))){ p.x = WW/2; p.y = WH/2; }
     let _shakeX=0, _shakeY=0;
@@ -10080,6 +10130,7 @@ function App(){
 
     // 2D canvas — draw world first, then HUD overlay
     ctx.clearRect(0,0,W,H);
+    ctx.save(); ctx.scale(zoom, zoom);
 
     // ── GROUND TEXTURE + SCENERY (trees/props/decor) ──
     if(wd && cam){
@@ -11040,6 +11091,8 @@ function App(){
     });
 
 
+
+    ctx.restore(); // end world zoom
 
     // ══════════════ POST-PROCESSING (2D only — Three.js handles it in 3D mode) ══════════════
     const _gfx = G._gfx || 'normal';
@@ -12322,19 +12375,38 @@ function App(){
                   opts={[{v:'right',l:'➡️ ימין'},{v:'left',l:'⬅️ שמאל'}]}/>
                 <Row label="גודל כפתורים" val={hudScale} onPick={v=>setHud({scale:v})}
                   opts={[{v:'s',l:'קטן'},{v:'m',l:'בינוני'},{v:'l',l:'גדול'}]}/>
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:'0.72rem',color:'#9a8aba',marginBottom:5,display:'flex',justifyContent:'space-between'}}>
+                    <span>🔍 זום מצלמה</span>
+                    <span style={{color:'#7ad8ff'}}>{Math.round((hudCfg.zoom||0.85)*100)}%</span>
+                  </div>
+                  <input type="range" min="55" max="120" value={Math.round((hudCfg.zoom||0.85)*100)}
+                    onChange={e=>setHud({zoom:parseInt(e.target.value,10)/100})}
+                    style={{width:'100%',accentColor:'#7ad8ff'}}/>
+                  <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.6rem',color:'#6a5a8a',marginTop:2}}>
+                    <span>מרוחק</span><span>קרוב</span>
+                  </div>
+                </div>
+                <div style={{marginBottom:12}}>
+                  <div style={{fontSize:'0.72rem',color:'#9a8aba',marginBottom:5}}>📐 עריכת מיקום כפתורים</div>
+                  <button onClick={()=>{ setHudEditMode(e=>!e); setShowSettings(false); }}
+                    style={{width:'100%',padding:'8px 4px',borderRadius:8,fontSize:'0.75rem',fontWeight:700,cursor:'pointer',
+                      border:'2px solid #ffd24a',background:'#2a1d06',color:'#ffd24a'}}>
+                    {hudEditMode ? '✅ סיים עריכה' : '🖐️ הזז כפתורים (עריכת HUD)'}
+                  </button>
+                  <div style={{display:'flex',gap:6,marginTop:6}}>
+                    <button onClick={()=>{ setAtkZoneXY(null); setJoyXY(null); setDodgeXY(null); setHud({atkZonePos:null,joyPos:null,dodgePos:null}); }}
+                      style={{flex:1,padding:'7px 4px',borderRadius:8,fontSize:'0.72rem',fontWeight:700,cursor:'pointer',border:'2px solid #3a2f50',background:'#15101e',color:'#c8b8d8'}}>
+                      🔄 איפוס הכל
+                    </button>
+                  </div>
+                </div>
                 <Row label="✨ איכות גרפית (זוהר, אווירה)" val={hudCfg.gfx||'normal'} onPick={v=>setHud({gfx:v})}
                   opts={[{v:'off',l:'חיסכון'},{v:'normal',l:'רגיל'},{v:'high',l:'🌟 גבוה'}]}/>
                 <Row label="🎵 מוזיקת רקע" val={hudCfg.music||'on'} onPick={v=>setHud({music:v})}
                   opts={[{v:'on',l:'פועלת'},{v:'off',l:'כבויה'}]}/>
                 <Row label="🗣️ קריאות קרב (קול)" val={hudCfg.voice||'on'} onPick={v=>setHud({voice:v})}
                   opts={[{v:'on',l:'פועלות'},{v:'off',l:'כבויות'}]}/>
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:'0.72rem',color:'#9a8aba',marginBottom:5}}>כפתור התחמקות 💨</div>
-                  <div style={{display:'flex',gap:6}}>
-                    <button onClick={()=>{ setDodgeEdit(true); setShowSettings(false); }} style={{flex:2,padding:'7px 4px',borderRadius:8,fontSize:'0.72rem',fontWeight:700,cursor:'pointer',border:'2px solid #7ad8ff',background:'#1d2f44',color:'#7ad8ff'}}>🖐️ הזז כפתור</button>
-                    <button onClick={()=>{ setDodgeXY(null); setHud({dodgePos:null}); }} style={{flex:1,padding:'7px 4px',borderRadius:8,fontSize:'0.72rem',fontWeight:700,cursor:'pointer',border:'2px solid #3a2f50',background:'#15101e',color:'#c8b8d8'}}>איפוס</button>
-                  </div>
-                </div>
                 <div style={{marginBottom:12}}>
                   <div style={{fontSize:'0.72rem',color:'#9a8aba',marginBottom:5,display:'flex',justifyContent:'space-between'}}><span>🔊 עוצמת סאונד</span><span style={{color:'#7ad8ff'}}>{muted?'מושתק':vol+'%'}</span></div>
                   <input type="range" min="0" max="100" value={muted?0:vol} onChange={e=>{ const v=parseInt(e.target.value,10); setVol(v); if(window.SOUND){ window.SOUND.resume(); window.SOUND.setVolume(v/100); } if(v>0&&muted) setMuted(false); if(v===0) setMuted(true); }} style={{width:'100%',accentColor:'#7ad8ff'}}/>
@@ -12629,8 +12701,12 @@ function App(){
 
       {/* JOYSTICK */}
       <div className="joy-base" ref={joyRef}
-        onTouchStart={e=>{ if(window.SOUND){window.SOUND.resume();window.SOUND.startAmbient();} onJoyStart(e); }} onTouchMove={onJoyMove} onTouchEnd={onJoyEnd} onTouchCancel={onJoyEnd}
-        onMouseDown={onJoyStart}>
+        style={joyXY ? {left:joyXY.x, top:joyXY.y, bottom:'auto', right:'auto', ...(hudEditMode?{outline:'3px dashed #5aff8a',outlineOffset:3,cursor:'move',zIndex:131}:{})} : (hudEditMode?{outline:'3px dashed #5aff8a',outlineOffset:3,cursor:'move',zIndex:131}:{})}
+        onTouchStart={e=>{ if(hudEditMode){startJoyDrag(e);return;} if(window.SOUND){window.SOUND.resume();window.SOUND.startAmbient();} onJoyStart(e); }}
+        onMouseDown={e=>{ if(hudEditMode){startJoyDrag(e);return;} onJoyStart(e); }}
+        onTouchMove={hudEditMode ? undefined : onJoyMove}
+        onTouchEnd={hudEditMode ? undefined : onJoyEnd}
+        onTouchCancel={hudEditMode ? undefined : onJoyEnd}>
         <div className="joy-stick"></div>
       </div>
 
@@ -12676,9 +12752,16 @@ function App(){
         const dragEnd = ()=>{ if(!wheelDrag.current) return; wheelDrag.current=null; setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP))); };
         const page = (dir)=>{ setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP + dir*STEP*2))); };
         return (
-        <div className="atk-zone" style={{width:zoneW, height:zoneH, display:'block', touchAction:'none'}}
-          onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd} onPointerLeave={dragEnd}
-          onWheel={e=>{ e.preventDefault(); setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP + (e.deltaY>0?STEP:-STEP)))); }}>
+        <div className="atk-zone" style={{width:zoneW, height:zoneH, display:'block', touchAction:'none',
+          ...(atkZoneXY ? {position:'absolute', left:atkZoneXY.x, top:atkZoneXY.y, right:'auto', bottom:'auto'} : {}),
+          ...(hudEditMode ? {outline:'3px dashed #ffd24a', outlineOffset:3, cursor:'move', zIndex:131} : {})
+          }}
+          onPointerDown={hudEditMode ? startAtkDrag : dragStart}
+          onPointerMove={hudEditMode ? undefined : dragMove}
+          onPointerUp={hudEditMode ? undefined : dragEnd}
+          onPointerCancel={hudEditMode ? undefined : dragEnd}
+          onPointerLeave={hudEditMode ? undefined : dragEnd}
+          onWheel={hudEditMode ? undefined : (e=>{ e.preventDefault(); setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP + (e.deltaY>0?STEP:-STEP)))); })}>
           {/* BDO-style arc guide: dual ring with glow */}
           {N>0 && <svg width={zoneW} height={zoneH} style={{position:'absolute',inset:0,pointerEvents:'none',overflow:'visible'}}>
             <defs>
@@ -12767,6 +12850,12 @@ function App(){
       {dodgeEdit && (
         <div style={{position:'absolute',top:'40%',left:'50%',transform:'translateX(-50%)',zIndex:131,background:'rgba(10,5,16,0.9)',border:'2px solid #7ad8ff',borderRadius:12,padding:'10px 16px',color:'#cbe8ff',fontSize:'0.8rem',fontWeight:700,textAlign:'center',pointerEvents:'none',maxWidth:'80vw'}}>
           🖐️ גרור את כפתור ההתחמקות 💨 למקום הרצוי
+        </div>
+      )}
+      {hudEditMode && (
+        <div style={{position:'absolute',top:'20%',left:'50%',transform:'translateX(-50%)',zIndex:131,background:'rgba(10,5,16,0.92)',border:'2px solid #ffd24a',borderRadius:12,padding:'10px 16px',color:'#ffd24a',fontSize:'0.8rem',fontWeight:700,textAlign:'center',pointerEvents:'none',maxWidth:'80vw',boxShadow:'0 0 20px rgba(255,210,74,0.3)'}}>
+          📐 מצב עריכת HUD — גרור כל כפתור למקום הרצוי
+          <br/><span style={{fontSize:'0.65rem',color:'#c8b070'}}>לחץ ⚙️ → סיים עריכה לשמירה</span>
         </div>
       )}
 
