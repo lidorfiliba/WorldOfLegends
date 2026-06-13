@@ -3722,21 +3722,6 @@ function drawPlayer(ctx, sx, sy, classId, moving, t, facing, evoStage, wings, co
     }
   }
 
-  // Rim lighting — BDO style: bright edge highlight from the world's light direction
-  if(evoAura || true){
-    const rimCol = evoAura || '#e8d8b0';
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.globalAlpha = 0.22 + Math.sin(t/400)*0.05;
-    const rimGrad = ctx.createRadialGradient(-s*0.4, -s*0.6, s*0.5, -s*0.4, -s*0.6, s*2.0);
-    rimGrad.addColorStop(0, 'rgba(0,0,0,0)');
-    rimGrad.addColorStop(0.6, 'rgba(0,0,0,0)');
-    rimGrad.addColorStop(0.85, SP.withAlpha(rimCol, 0.55));
-    rimGrad.addColorStop(1, SP.withAlpha(rimCol, 0.15));
-    ctx.fillStyle = rimGrad;
-    ctx.beginPath(); ctx.ellipse(0, 0, s*1.8, s*2.1, 0, 0, Math.PI*2); ctx.fill();
-    ctx.restore();
-  }
 
   ctx.restore(); // flip
   ctx.restore(); // main
@@ -10228,13 +10213,13 @@ function App(){
         ctx.font='34px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(npc.emoji, nx, ny);
         // name
-        ctx.font='bold 14px Heebo,sans-serif';
+        ctx.font='bold 15px Heebo,sans-serif';
         const _nmw=ctx.measureText(npc.name).width;
-        ctx.fillStyle='rgba(0,0,0,0.72)';
-        ctx.beginPath(); ctx.roundRect(nx-_nmw/2-7, ny-49, _nmw+14, 20, 5); ctx.fill();
-        ctx.fillStyle=npc.color; ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.lineWidth=3;
-        ctx.strokeText(npc.name, nx, ny-34); ctx.fillText(npc.name, nx, ny-34);
-        if(near){ ctx.fillStyle='#fff'; ctx.font='bold 12px Heebo,sans-serif'; ctx.fillText('▶ לחץ לפתיחה', nx, ny+38); }
+        ctx.fillStyle='rgba(0,0,0,0.82)';
+        ctx.beginPath(); ctx.roundRect(nx-_nmw/2-8, ny-50, _nmw+16, 22, 6); ctx.fill();
+        ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,0.95)'; ctx.lineWidth=4;
+        ctx.strokeText(npc.name, nx, ny-33); ctx.fillText(npc.name, nx, ny-33);
+        if(near){ ctx.fillStyle='#ffee88'; ctx.font='bold 13px Heebo,sans-serif'; ctx.strokeText('▶ לחץ לפתיחה', nx, ny+38); ctx.fillText('▶ לחץ לפתיחה', nx, ny+38); }
         ctx.textBaseline='alphabetic'; ctx.textAlign='left';
       });
     }
@@ -11010,50 +10995,7 @@ function App(){
       ctx.restore();
     });
 
-    // ── ATMOSPHERIC DUST MOTES (visual ambiance only) ──
-    if((G._gfx||'normal') !== 'off'){
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const dustCount = (G._gfx||'normal') === 'high' ? 12 : 6;
-      for(let d = 0; d < dustCount; d++){
-        const t2 = (now * 0.00008 + d * 0.618) % 1; // golden-ratio spacing
-        const dx = ((d * 137.508 + now * 0.01) % W);
-        const dy = ((d * 97.3 + now * 0.007 + Math.sin(now*0.0003+d)*30) % H);
-        const da = (Math.sin(now*0.0005 + d*2.1) * 0.5 + 0.5) * 0.07;
-        ctx.globalAlpha = da;
-        ctx.fillStyle = G.worldDef ? (G.worldDef.accent || '#ffffff') : '#ffffff';
-        ctx.beginPath(); ctx.arc(dx, dy, 1.5 + Math.sin(d+now*0.001)*0.8, 0, Math.PI*2); ctx.fill();
-      }
-      ctx.restore();
-    }
 
-    // ── DYNAMIC LIGHTING (soft warm light around the hero + glow on bosses) ──
-    ctx.save();
-    ctx.globalCompositeOperation='lighter';
-    const plx=p.x-cam.x, ply=p.y-cam.y;
-    const lr = 260 + Math.sin(now/600)*16;
-    if(isFinite(plx) && isFinite(ply)){
-      const lg = ctx.createRadialGradient(plx, ply, 0, plx, ply, lr);
-      const evoLight = (p.evoStage>0 && (window.GAME_DATA.EVOLUTIONS[p.classId]||[])[p.evoStage-1]);
-      let lightColor = evoLight ? evoLight.aura : '#ffd9a0';
-      if(G.worldDef && G.worldDef.bg && SP.blend){
-        lightColor = SP.blend(lightColor, G.worldDef.accent || G.worldDef.bg, 0.18);
-      }
-      lg.addColorStop(0, SP.withAlpha(lightColor,0.36));
-      lg.addColorStop(0.4, SP.withAlpha(lightColor,0.16));
-      lg.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle=lg; ctx.beginPath(); ctx.arc(plx,ply,lr,0,Math.PI*2); ctx.fill();
-      // secondary pulsing rim light — soft ambient fill at larger radius
-      const rimR = lr * 1.6;
-      const rimA = 0.04 + Math.sin(now/800)*0.02;
-      const rim = ctx.createRadialGradient(plx, ply, lr*0.6, plx, ply, rimR);
-      rim.addColorStop(0, SP.withAlpha(lightColor, rimA));
-      rim.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle=rim; ctx.beginPath(); ctx.arc(plx,ply,rimR,0,Math.PI*2); ctx.fill();
-    }
-    // boss light pools
-    G.bosses.forEach(m=>{ if(m.hp>0&&!m._dying){ const bx=m.x-cam.x,by=m.y-cam.y; if(isFinite(bx)&&isFinite(by)&&bx>-200&&bx<W+200&&by>-200&&by<H+200){ const bl=ctx.createRadialGradient(bx,by,0,bx,by,160); bl.addColorStop(0,SP.withAlpha(m.base.color||'#ff5a3a',0.11)); bl.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=bl; ctx.beginPath(); ctx.arc(bx,by,160,0,Math.PI*2); ctx.fill(); } } });
-    ctx.restore();
 
     // ══════════════ POST-PROCESSING (2D only — Three.js handles it in 3D mode) ══════════════
     const _gfx = G._gfx || 'normal';
@@ -11214,13 +11156,6 @@ function App(){
     const grade=ctx.createLinearGradient(0,0,0,H);
     grade.addColorStop(0,'#1a3a6a'); grade.addColorStop(1,'#6a3a1a');
     ctx.fillStyle=grade; ctx.fillRect(0,0,W,H);
-    ctx.restore();
-    // Pass 2: soft-light radial — warm center, dark blue edges (subtle vignette warmth)
-    ctx.save();
-    ctx.globalCompositeOperation='soft-light'; ctx.globalAlpha=0.05;
-    const grade2=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.72);
-    grade2.addColorStop(0,'#ffcc8844'); grade2.addColorStop(1,'#000022');
-    ctx.fillStyle=grade2; ctx.fillRect(0,0,W,H);
     ctx.restore();
 
     // ── DAY/NIGHT CYCLE (outdoor worlds only; ~4 min full cycle) ──
