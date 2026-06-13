@@ -10005,15 +10005,12 @@ function App(){
     const _vv = window.visualViewport;
     const want_w = (_vv && _vv.width ? Math.round(_vv.width) : window.innerWidth) || 360;
     const want_h = (_vv && _vv.height ? Math.round(_vv.height) : window.innerHeight) || 640;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const phys_w = Math.round(want_w * dpr), phys_h = Math.round(want_h * dpr);
-    if(cv.width !== phys_w || cv.height !== phys_h){
-      cv.width = phys_w; cv.height = phys_h;
+    if(cv.width !== want_w || cv.height !== want_h){
+      cv.width = want_w; cv.height = want_h;
       cv.style.width = want_w+'px'; cv.style.height = want_h+'px';
     }
     const ctx = cv.getContext('2d');
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const W = want_w, H = want_h;
+    const W = cv.width, H = cv.height;
     if(W===0 || H===0) return;
     const wd = G.worldDef, p = G.player, cam = G.camera;
     if(!isFinite(cam.x) || !isFinite(cam.y)){
@@ -11026,10 +11023,10 @@ function App(){
             _cache.src.width=_bw; _cache.src.height=_bh;
             _cache.scratch.width=_bw; _cache.scratch.height=_bh;
           }
-          // downscale full frame into src (use physical pixel dims of cv)
+          // downscale full frame into src
           const _sCtx = _cache.src.getContext('2d');
           _sCtx.globalCompositeOperation='source-over'; _sCtx.clearRect(0,0,_bw,_bh);
-          _sCtx.drawImage(cv, 0,0,cv.width,cv.height, 0,0,_bw,_bh);
+          _sCtx.drawImage(cv, 0,0,W,H, 0,0,_bw,_bh);
           // copy src → scratch, then multiply-self to crush darks and preserve brights
           const _xCtx = _cache.scratch.getContext('2d');
           _xCtx.globalCompositeOperation='source-over'; _xCtx.clearRect(0,0,_bw,_bh);
