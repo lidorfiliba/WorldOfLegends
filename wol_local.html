@@ -5107,7 +5107,7 @@ var _3D = (function(){
   var _BCOL={slime:0x2dcc6a,bat:0x3a2855,spider:0x1a0c22,goblin:0x3a9622,skeleton:0xcccab8,zombie:0x4a7840,wolf:0x7a5a38,orc:0x2a7a1a,dragon:0xcc2200,vampire:0x552244,troll:0x4a6a30};
   var _ECOL={slime:0xaaffcc,bat:0xff4466,spider:0xff8844,goblin:0xffee44,skeleton:0x88aaff,zombie:0xff5555,wolf:0xffcc55,orc:0xaaff44,dragon:0xffdd22,vampire:0xff44cc,troll:0x88ff44};
   function makeMonMesh(mon){
-    var g=new THREE.Group(),S=mon.isBoss?1.7:0.92;
+    var g=new THREE.Group(),S=mon.isBoss?1.9:1.25;
     var bid=(mon.base&&mon.base.id)||'goblin';
     var bc=_BCOL[bid]||0x44aa22,ec=_ECOL[bid]||0xffcc00;
     var sm2=new THREE.CircleGeometry(S*1.9,9); sm2.rotateX(-Math.PI/2);
@@ -5362,7 +5362,8 @@ var _3D = (function(){
   function update(G,now,W,H){
     if(!_r||!_s||!_cam) return;
     var p=G.player,wd=G.worldDef; if(!p||!wd) return;
-    if(_r.domElement.width!==W||_r.domElement.height!==H) _r.setSize(W,H,false);
+    var _sz=new THREE.Vector2(); _r.getSize(_sz);
+    if(_sz.x!==W||_sz.y!==H) _r.setSize(W,H);
     if(_worldId!==wd.id){
       try{buildTerrain(wd);}catch(e){console.error('3D buildTerrain failed:',e);}
       try{buildProps(wd);}catch(e){console.error('3D buildProps failed:',e);}
@@ -5421,7 +5422,7 @@ var _3D = (function(){
   function screenPos(wx,wy,wd,W,H){
     if(!_cam||!wd) return null;
     var cx=(wd.ww||8160)/2,cz=(wd.wh||8160)/2;
-    var v=new THREE.Vector3((wx-cx)*SCALE,2,(wy-cz)*SCALE);
+    var v=new THREE.Vector3((wx-cx)*SCALE,5,(wy-cz)*SCALE);
     v.project(_cam); return {x:(v.x+1)/2*W,y:(-v.y+1)/2*H};
   }
   return {init:init,update:update,screenPos:screenPos};
@@ -10334,13 +10335,21 @@ function App(){
         const push = Math.sin(sf*Math.PI)*(m.isBoss?46:30);
         lungeX = (pdx/pd)*push; lungeY = (pdy/pd)*push;
       }
-      const ix=m.x-cam.x + lungeX;
+      let ix, iy;
       // lifted monsters float upward (Dragon-Nest air-juggle look)
       let liftOff=0;
       if(m._liftT && now<m._liftT){ const tLeft=(m._liftT-now)/1100; liftOff = -Math.sin(tLeft*Math.PI)*70; }
-      const iy=m.y-cam.y + liftOff + lungeY;
-      if(!isFinite(ix)||!isFinite(iy)) return; // skip if coords are NaN/Inf
-      if(ix<-160||ix>W+160||iy<-160||iy>H+160) return;
+      if(G._3dReady && typeof _3D!=='undefined' && _3D.screenPos){
+        const sp=_3D.screenPos(m.x,m.y,G.worldDef,W,H);
+        if(!sp) return;
+        ix=sp.x; iy=sp.y+liftOff;
+        if(ix<-200||ix>W+200||iy<-200||iy>H+200) return;
+      } else {
+        ix=m.x-cam.x + lungeX;
+        iy=m.y-cam.y + liftOff + lungeY;
+        if(!isFinite(ix)||!isFinite(iy)) return;
+        if(ix<-160||ix>W+160||iy<-160||iy>H+160) return;
+      }
       // ── BOSS MELEE TELEGRAPH: a red sweep arc in front of the boss that fills up as
       //    the strike approaches. See it → dash/run out of the arc to dodge the hit. ──
       if(m.isBoss && m._meleeWindUntil && now < m._meleeWindUntil){
