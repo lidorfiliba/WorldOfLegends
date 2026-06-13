@@ -10026,12 +10026,12 @@ function App(){
       G.shake *= 0.82; if(G.shake<0.5) G.shake=0;
     }
 
-    // ── THREE.JS 3D WORLD RENDER (disabled — 2D top-down mode) ──
-    // if(cv3d && typeof THREE !== 'undefined' && wd && p){
-    //   if(!G._3dReady){ G._3dReady = _3D.init(cv3d, W, H); }
-    //   if(G._3dReady){ try{ _3D.update(G, now, W, H); }catch(e){console.warn('3d:',e);} }
-    // }
-    G._3dReady = false;
+    // ── THREE.JS 3D WORLD RENDER ──
+    if(cv3d && typeof THREE !== 'undefined' && wd && p){
+      if(!G._3dReady){ G._3dReady = _3D.init(cv3d, W, H); }
+      if(G._3dReady){ try{ _3D.update(G, now, W, H); }catch(e){console.warn('3d:',e);} }
+    }
+    if(typeof G._3dReady === 'undefined') G._3dReady = false;
 
     // 2D canvas — draw world first, then HUD overlay
     ctx.clearRect(0,0,W,H);
