@@ -4816,8 +4816,8 @@ var _3D = (function(){
       grass:    {r1:0.14,g1:0.42,b1:0.06, r2:0.08,g2:0.26,b2:0.04, r3:0.22,g3:0.56,b3:0.10, bmp:0.7},
       forest:   {r1:0.06,g1:0.28,b1:0.05, r2:0.04,g2:0.18,b2:0.03, r3:0.10,g3:0.38,b3:0.08, bmp:1.3},
       swamp:    {r1:0.10,g1:0.22,b1:0.06, r2:0.06,g2:0.14,b2:0.03, r3:0.16,g3:0.30,b3:0.09, bmp:0.5},
-      stone:    {r1:0.30,g1:0.28,b1:0.32, r2:0.20,g2:0.18,b2:0.24, r3:0.40,g3:0.38,b3:0.44, bmp:1.8},
-      castle:   {r1:0.16,g1:0.10,b1:0.22, r2:0.10,g2:0.06,b2:0.14, r3:0.24,g3:0.16,b3:0.32, bmp:0.30},
+      stone:    {r1:0.26,g1:0.24,b1:0.32, r2:0.14,g2:0.13,b2:0.20, r3:0.38,g3:0.36,b3:0.50, bmp:2.2},
+      castle:   {r1:0.18,g1:0.12,b1:0.28, r2:0.10,g2:0.06,b2:0.18, r3:0.28,g3:0.20,b3:0.42, bmp:1.4},
       lava:     {r1:0.38,g1:0.10,b1:0.02, r2:0.28,g2:0.05,b2:0.01, r3:0.52,g3:0.18,b3:0.04, bmp:1.1},
       snow:     {r1:0.72,g1:0.78,b1:0.88, r2:0.58,g2:0.66,b2:0.78, r3:0.84,g3:0.88,b3:0.96, bmp:0.55},
       void:     {r1:0.04,g1:0.02,b1:0.14, r2:0.02,g2:0.01,b2:0.09, r3:0.08,g3:0.04,b3:0.22, bmp:0.30},
@@ -5127,22 +5127,27 @@ var _3D = (function(){
       });
 
     } else if(bid==='bat'){
-      // Compact furry body
-      var bd=new THREE.Mesh(new THREE.SphereGeometry(S*0.85,10,8),phong(bc,12));
-      bd.position.y=S*2.3; bd.scale.z=0.72; bd.castShadow=true; g.add(bd);
-      // Membrane wings (stretched half-sphere)
+      // Compact round body
+      var bd=new THREE.Mesh(new THREE.SphereGeometry(S*0.88,11,9),phong(bc,12));
+      bd.position.y=S*2.4; bd.scale.set(0.9,0.85,0.75); bd.castShadow=true; g.add(bd);
+      // Wings — CylinderGeometry flattened into wing shape, angled outward
       [-1,1].forEach(function(side){
-        var wg=new THREE.Mesh(new THREE.SphereGeometry(S*1.55,8,5,0,Math.PI,0,Math.PI*0.55),phong(bc,8));
-        wg.position.set(side*S*0.9,S*2.3,0); wg.rotation.z=side*(Math.PI*0.5+0.15); wg.scale.set(1,0.22,0.55); g.add(wg);
+        var wOuter=new THREE.Mesh(new THREE.CylinderGeometry(S*0.08,S*0.04,S*2.2,5),phong(bc,6));
+        wOuter.position.set(side*S*1.8,S*2.2,0); wOuter.rotation.z=side*(Math.PI/2-0.35); wOuter.castShadow=true; g.add(wOuter);
+        var wInner=new THREE.Mesh(new THREE.CylinderGeometry(S*0.06,S*0.06,S*1.4,5),phong(bc,6));
+        wInner.position.set(side*S*1.0,S*1.8,S*0.2); wInner.rotation.z=side*(Math.PI/2-0.6); g.add(wInner);
+        // Wing membrane as a flat disc
+        var mem=new THREE.Mesh(new THREE.CircleGeometry(S*1.5,7),phong(bc,4));
+        mem.position.set(side*S*1.4,S*2.0,0); mem.rotation.y=Math.PI/2; mem.rotation.z=side*0.35; mem.scale.set(1,0.55,1); g.add(mem);
       });
       // Pointed ears
       [-S*0.36,S*0.36].forEach(function(ex){
-        var ear=new THREE.Mesh(new THREE.ConeGeometry(S*0.18,S*0.58,5),phong(bc,5));
-        ear.position.set(ex,S*3.12,0); g.add(ear);
+        var ear=new THREE.Mesh(new THREE.ConeGeometry(S*0.20,S*0.65,5),phong(bc,5));
+        ear.position.set(ex,S*3.18,0); g.add(ear);
       });
-      [-S*0.26,S*0.26].forEach(function(eo){
-        var eye=new THREE.Mesh(new THREE.SphereGeometry(S*0.16,7,6),em2);
-        eye.position.set(eo,S*2.42,S*0.72); g.add(eye);
+      [-S*0.27,S*0.27].forEach(function(eo){
+        var eye=new THREE.Mesh(new THREE.SphereGeometry(S*0.18,7,6),em2);
+        eye.position.set(eo,S*2.5,S*0.68); g.add(eye);
       });
 
     } else if(bid==='spider'){
@@ -5387,20 +5392,30 @@ var _3D = (function(){
       sx2.fillStyle=grad; sx2.fillRect(0,0,2,256);
       _skyTex=new THREE.CanvasTexture(sc2); _skyTex.needsUpdate=true;
       _s.background=_skyTex;
-      // Update hemisphere light colors
-      _s.children.forEach(function(c){ if(c.isHemisphereLight){ c.color.setHex(sk[3]); c.groundColor.setHex(sk[3]&0x444444); } });
+      // Hemisphere light: use distinct sky colors per biome (not fog color which is too dark)
+      var HEMI_SKY={grass:0x88ccff,forest:0x4a8855,swamp:0x607850,stone:0x8899cc,castle:0x7766bb,lava:0xff7722,snow:0xaad4f8,void:0x332255,inferno:0xff5522,celestial:0x5533cc,tundra:0x88aadd};
+      var HEMI_GND={grass:0x336622,forest:0x223318,swamp:0x2a3818,stone:0x444466,castle:0x332244,lava:0x441100,snow:0x445566,void:0x110022,inferno:0x330800,celestial:0x220044,tundra:0x334455};
+      var hsk=HEMI_SKY[wd.tile]||0x88ccff, hgn=HEMI_GND[wd.tile]||0x336622;
+      _s.children.forEach(function(c){ if(c.isHemisphereLight){ c.color.setHex(hsk); c.groundColor.setHex(hgn); } });
+      // Update sun color + fog for this biome
+      var SUN_COL={grass:0xffe8a0,forest:0xd4e880,swamp:0xc8cc70,stone:0xdde0f0,castle:0xccbbff,lava:0xff9944,snow:0xeef4ff,void:0x6655aa,inferno:0xff6622,celestial:0xaa88ff,tundra:0xe8f0ff};
+      if(_sun) _sun.color.setHex(SUN_COL[wd.tile]||0xffe8a0);
     }
     var isNight=G._isNight||false;
-    _sun.intensity=isNight?0.35:2.6;
-    _s.children.forEach(function(c){if(c.isAmbientLight)c.intensity=isNight?0.35:0.95;});
+    // Corrected light intensities (match init values — not the old higher values)
+    _sun.intensity=isNight?0.25:1.9;
+    _s.children.forEach(function(c){if(c.isAmbientLight)c.intensity=isNight?0.25:0.28;});
     var pos=updatePlayer(p,G);
     updateEntities(G);
     _cam.aspect=W/H; _cam.updateProjectionMatrix();
-    // Close cinematic chase camera (BDO Mobile style) — player fills a good chunk of frame.
-    // On tall portrait screens, pull back a touch so the player isn't cropped.
-    var aspect=W/H, back=aspect<0.7?30:24, high=aspect<0.7?20:16;
+    // BDO Mobile-style chase camera: portrait pulls back so player isn't cropped.
+    // FOV 58 gives a natural "over the shoulder" look on phones.
+    var aspect=W/H;
+    var isPortrait=aspect<0.75;
+    _cam.fov=isPortrait?60:52; _cam.updateProjectionMatrix();
+    var back=isPortrait?42:34, high=isPortrait?26:21;
     _cam.position.set(pos[0],high,pos[2]+back);
-    _cam.lookAt(pos[0],5.5,pos[2]-3);
+    _cam.lookAt(pos[0],4,pos[2]-10);
     _r.render(_s,_cam);
   }
   function screenPos(wx,wy,wd,W,H){
