@@ -1525,7 +1525,7 @@ const WORLDS = [
   {id:'astral',   name:'המישור האסטרלי', emoji:'🌠', reqLv:220, monLv:[220,280],bg:'#180838', accent:'#2a1060', tile:'astral',     ww:17680, wh:17680, xpMul:3.8, monsters:['reaper','behemoth','world_eater_spawn','phoenix'], boss:'astral_god', desc:'✨ מימד אסטרלי לאלים שהתעלו (רמה 220+)', endgame:true},
   {id:'oblivion', name:'הכליה',           emoji:'⚫', reqLv:240, monLv:[240,300],bg:'#0a0018', accent:'#1a0030', tile:'oblivion',   ww:20400, wh:20400, xpMul:4.5, monsters:['reaper','world_eater_spawn','behemoth'],          boss:'oblivion_lord', desc:'⚫ הסוף המוחלט — רק האלים האמיתיים שורדים (רמה 240+)', endgame:true},
   {id:'arena',    name:'⚔️ זירת PvP',     emoji:'⚔️', reqLv:20,   monLv:[1,1],    bg:'#30182a', accent:'#4a2840', tile:'castle',     ww:3600,  wh:3600,  xpMul:0,   monsters:[],                                                  boss:null,            desc:'⚔️ זירת קרב שחקן מול שחקן (רמה 20+) — סטטים מאוזנים, ניצחון בכישרון! קבוצות מוגנות מאש ידידותית', pvp:true},
-  {id:'town',     name:'🏰 העיר הראשית',   emoji:'🏰', reqLv:1,   monLv:[1,1],    bg:'#2e2c40', accent:'#4a4460', tile:'stone',      ww:2800,  wh:2800,  xpMul:0,   monsters:[],                                                  boss:null,            desc:'🏰 העיר הראשית — בטוחה. דבר עם ה-NPCs, צור נשקים אצל הנפח, וקח משימות', town:true},
+  {id:'town',     name:'🏰 העיר הראשית',   emoji:'🏰', reqLv:1,   monLv:[1,1],    bg:'#6a6258', accent:'#9a9082', tile:'stone',      ww:2800,  wh:2800,  xpMul:0,   monsters:[],                                                  boss:null,            desc:'🏰 העיר הראשית — בטוחה. דבר עם ה-NPCs, צור נשקים אצל הנפח, וקח משימות', town:true},
   {id:'forge_dungeon', name:'🔨 מבוך הנפחייה', emoji:'🔨', reqLv:60, monLv:[60,120], bg:'#1c0f06', accent:'#3a2010', tile:'lava',   ww:11900,  wh:11900,  xpMul:2.0, monsters:['demon','drake','golem','elemental','behemoth'],   boss:'forge_titan',   desc:'🔨 מבוך מיוחד — 4 אזורים עם חומרי יצירה נדירים. הבוס דורש קבוצה!', dungeon:true, zones:4},
   {id:'tower', name:'🗼 המגדל האינסופי', emoji:'🗼', reqLv:1, monLv:[1,300], bg:'#0a0818', accent:'#2a1a4a', tile:'metal', ww:4200, wh:4200, xpMul:1.0, monsters:['slime','goblin','skeleton'], boss:null, tower:true, desc:'🗼 קומות אינסופיות שמתקשות בהדרגה. כל קומה חמישית = בוס. כמה גבוה תגיע?'},
   // ══════════════ NESTS (Dragon-Nest style staged raids) ══════════════
@@ -3783,7 +3783,7 @@ function drawGround(ctx, W, H, cam, wd, now){
   // expensive per-cell drawing off the per-frame path → no lag.
   const camGX = Math.floor(cam.x/CELL), camGY = Math.floor(cam.y/CELL);
   const animated = (wd.tile==='lava'||wd.tile==='inferno'||wd.tile==='astral'||wd.tile==='oblivion'||wd.tile==='metal');
-  const key = `${wd.tile}|${W}x${H}|${camGX},${camGY}`;
+  const key = `${wd.tile}:${wd.id||''}|${W}x${H}|${camGX},${camGY}`;
   if(key!==_groundKey || !_groundCache){
     _groundKey=key;
     if(!_groundCache || _groundCache.width!==W+CELL*2 || _groundCache.height!==H+CELL*2){
@@ -3936,22 +3936,39 @@ function drawGroundCell(ctx, sx, sy, CELL, gx, gy, tile, wd){
     if(h3>0.88){ ctx.strokeStyle='rgba(120,200,70,0.5)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(sx+h2*CELL,sy+h3*CELL,5,0,6.28); ctx.stroke(); }
   }
   else if(tile==='stone'||tile==='crypt'){
-    // stone slabs with grout lines
-    const shade = h<0.35?'#4a4260':h<0.65?'#524870':h<0.85?'#5c5278':'#665c84';
-    ctx.fillStyle=shade; ctx.fillRect(sx,sy,CELL+1,CELL+1);
-    const sg=ctx.createRadialGradient(sx+CELL*0.5,sy+CELL*0.5,0,sx+CELL*0.5,sy+CELL*0.5,CELL*0.72);
-    sg.addColorStop(0,lighten(shade,8)); sg.addColorStop(1,shade);
-    ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(sx+CELL*0.5,sy+CELL*0.5,CELL*(0.44+h*0.18),CELL*(0.38+h2*0.16),h*Math.PI,0,Math.PI*2); ctx.fill();
-    // subtle cross-hatch texture — very faint diagonal lines
-    ctx.save(); ctx.globalAlpha=0.06; ctx.strokeStyle='rgba(255,255,255,1)'; ctx.lineWidth=1;
-    ctx.beginPath();
-    for(let d=0;d<CELL*2;d+=8){ ctx.moveTo(sx+d,sy); ctx.lineTo(sx,sy+d); ctx.moveTo(sx+CELL,sy+d-CELL); ctx.lineTo(sx+d-CELL,sy+CELL); }
-    ctx.stroke(); ctx.restore();
-    ctx.save(); const slg=ctx.createRadialGradient(sx+CELL*0.2,sy+CELL*0.2,0,sx+CELL*0.2,sy+CELL*0.2,CELL*0.6); slg.addColorStop(0,'rgba(160,150,200,0.18)'); slg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=slg; ctx.fillRect(sx,sy,CELL,CELL); ctx.restore();
-    // cracks
-    if(h3>0.72){ ctx.strokeStyle='rgba(10,8,16,0.55)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(sx+CELL*0.2,sy+CELL*0.3); ctx.lineTo(sx+CELL*0.45,sy+CELL*0.6); ctx.lineTo(sx+CELL*0.35,sy+CELL*0.85); ctx.stroke(); }
-    // moss in cracks
-    if(h2<0.15){ ctx.fillStyle='rgba(50,90,40,0.4)'; ctx.fillRect(sx+CELL*0.05,sy+CELL*0.45,CELL*0.9,3); }
+    const isTownTile = wd && (wd.town || wd.id==='town' || wd.id==='arena');
+    if(isTownTile){
+      // BDO town — warm bright cobblestone: sandy grey-beige blocks with dark grout
+      const shade = h<0.3?'#8a8070':h<0.6?'#968876':h<0.82?'#a09080':'#aa9a8a';
+      ctx.fillStyle=shade; ctx.fillRect(sx-1,sy-1,CELL+3,CELL+3);
+      // individual cobble block highlight
+      const cg=ctx.createRadialGradient(sx+CELL*0.38,sy+CELL*0.28,0,sx+CELL*0.38,sy+CELL*0.28,CELL*0.62);
+      cg.addColorStop(0,lighten(shade,18)); cg.addColorStop(1,shade);
+      ctx.fillStyle=cg; ctx.beginPath(); ctx.ellipse(sx+CELL*0.38,sy+CELL*0.3,CELL*(0.40+h*0.14),CELL*(0.34+h2*0.12),h*Math.PI,0,Math.PI*2); ctx.fill();
+      // grout lines (dark seams between stones)
+      ctx.save(); ctx.strokeStyle='rgba(50,40,30,0.55)'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(sx,sy+CELL*0.5); ctx.lineTo(sx+CELL,sy+CELL*0.5); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx+CELL*0.5,sy); ctx.lineTo(sx+CELL*0.5,sy+CELL); ctx.stroke();
+      ctx.restore();
+      // warm torch-light tint on some stones
+      if(h3>0.78){ ctx.fillStyle='rgba(220,160,60,0.08)'; ctx.fillRect(sx,sy,CELL,CELL); }
+      // edge shadow for 3D look
+      ctx.fillStyle='rgba(40,30,20,0.18)'; ctx.fillRect(sx,sy+CELL-4,CELL,4); ctx.fillRect(sx+CELL-4,sy,4,CELL);
+    } else {
+      // Crypt/dungeon — dark purple-grey stone slabs
+      const shade = h<0.35?'#4a4260':h<0.65?'#524870':h<0.85?'#5c5278':'#665c84';
+      ctx.fillStyle=shade; ctx.fillRect(sx,sy,CELL+1,CELL+1);
+      const sg=ctx.createRadialGradient(sx+CELL*0.5,sy+CELL*0.5,0,sx+CELL*0.5,sy+CELL*0.5,CELL*0.72);
+      sg.addColorStop(0,lighten(shade,8)); sg.addColorStop(1,shade);
+      ctx.fillStyle=sg; ctx.beginPath(); ctx.ellipse(sx+CELL*0.5,sy+CELL*0.5,CELL*(0.44+h*0.18),CELL*(0.38+h2*0.16),h*Math.PI,0,Math.PI*2); ctx.fill();
+      ctx.save(); ctx.globalAlpha=0.06; ctx.strokeStyle='rgba(255,255,255,1)'; ctx.lineWidth=1;
+      ctx.beginPath();
+      for(let d=0;d<CELL*2;d+=8){ ctx.moveTo(sx+d,sy); ctx.lineTo(sx,sy+d); ctx.moveTo(sx+CELL,sy+d-CELL); ctx.lineTo(sx+d-CELL,sy+CELL); }
+      ctx.stroke(); ctx.restore();
+      ctx.save(); const slg=ctx.createRadialGradient(sx+CELL*0.2,sy+CELL*0.2,0,sx+CELL*0.2,sy+CELL*0.2,CELL*0.6); slg.addColorStop(0,'rgba(160,150,200,0.18)'); slg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=slg; ctx.fillRect(sx,sy,CELL,CELL); ctx.restore();
+      if(h3>0.72){ ctx.strokeStyle='rgba(10,8,16,0.55)'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(sx+CELL*0.2,sy+CELL*0.3); ctx.lineTo(sx+CELL*0.45,sy+CELL*0.6); ctx.lineTo(sx+CELL*0.35,sy+CELL*0.85); ctx.stroke(); }
+      if(h2<0.15){ ctx.fillStyle='rgba(50,90,40,0.4)'; ctx.fillRect(sx+CELL*0.05,sy+CELL*0.45,CELL*0.9,3); }
+    }
   }
   else if(tile==='castle'){
     // dark stone with torchlight warmth
@@ -9909,22 +9926,22 @@ function App(){
   function drawPaths(ctx, W, H, cam, wd){
     if(wd.nest || wd.dungeon) return;
     const cxw=WW/2, cyw=WH/2, len=3000;
-    const isTown = wd.tile==='stone' || wd.tile==='castle' || wd.town;
+    const isTown = wd.town || wd.id==='town' || wd.id==='arena';
     const dirs=[[1,0],[-1,0],[0,1],[0,-1]];
     ctx.save(); ctx.lineCap='round';
 
     if(isTown){
-      // BDO town: cobblestone — layered stone road
-      ctx.strokeStyle='rgba(18,12,8,0.45)'; ctx.lineWidth=80; ctx.globalAlpha=1;
+      // BDO town: warm beige cobblestone road
+      ctx.strokeStyle='rgba(30,22,12,0.50)'; ctx.lineWidth=80; ctx.globalAlpha=1;
       dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
-      ctx.strokeStyle='#504858'; ctx.lineWidth=68; ctx.globalAlpha=0.95;
+      ctx.strokeStyle='#786a58'; ctx.lineWidth=68; ctx.globalAlpha=0.96;
       dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
-      ctx.strokeStyle='#5e5468'; ctx.lineWidth=52; ctx.globalAlpha=0.88;
+      ctx.strokeStyle='#8a7a68'; ctx.lineWidth=52; ctx.globalAlpha=0.90;
       dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
-      ctx.strokeStyle='#6a6070'; ctx.lineWidth=28; ctx.globalAlpha=0.65;
+      ctx.strokeStyle='#9e8e7c'; ctx.lineWidth=28; ctx.globalAlpha=0.72;
       dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
-      // grout lines as faint dashes
-      ctx.strokeStyle='rgba(20,15,28,0.38)'; ctx.lineWidth=2; ctx.globalAlpha=0.7; ctx.setLineDash([14,18]);
+      // dark grout seam dashes
+      ctx.strokeStyle='rgba(45,32,18,0.42)'; ctx.lineWidth=2; ctx.globalAlpha=0.75; ctx.setLineDash([14,18]);
       dirs.forEach(([dx,dy])=>{ ctx.beginPath(); ctx.moveTo(cxw-cam.x,cyw-cam.y); ctx.lineTo(cxw+dx*len-cam.x,cyw+dy*len-cam.y); ctx.stroke(); });
       ctx.setLineDash([]);
     } else {
