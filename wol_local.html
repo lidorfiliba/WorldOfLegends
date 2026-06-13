@@ -4716,7 +4716,7 @@ window.WOLNet = (function(){
 // Called from render() each frame; 2D canvas becomes transparent overlay
 // ═══════════════════════════════════════════════════════════════════════
 var _3D = (function(){
-  var _r=null,_s=null,_cam=null,_sun=null,_plLight=null;
+  var _r=null,_s=null,_cam=null,_sun=null,_plLight=null,_skyTex=null;
   var _terrain=null,_propGroup=null;
   var _playerMesh=null,_entityMap=new Map();
   var _worldId=null,_plClass=null,_plEvo=-1;
@@ -4730,8 +4730,11 @@ var _3D = (function(){
     return [(gx-cx)*SCALE, 0, (gy-cz)*SCALE];
   }
   function phong(hex,shin){
-    var k=hex+'|'+(shin||15);
-    if(!_matCache[k]) _matCache[k]=new THREE.MeshPhongMaterial({color:hex,shininess:shin||15});
+    // Use MeshStandardMaterial for PBR quality lighting (like BDO Mobile)
+    var rough=shin>60?0.25:shin>30?0.45:shin>15?0.65:0.80;
+    var metal=shin>50?0.15:0.0;
+    var k=hex+'|r'+rough+'|m'+metal;
+    if(!_matCache[k]) _matCache[k]=new THREE.MeshStandardMaterial({color:hex,roughness:rough,metalness:metal});
     return _matCache[k];
   }
 
@@ -4759,65 +4762,87 @@ var _3D = (function(){
     _r.shadowMap.enabled=true;
     _r.shadowMap.type=THREE.PCFSoftShadowMap;
     _r.toneMapping=THREE.ACESFilmicToneMapping;
-    _r.toneMappingExposure=1.35;
-    _r.setClearColor(0x78c8ea,1);
+    _r.toneMappingExposure=1.05;
+    // BDO-style gradient sky via CanvasTexture (works in all renderers incl. SwiftShader)
+    function makeSkyTex(top,mid,horizon){
+      var sc=document.createElement('canvas'); sc.width=2; sc.height=256;
+      var sx=sc.getContext('2d');
+      var grad=sx.createLinearGradient(0,0,0,256);
+      grad.addColorStop(0,top); grad.addColorStop(0.55,mid); grad.addColorStop(1,horizon);
+      sx.fillStyle=grad; sx.fillRect(0,0,2,256);
+      var tex=new THREE.CanvasTexture(sc); tex.needsUpdate=true; return tex;
+    }
+    _skyTex=makeSkyTex('#1c4a90','#4a9ad4','#a8d8f0');
+    _r.setClearColor(0xa8d8f0,1);
     _s=new THREE.Scene();
-    _s.background=new THREE.Color(0x78c8ea);
-    _s.fog=new THREE.FogExp2(0x78c8ea,0.0012);
-    _cam=new THREE.PerspectiveCamera(50,W/H,0.5,1500);
-    _s.add(new THREE.AmbientLight(0xffffff,0.80));
-    _sun=new THREE.DirectionalLight(0xfff0c8,2.2);
-    _sun.position.set(60,140,-50);
+    _s.background=_skyTex;
+    _s.fog=new THREE.FogExp2(0x90c8e0,0.0014);
+    _cam=new THREE.PerspectiveCamera(48,W/H,0.5,1400);
+    // Hemisphere light simulates sky/ground GI (huge improvement for natural look)
+    var hemi=new THREE.HemisphereLight(0x88ccff,0x336622,0.85);
+    _s.add(hemi);
+    _s.add(new THREE.AmbientLight(0xfff0e8,0.28));
+    // Sun: warm golden directional from upper-right (BDO style)
+    _sun=new THREE.DirectionalLight(0xffe8a0,1.9);
+    _sun.position.set(80,180,-60);
     _sun.castShadow=true;
-    _sun.shadow.mapSize.set(1024,1024);
+    _sun.shadow.mapSize.set(2048,2048);
     var sc=_sun.shadow.camera;
-    sc.left=sc.bottom=-180; sc.right=sc.top=180; sc.near=0.5; sc.far=500;
-    _sun.shadow.bias=-0.0015;
+    sc.left=sc.bottom=-200; sc.right=sc.top=200; sc.near=1; sc.far=600;
+    _sun.shadow.bias=-0.001; _sun.shadow.normalBias=0.02;
     _s.add(_sun); _s.add(_sun.target);
-    var fill=new THREE.DirectionalLight(0x6080ff,0.28);
-    fill.position.set(-60,80,40); _s.add(fill);
-    _plLight=new THREE.PointLight(0xffc870,3.0,90,2); _s.add(_plLight);
+    // Cool sky bounce fill
+    var fill=new THREE.DirectionalLight(0x80a8ff,0.25);
+    fill.position.set(-80,100,60); _s.add(fill);
+    // Rear rim for silhouette depth
+    var rim=new THREE.DirectionalLight(0xffc880,0.20);
+    rim.position.set(20,60,120); _s.add(rim);
+    _plLight=new THREE.PointLight(0xffc870,2.5,80,2); _s.add(_plLight);
     _propGroup=new THREE.Group(); _s.add(_propGroup);
     return true;
   }
 
-  // TERRAIN
+  // TERRAIN — BDO-quality multi-layer noise terrain with natural coloring
   function buildTerrain(wd){
     if(_terrain){_s.remove(_terrain);_terrain.geometry.dispose();_terrain.material.dispose();_terrain=null;}
     var WS=(wd.ww||8160)*SCALE, HS=(wd.wh||8160)*SCALE;
-    var SEGS=200;
+    var SEGS=220;
     var geo=new THREE.PlaneGeometry(WS,HS,SEGS,SEGS);
     geo.rotateX(-Math.PI/2);
     var pos=geo.attributes.position, N=pos.count;
     var col=new Float32Array(N*3);
+    // Per-tile color palette — saturated BDO-style colors [base, shadow, highlight, bumpScale]
     var TC={
-      grass:  {r1:0.36,g1:0.72,b1:0.16,r2:0.28,g2:0.62,b2:0.12,bmp:0.5},
-      forest: {r1:0.18,g1:0.50,b1:0.12,r2:0.13,g2:0.36,b2:0.09,bmp:1.0},
-      swamp:  {r1:0.22,g1:0.38,b1:0.14,r2:0.16,g2:0.28,b2:0.10,bmp:0.3},
-      stone:  {r1:0.42,g1:0.38,b1:0.46,r2:0.32,g2:0.28,b2:0.38,bmp:1.5},
-      castle: {r1:0.28,g1:0.18,b1:0.32,r2:0.20,g2:0.12,b2:0.24,bmp:0.2},
-      lava:   {r1:0.50,g1:0.16,b1:0.06,r2:0.38,g2:0.10,b2:0.04,bmp:0.8},
-      snow:   {r1:0.92,g1:0.95,b1:1.00,r2:0.84,g2:0.90,b2:0.96,bmp:0.4},
-      void:   {r1:0.10,g1:0.06,b1:0.20,r2:0.07,g2:0.04,b2:0.14,bmp:0.2},
-      inferno:{r1:0.55,g1:0.14,b1:0.06,r2:0.42,g2:0.08,b2:0.04,bmp:0.9},
-      celestial:{r1:0.14,g1:0.08,b1:0.48,r2:0.09,g2:0.05,b2:0.36,bmp:0.3},
+      grass:    {r1:0.14,g1:0.42,b1:0.06, r2:0.08,g2:0.26,b2:0.04, r3:0.22,g3:0.56,b3:0.10, bmp:0.7},
+      forest:   {r1:0.06,g1:0.28,b1:0.05, r2:0.04,g2:0.18,b2:0.03, r3:0.10,g3:0.38,b3:0.08, bmp:1.3},
+      swamp:    {r1:0.10,g1:0.22,b1:0.06, r2:0.06,g2:0.14,b2:0.03, r3:0.16,g3:0.30,b3:0.09, bmp:0.5},
+      stone:    {r1:0.30,g1:0.28,b1:0.32, r2:0.20,g2:0.18,b2:0.24, r3:0.40,g3:0.38,b3:0.44, bmp:1.8},
+      castle:   {r1:0.16,g1:0.10,b1:0.22, r2:0.10,g2:0.06,b2:0.14, r3:0.24,g3:0.16,b3:0.32, bmp:0.30},
+      lava:     {r1:0.38,g1:0.10,b1:0.02, r2:0.28,g2:0.05,b2:0.01, r3:0.52,g3:0.18,b3:0.04, bmp:1.1},
+      snow:     {r1:0.72,g1:0.78,b1:0.88, r2:0.58,g2:0.66,b2:0.78, r3:0.84,g3:0.88,b3:0.96, bmp:0.55},
+      void:     {r1:0.04,g1:0.02,b1:0.14, r2:0.02,g2:0.01,b2:0.09, r3:0.08,g3:0.04,b3:0.22, bmp:0.30},
+      inferno:  {r1:0.40,g1:0.08,b1:0.02, r2:0.28,g2:0.04,b2:0.01, r3:0.56,g3:0.14,b3:0.04, bmp:1.2},
+      celestial:{r1:0.06,g1:0.03,b1:0.32, r2:0.03,g2:0.01,b2:0.22, r3:0.10,g3:0.06,b3:0.44, bmp:0.40},
+      tundra:   {r1:0.48,g1:0.56,b1:0.68, r2:0.36,g2:0.44,b2:0.58, r3:0.60,g3:0.68,b3:0.78, bmp:0.60},
     };
     var tc=TC[wd.tile]||TC.grass;
     for(var i=0;i<N;i++){
       var wx=pos.getX(i), wz=pos.getZ(i);
-      var gx=Math.floor((wx+WS/2)/8)+7, gz=Math.floor((wz+HS/2)/8)+7;
-      var h=hashCell(gx,gz), h2=hashCell(gx+37,gz+59);
-      var t=h2;
-      var r=tc.r1*(1-t)+tc.r2*t+(h-0.5)*0.04;
-      var g=tc.g1*(1-t)+tc.g2*t+(h2-0.5)*0.04;
-      var b=tc.b1*(1-t)+tc.b2*t+(h-0.5)*0.02;
-      var axX=(wx+WS/2)-WS/2, axZ=(wz+HS/2)-HS/2;
-      if(Math.abs(axX)<3.2||Math.abs(axZ)<3.2){
-        r=0.42+h*0.08; g=0.36+h2*0.06; b=0.22+h*0.03;
-        pos.setY(i,0);
-      } else {
-        pos.setY(i,(h-0.5)*tc.bmp+(h2-0.5)*tc.bmp*0.4);
-      }
+      // multi-octave noise: coarse macro + medium detail + fine micro
+      var gx=Math.floor((wx+WS/2)/12)+3, gz=Math.floor((wz+HS/2)/12)+3;
+      var h0=hashCell(gx,gz);              // coarse macro shape
+      var h1=hashCell(gx*3+11,gz*3+17);   // medium bumps
+      var h2=hashCell(gx*7+43,gz*7+61);   // fine micro detail
+      var h3=hashCell(gx*2+5,gz*5+9);     // color variation layer
+      // blend between 3 palette levels for rich organic color
+      var t=h3*h3; // bias toward dark
+      var t2=h0;
+      var r=tc.r1*(1-t)*(1-t2)+tc.r2*t+tc.r3*t2*(1-t)+h1*0.035-0.018;
+      var g=tc.g1*(1-t)*(1-t2)+tc.g2*t+tc.g3*t2*(1-t)+h2*0.030-0.015;
+      var b=tc.b1*(1-t)*(1-t2)+tc.b2*t+tc.b3*t2*(1-t)+h1*0.018-0.009;
+      // height: layered bumps at multiple scales — NO axis-line paths
+      var bump = (h0-0.5)*tc.bmp*0.7 + (h1-0.5)*tc.bmp*0.22 + (h2-0.5)*tc.bmp*0.08;
+      pos.setY(i, bump);
       col[i*3]=Math.min(1,Math.max(0,r));
       col[i*3+1]=Math.min(1,Math.max(0,g));
       col[i*3+2]=Math.min(1,Math.max(0,b));
@@ -4825,7 +4850,14 @@ var _3D = (function(){
     pos.needsUpdate=true;
     geo.setAttribute('color',new THREE.BufferAttribute(col,3));
     geo.computeVertexNormals();
-    _terrain=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({vertexColors:true,emissive:0x112208,emissiveIntensity:0.3}));
+    // Use MeshStandardMaterial for PBR-quality lighting (like BDO)
+    var mat=new THREE.MeshStandardMaterial({
+      vertexColors:true,
+      roughness:0.88,
+      metalness:0.0,
+      envMapIntensity:0.4,
+    });
+    _terrain=new THREE.Mesh(geo,mat);
     _terrain.receiveShadow=true;
     _s.add(_terrain);
   }
@@ -5111,20 +5143,42 @@ var _3D = (function(){
       try{buildTerrain(wd);}catch(e){console.error('3D buildTerrain failed:',e);}
       try{buildProps(wd);}catch(e){console.error('3D buildProps failed:',e);}
       _worldId=wd.id;
-      var FC={grass:0x6aaa58,forest:0x3a6a2a,swamp:0x4a5a32,stone:0x5a5870,castle:0x382848,lava:0x804428,snow:0xa0b8d0,void:0x181028,inferno:0x661810,celestial:0x1a1240};
-      var SC={grass:0x78c8ea,forest:0x5a9a70,swamp:0x5a8050,stone:0x7888b0,castle:0x4a3860,lava:0xc05a30,snow:0xc0d0e8,void:0x18102a,inferno:0x882010,celestial:0x1a0e38};
-      var skyHex=SC[wd.tile]||0x78c8ea;
-      _s.fog.color.setHex(FC[wd.tile]||0x6aaa58);
-      _s.background.setHex(skyHex);
-      _r.setClearColor(skyHex,1);
+      // Per-biome sky + fog colors
+      var SKY={
+        grass:    ['#1c4a90','#4a9ad4','#a8d8f0', 0x90c8e0],
+        forest:   ['#0a2a18','#285a30','#6a9a60', 0x6a9a60],
+        swamp:    ['#0e2010','#2a4a20','#6a8050', 0x6a8050],
+        stone:    ['#1a2440','#3a4870','#7888b0', 0x7888b0],
+        castle:   ['#100818','#281840','#4a3860', 0x3a2850],
+        lava:     ['#3a0a04','#882010','#c05828', 0xa04820],
+        snow:     ['#3050a0','#6888cc','#b8d4e8', 0xb8d4e8],
+        void:     ['#04020a','#0c0820','#181028', 0x100820],
+        inferno:  ['#3a0a00','#7a1a06','#aa3010', 0x882010],
+        celestial:['#06020a','#120828','#2a1840', 0x1a0e38],
+        tundra:   ['#2040a0','#4878cc','#9ab0c8', 0x9ab0c8],
+      };
+      var sk=SKY[wd.tile]||SKY.grass;
+      _s.fog.color.setHex(sk[3]);
+      // Rebuild sky CanvasTexture gradient for this biome
+      if(_skyTex){_skyTex.dispose();}
+      var sc2=document.createElement('canvas'); sc2.width=2; sc2.height=256;
+      var sx2=sc2.getContext('2d');
+      var grad=sx2.createLinearGradient(0,0,0,256);
+      grad.addColorStop(0,sk[0]); grad.addColorStop(0.55,sk[1]); grad.addColorStop(1,sk[2]);
+      sx2.fillStyle=grad; sx2.fillRect(0,0,2,256);
+      _skyTex=new THREE.CanvasTexture(sc2); _skyTex.needsUpdate=true;
+      _s.background=_skyTex;
+      // Update hemisphere light colors
+      _s.children.forEach(function(c){ if(c.isHemisphereLight){ c.color.setHex(sk[3]); c.groundColor.setHex(sk[3]&0x444444); } });
     }
-    _sun.intensity=G._isNight?0.4:2.2;
-    _s.children.forEach(function(c){if(c.isAmbientLight)c.intensity=G._isNight?0.40:0.80;});
+    var isNight=G._isNight||false;
+    _sun.intensity=isNight?0.35:2.6;
+    _s.children.forEach(function(c){if(c.isAmbientLight)c.intensity=isNight?0.35:0.95;});
     var pos=updatePlayer(p,G);
     updateEntities(G);
     _cam.aspect=W/H; _cam.updateProjectionMatrix();
-    _cam.position.set(pos[0],50,pos[2]+52);
-    _cam.lookAt(pos[0],0,pos[2]-8);
+    _cam.position.set(pos[0],28,pos[2]+46);
+    _cam.lookAt(pos[0],0,pos[2]-20);
     _r.render(_s,_cam);
   }
   function screenPos(wx,wy,wd,W,H){
