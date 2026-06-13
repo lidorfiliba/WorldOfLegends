@@ -4777,7 +4777,7 @@ var _3D = (function(){
     _s=new THREE.Scene();
     _s.background=_skyTex;
     _s.fog=new THREE.FogExp2(0x90c8e0,0.0014);
-    _cam=new THREE.PerspectiveCamera(48,W/H,0.5,1400);
+    _cam=new THREE.PerspectiveCamera(42,W/H,0.5,1400);
     // Hemisphere light simulates sky/ground GI (huge improvement for natural look)
     var hemi=new THREE.HemisphereLight(0x88ccff,0x336622,0.85);
     _s.add(hemi);
@@ -5396,8 +5396,11 @@ var _3D = (function(){
     var pos=updatePlayer(p,G);
     updateEntities(G);
     _cam.aspect=W/H; _cam.updateProjectionMatrix();
-    _cam.position.set(pos[0],28,pos[2]+46);
-    _cam.lookAt(pos[0],0,pos[2]-20);
+    // Close cinematic chase camera (BDO Mobile style) — player fills a good chunk of frame.
+    // On tall portrait screens, pull back a touch so the player isn't cropped.
+    var aspect=W/H, back=aspect<0.7?30:24, high=aspect<0.7?20:16;
+    _cam.position.set(pos[0],high,pos[2]+back);
+    _cam.lookAt(pos[0],5.5,pos[2]-3);
     _r.render(_s,_cam);
   }
   function screenPos(wx,wy,wd,W,H){
