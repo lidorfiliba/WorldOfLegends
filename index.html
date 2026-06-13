@@ -10186,16 +10186,15 @@ function App(){
         // emoji + name + level
         ctx.font='40px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.globalAlpha = locked?0.55:1; ctx.fillText(pt.w.emoji, gx, gy); ctx.globalAlpha=1;
-        ctx.font='bold 15px Heebo,sans-serif'; ctx.fillStyle=col;
-        const _pnw=ctx.measureText(pt.w.name).width;
-        ctx.fillStyle='rgba(0,0,0,0.75)';
-        ctx.beginPath(); ctx.roundRect(gx-_pnw/2-8, gy-62, _pnw+16, 22, 6); ctx.fill();
-        ctx.fillStyle=col; ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.lineWidth=3;
+        ctx.font='bold 15px sans-serif'; ctx.fillStyle=col;
+        ctx.shadowColor='rgba(0,0,0,1)'; ctx.shadowBlur=6;
+        ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=4;
         ctx.strokeText(pt.w.name, gx, gy-45); ctx.fillText(pt.w.name, gx, gy-45);
-        ctx.font='bold 13px Heebo,sans-serif'; ctx.fillStyle=locked?'#ff9a9a':'#cfe9ff';
+        ctx.font='bold 13px sans-serif'; ctx.fillStyle=locked?'#ff9a9a':'#cfe9ff';
         const lbl = locked?`🔒 רמה ${pt.w.reqLv}`:`רמה ${pt.w.reqLv}+`;
         ctx.strokeText(lbl, gx, gy+42); ctx.fillText(lbl, gx, gy+42);
-        if(near && !locked){ ctx.fillStyle='#fff'; ctx.font='bold 13px Heebo,sans-serif'; ctx.fillText('▶ הִכנס', gx, gy+58); }
+        ctx.shadowBlur=0;
+        if(near && !locked){ ctx.fillStyle='#fff'; ctx.font='bold 13px sans-serif'; ctx.fillText('▶ הִכנס', gx, gy+58); }
         ctx.textBaseline='alphabetic'; ctx.textAlign='left';
       });
       npcs.forEach(npc=>{
@@ -10213,13 +10212,12 @@ function App(){
         ctx.font='34px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
         ctx.fillText(npc.emoji, nx, ny);
         // name
-        ctx.font='bold 15px Heebo,sans-serif';
-        const _nmw=ctx.measureText(npc.name).width;
-        ctx.fillStyle='rgba(0,0,0,0.82)';
-        ctx.beginPath(); ctx.roundRect(nx-_nmw/2-8, ny-50, _nmw+16, 22, 6); ctx.fill();
-        ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,0.95)'; ctx.lineWidth=4;
+        ctx.font='bold 15px sans-serif';
+        ctx.shadowColor='rgba(0,0,0,1)'; ctx.shadowBlur=6;
+        ctx.fillStyle='#ffffff'; ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=4;
         ctx.strokeText(npc.name, nx, ny-33); ctx.fillText(npc.name, nx, ny-33);
-        if(near){ ctx.fillStyle='#ffee88'; ctx.font='bold 13px Heebo,sans-serif'; ctx.strokeText('▶ לחץ לפתיחה', nx, ny+38); ctx.fillText('▶ לחץ לפתיחה', nx, ny+38); }
+        ctx.shadowBlur=0;
+        if(near){ ctx.fillStyle='#ffee88'; ctx.font='bold 13px sans-serif'; ctx.strokeText('▶ לחץ לפתיחה', nx, ny+38); ctx.fillText('▶ לחץ לפתיחה', nx, ny+38); }
         ctx.textBaseline='alphabetic'; ctx.textAlign='left';
       });
     }
@@ -10234,10 +10232,12 @@ function App(){
       ctx.fillStyle=grd; ctx.beginPath(); ctx.arc(gx,gy,g.r,0,Math.PI*2); ctx.fill();
       ctx.strokeStyle=SP.withAlpha('#aaffdd',pulse); ctx.lineWidth=3;
       ctx.beginPath(); ctx.arc(gx,gy,g.r*(0.7+Math.sin(now/300)*0.2),0,Math.PI*2); ctx.stroke();
-      ctx.font='bold 15px Heebo,sans-serif'; ctx.textAlign='center';
-      const _gw=ctx.measureText('→ אזור הבא').width;
-      ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.beginPath(); ctx.roundRect(gx-_gw/2-8, gy-g.r-30, _gw+16, 22, 5); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.fillText('→ אזור הבא', gx, gy-g.r-13); ctx.textAlign='left';
+      ctx.font='bold 15px sans-serif'; ctx.textAlign='center';
+      ctx.shadowColor='rgba(0,0,0,1)'; ctx.shadowBlur=6;
+      ctx.fillStyle='#fff'; ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=4;
+      ctx.strokeText('→ אזור הבא', gx, gy-g.r-13);
+      ctx.fillText('→ אזור הבא', gx, gy-g.r-13);
+      ctx.shadowBlur=0; ctx.textAlign='left';
     }
 
     // ── OBJECTIVE ARROW: points toward the current goal so the player never gets lost.
@@ -10754,11 +10754,12 @@ function App(){
         // name + level (party members in green, enemies in red on PvP maps)
         const isParty = myParty && peer.partyId===myParty;
         const isPvp = G.worldDef && G.worldDef.pvp;
-        ctx.font='bold 14px Heebo,sans-serif'; ctx.textAlign='center';
+        ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
         ctx.fillStyle = isParty ? '#5aff8a' : (isPvp ? '#ff6a6a' : '#ffe0a0');
-        ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.lineWidth=3;
+        ctx.shadowColor='rgba(0,0,0,1)'; ctx.shadowBlur=6;
+        ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=4;
         const label=`${peer.name} [${peer.level}]`;
-        ctx.strokeText(label, px, py-44); ctx.fillText(label, px, py-44);
+        ctx.strokeText(label, px, py-44); ctx.fillText(label, px, py-44); ctx.shadowBlur=0;
         // peer title (above name) + guild tag
         if(peer.title){
           ctx.font='bold 12px Heebo';
@@ -10831,9 +10832,9 @@ function App(){
       ctx.lineWidth=3; ctx.beginPath(); ctx.arc(p.x-cam.x, p.y-cam.y, 38, 0, Math.PI*2); ctx.stroke(); ctx.restore();
     }
     // player name
-    ctx.font='bold 14px Cinzel'; ctx.textAlign='center';
-    ctx.fillStyle='#ffd24a'; ctx.shadowColor='#000'; ctx.shadowBlur=6;
-    ctx.strokeStyle='rgba(0,0,0,0.9)'; ctx.lineWidth=3;
+    ctx.font='bold 15px sans-serif'; ctx.textAlign='center';
+    ctx.shadowColor='rgba(0,0,0,1)'; ctx.shadowBlur=7;
+    ctx.fillStyle='#ffd24a'; ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth=4;
     ctx.strokeText(p.name, p.x-cam.x, p.y-cam.y-46);
     ctx.fillText(p.name, p.x-cam.x, p.y-cam.y-46); ctx.shadowBlur=0;
     // player title (above name)
