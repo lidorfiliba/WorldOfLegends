@@ -3237,9 +3237,16 @@ function drawPlayer(ctx, sx, sy, classId, moving, t, facing, evoStage, wings, co
     ctx.restore();
   }
 
-  // shadow
-  ctx.fillStyle='rgba(0,0,0,0.35)';
-  ctx.beginPath(); ctx.ellipse(0,s*1.4,s*0.5,s*0.15,0,0,Math.PI*2); ctx.fill();
+  // shadow — soft contact shadow (gradient falloff reads far better than a flat ellipse)
+  {
+    const sg = ctx.createRadialGradient(0, s*1.4, 0, 0, s*1.4, s*0.62);
+    sg.addColorStop(0, 'rgba(0,0,0,0.42)');
+    sg.addColorStop(0.6, 'rgba(0,0,0,0.22)');
+    sg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.save(); ctx.scale(1, 0.3); ctx.fillStyle=sg;
+    ctx.beginPath(); ctx.arc(0, s*1.4/0.3, s*0.62, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  }
 
   // ══ DRAGON RIDER — a living dragon coils behind the rider: huge flapping wings,
   //    a curling spiked tail, and a horned head with a glowing maw. Brightens with
@@ -4932,6 +4939,46 @@ function App(){
   if(window.MUSIC){ if(hudCfg.music === 'off') window.MUSIC.stop(); else { window.MUSIC._want = (screen==='game'); if(screen==='game' && !window.MUSIC.on) window.MUSIC.start(); } }
   // Dodge button can be freely repositioned (drag in edit mode); position saved per device.
   const [dodgeXY, setDodgeXY] = useState(hudCfg.dodgePos || null);
+  // ── HUD LAYOUT EDITOR: every major HUD element can be dragged to a custom spot.
+  //    Offsets are stored per-element in hudCfg.layout and saved to localStorage, so
+  //    each player arranges the screen to their comfort. "Reset" clears them all. ──
+  const [hudEdit, setHudEdit] = useState(false);
+  const hudLayout = hudCfg.layout || {};
+  const hudDrag = useRef(null);
+  // returns the saved offset {x,y} for an element key (or 0,0)
+  const hudOff = (key)=>{ const o=hudLayout[key]; return o ? {x:o.x||0, y:o.y||0} : {x:0,y:0}; };
+  // wrap an element so it becomes draggable in edit mode and shifted by its saved offset
+  const moveProps = (key)=>{
+    const off = hudOff(key);
+    const onDown = (e)=>{
+      if(!hudEdit) return;
+      e.preventDefault(); e.stopPropagation();
+      const t = e.touches ? e.touches[0] : e;
+      hudDrag.current = { key, sx:t.clientX, sy:t.clientY, ox:off.x, oy:off.y };
+    };
+    return {
+      style: { transform:`translate(${off.x}px, ${off.y}px)`, ...(hudEdit?{outline:'2px dashed #ffd24a', outlineOffset:2, cursor:'move', pointerEvents:'auto'}:{}) },
+      onTouchStart:onDown, onMouseDown:onDown,
+      'data-hudkey':key,
+    };
+  };
+  // global drag listeners while editing
+  useEffect(()=>{
+    if(!hudEdit) return;
+    const move = (e)=>{
+      const d = hudDrag.current; if(!d) return;
+      const t = e.touches ? e.touches[0] : e;
+      const nx = d.ox + (t.clientX - d.sx), ny = d.oy + (t.clientY - d.sy);
+      setHudCfg(prev=>{ const layout={...(prev.layout||{})}; layout[d.key]={x:Math.round(nx), y:Math.round(ny)}; const n={...prev, layout}; return n; });
+    };
+    const up = ()=>{ if(hudDrag.current){ hudDrag.current=null; setHudCfg(prev=>{ try{ localStorage.setItem('wol_hud', JSON.stringify(prev)); }catch(e){} return prev; }); } };
+    window.addEventListener('touchmove', move, {passive:false});
+    window.addEventListener('mousemove', move);
+    window.addEventListener('touchend', up);
+    window.addEventListener('mouseup', up);
+    return ()=>{ window.removeEventListener('touchmove', move); window.removeEventListener('mousemove', move); window.removeEventListener('touchend', up); window.removeEventListener('mouseup', up); };
+  }, [hudEdit]);
+  const resetHudLayout = ()=>{ setHudCfg(prev=>{ const n={...prev}; delete n.layout; delete n.dodgePos; try{ localStorage.setItem('wol_hud', JSON.stringify(n)); }catch(e){} return n; }); setDodgeXY(null); };
   // ── SKILL WHEEL: rotation (deg). Basic attack sits at the hub; skills ride a
   //    half-circle arc around it; dragging the arc (or the arrows) reveals more. ──
   const [wheelRot, setWheelRot] = useState(0);
@@ -9637,10 +9684,14 @@ function App(){
       }
       // slow/frozen tint
       if(now<m.slowT){ ctx.save(); ctx.globalAlpha=0.4; ctx.fillStyle='#33ccff'; ctx.beginPath(); ctx.arc(ix,iy,m.size*0.9,0,Math.PI*2); ctx.fill(); ctx.restore(); }
-      // ground shadow (depth)
-      ctx.save(); ctx.globalAlpha=0.28; ctx.fillStyle='#000';
-      ctx.beginPath(); ctx.ellipse(ix, iy+m.size*0.82, m.size*0.62, m.size*0.22, 0, 0, Math.PI*2); ctx.fill();
-      ctx.restore();
+      // ground shadow (depth) — soft gradient contact shadow
+      { ctx.save();
+        const msg = ctx.createRadialGradient(ix, iy+m.size*0.82, 0, ix, iy+m.size*0.82, m.size*0.72);
+        msg.addColorStop(0,'rgba(0,0,0,0.34)'); msg.addColorStop(0.6,'rgba(0,0,0,0.18)'); msg.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.translate(ix, iy+m.size*0.82); ctx.scale(1,0.3); ctx.fillStyle=msg;
+        ctx.beginPath(); ctx.arc(0,0,m.size*0.72,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+      }
       // hurt flash (red tint via composite)
       const hurt = now<m.hurtT;
       if(m._worldBoss){
@@ -10092,7 +10143,7 @@ function App(){
         const prevSmooth = ctx.imageSmoothingEnabled;
         ctx.save();
         ctx.globalCompositeOperation='lighter';
-        ctx.globalAlpha = (_gfx==='high') ? 0.62 : 0.40;
+        ctx.globalAlpha = (_gfx==='ultra') ? 0.72 : (_gfx==='high') ? 0.62 : 0.40;
         ctx.imageSmoothingEnabled = true;
         ctx.drawImage(G._bloomB, 0,0,bw,bh, 0,0,W,H);           // upscale = soft glow, added on top
         ctx.restore();
@@ -10103,11 +10154,44 @@ function App(){
       if(wd && wd.bg){
         ctx.save();
         ctx.globalCompositeOperation='soft-light';
-        ctx.globalAlpha = (_gfx==='high') ? 0.32 : 0.20;
+        ctx.globalAlpha = (_gfx==='high'||_gfx==='ultra') ? 0.32 : 0.20;
         const tg = ctx.createRadialGradient(W/2, H*0.42, 0, W/2, H/2, Math.max(W,H)*0.72);
         tg.addColorStop(0, SP.lighten(wd.bg, 28));
         tg.addColorStop(1, SP.darken(wd.bg, 22));
         ctx.fillStyle = tg; ctx.fillRect(0,0,W,H);
+        ctx.restore();
+      }
+
+      // ── ULTRA: floating dust motes / light particles drifting in the air for depth,
+      //    plus a warm/cool color-grade that gives the frame a cohesive cinematic look. ──
+      if(_gfx==='ultra'){
+        // atmospheric dust — slow-drifting specks lit by the scene, parallax with camera
+        ctx.save();
+        ctx.globalCompositeOperation='lighter';
+        const dustN = 46;
+        for(let i=0;i<dustN;i++){
+          const seed = i*97.13;
+          const baseX = (seed*53.7) % (W+120) - 60;
+          const baseY = (seed*31.9) % (H+120) - 60;
+          const drift = now/3200;
+          const dx = (baseX + Math.sin(drift + i)*26 - cam.x*0.04) % (W+120);
+          const dy = (baseY + Math.cos(drift*0.8 + i*1.3)*20 - cam.y*0.04) % (H+120);
+          const px = (dx+W+120)%(W+120)-60, py=(dy+H+120)%(H+120)-60;
+          const tw = 0.25 + 0.5*Math.abs(Math.sin(now/900 + i));
+          const sz = 0.8 + (i%3)*0.7;
+          ctx.globalAlpha = tw*0.5;
+          ctx.fillStyle = i%4===0 ? '#ffe9c0' : (i%4===1 ? '#c0d8ff' : '#ffffff');
+          ctx.beginPath(); ctx.arc(px, py, sz, 0, Math.PI*2); ctx.fill();
+        }
+        ctx.restore();
+        // cinematic color grade: lift shadows toward teal, push highlights warm
+        ctx.save();
+        ctx.globalCompositeOperation='soft-light';
+        ctx.globalAlpha=0.18;
+        const cgrad=ctx.createLinearGradient(0,0,0,H);
+        cgrad.addColorStop(0,'#2a3a55');   // cool top
+        cgrad.addColorStop(1,'#3a2a18');   // warm bottom
+        ctx.fillStyle=cgrad; ctx.fillRect(0,0,W,H);
         ctx.restore();
       }
     }
@@ -10986,7 +11070,7 @@ function App(){
         <div className="title-bg"></div>
         <span className="logo-sword">⚔️</span>
         <h1 className="logo">WORLD OF<br/>LEGENDS</h1>
-        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v39 · בוס עולם יומי ענק + זירה</p>
+        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v41 · שדרוג גרפי — אולטרה + צללים רכים</p>
         <div className="login-box">
           <div className="login-tabs">
             <div className={'login-tab'+(loginMode==='login'?' active':'')} onClick={()=>{setLoginMode('login');setLoginMsg('');}}>התחברות</div>
@@ -11052,7 +11136,7 @@ function App(){
         </div>
         <span className="logo-sword">⚔️</span>
         <h1 className="logo">WORLD OF<br/>LEGENDS</h1>
-        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v39 · בוס עולם יומי ענק + זירה</p>
+        <p className="logo-sub">עולם האגדות</p><p style={{fontSize:"0.6rem",color:"#5a8",textAlign:"center",marginTop:"-28px",marginBottom:"20px"}}>v41 · שדרוג גרפי — אולטרה + צללים רכים</p>
         <div className="char-slots">
           {accountChars().slice(0,4).map((c,i)=>(
             <div key={i} className={'char-slot'+(c?' filled':'')}>
@@ -11145,6 +11229,18 @@ function App(){
       <canvas ref={canvasRef}></canvas>
       <ConnectingOverlay />
 
+      {/* ── HUD EDIT MODE banner: drag any outlined element; tap done to save ── */}
+      {hudEdit && (
+        <div style={{position:'absolute',top:'env(safe-area-inset-top,8px)',left:'50%',transform:'translateX(-50%)',zIndex:200,background:'linear-gradient(135deg,#2a2010,#1a1408)',border:'2px solid #ffd24a',borderRadius:12,padding:'8px 12px',textAlign:'center',boxShadow:'0 4px 20px #000a',pointerEvents:'auto',maxWidth:'92vw'}}>
+          <div style={{fontSize:'0.78rem',color:'#ffd24a',fontWeight:800}}>🎛️ מצב עריכת פריסה</div>
+          <div style={{fontSize:'0.62rem',color:'#cfc4a8',margin:'3px 0 7px'}}>גרור כל חלק מודגש למקום הרצוי. הפריסה נשמרת אוטומטית.</div>
+          <div style={{display:'flex',gap:6,justifyContent:'center'}}>
+            <button className="btn" style={{background:'#2a8a4a',border:'1px solid #5aff8a',fontWeight:800,fontSize:'0.74rem',padding:'6px 16px'}} onClick={()=>setHudEdit(false)}>✓ סיום ושמירה</button>
+            <button className="btn" style={{background:'#5a2a2a',border:'1px solid #aa4a4a',color:'#ffaaaa',fontSize:'0.74rem',padding:'6px 12px'}} onClick={()=>{ if(confirm('לאפס את הפריסה לברירת המחדל?')){ resetHudLayout(); } }}>↺ איפוס</button>
+          </div>
+        </div>
+      )}
+
       {/* zone tag */}
       <div className="zone-tag">{wd.emoji} {wd.name}</div>
 
@@ -11211,8 +11307,23 @@ function App(){
                   opts={[{v:'right',l:'➡️ ימין'},{v:'left',l:'⬅️ שמאל'}]}/>
                 <Row label="גודל כפתורים" val={hudScale} onPick={v=>setHud({scale:v})}
                   opts={[{v:'s',l:'קטן'},{v:'m',l:'בינוני'},{v:'l',l:'גדול'}]}/>
+                {/* ── FULL HUD LAYOUT EDITOR: drag every element anywhere on screen ── */}
+                <div style={{margin:'10px 0 14px',padding:'10px',background:'linear-gradient(135deg,#2a2010,#1a1408)',border:'1px solid #6a5424',borderRadius:10}}>
+                  <div style={{fontSize:'0.78rem',color:'#ffd24a',fontWeight:800,marginBottom:4}}>🎛️ עריכת פריסת המסך</div>
+                  <div style={{fontSize:'0.64rem',color:'#bfae88',marginBottom:8,lineHeight:1.5}}>הזז כל חלק במסך לאן שנוח לך — מתקפות, מכה רגילה, ג׳ויסטיק, מפה, לוג ועוד. הפריסה נשמרת אוטומטית במכשיר שלך.</div>
+                  <div style={{display:'flex',gap:6}}>
+                    <button className="btn" style={{flex:1,background:hudEdit?'#2a8a4a':'linear-gradient(135deg,#7a5a1a,#5a4012)',border:'1px solid #ffd24a',fontWeight:800,fontSize:'0.74rem',padding:'8px'}}
+                      onClick={()=>{ const on=!hudEdit; setHudEdit(on); if(on) setShowSettings(false); }}>
+                      {hudEdit?'✓ סיים עריכה':'✏️ ערוך פריסה'}
+                    </button>
+                    <button className="btn" style={{background:'#5a2a2a',border:'1px solid #aa4a4a',color:'#ffaaaa',fontSize:'0.74rem',padding:'8px 12px'}}
+                      onClick={()=>{ if(confirm('לאפס את פריסת המסך לברירת המחדל?')){ resetHudLayout(); showToast('🎛️ הפריסה אופסה', '#5aff8a'); } }}>
+                      ↺ איפוס
+                    </button>
+                  </div>
+                </div>
                 <Row label="✨ איכות גרפית (זוהר, אווירה)" val={hudCfg.gfx||'normal'} onPick={v=>setHud({gfx:v})}
-                  opts={[{v:'off',l:'חיסכון'},{v:'normal',l:'רגיל'},{v:'high',l:'🌟 גבוה'}]}/>
+                  opts={[{v:'off',l:'חיסכון'},{v:'normal',l:'רגיל'},{v:'high',l:'🌟 גבוה'},{v:'ultra',l:'💎 אולטרה'}]}/>
                 <Row label="🎵 מוזיקת רקע" val={hudCfg.music||'on'} onPick={v=>setHud({music:v})}
                   opts={[{v:'on',l:'פועלת'},{v:'off',l:'כבויה'}]}/>
                 <Row label="🗣️ קריאות קרב (קול)" val={hudCfg.voice||'on'} onPick={v=>setHud({voice:v})}
@@ -11318,7 +11429,7 @@ function App(){
         );
       })()}
 
-      <div className="hud hud-tl">
+      <div className="hud hud-tl" {...moveProps("playerFrame")}>
         <div className="pf">
           <div className="pf-top">
             <span className="pf-name">
@@ -11389,7 +11500,7 @@ function App(){
       </div>
 
       {/* TOP RIGHT: gold + minimap */}
-      <div className="hud hud-tr">
+      <div className="hud hud-tr" {...moveProps("topRight")}>
         <div style={{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap',justifyContent:'flex-end',maxWidth:'42vw'}}>
           <button className="mini-btn" style={{pointerEvents:'all',padding:'4px 8px'}} onClick={()=>{ const m=!(window.SOUND&&window.SOUND.isMuted()); window.SOUND&&window.SOUND.setMuted(m); setMuted(m); }} title="סאונד">{muted?'🔇':'🔊'}</button>
           <button className="mini-btn" style={{pointerEvents:'all',padding:'4px 8px',borderColor:'#ffd24a',color:'#ffd24a',...(p&&!p.seenHub?{animation:'ptsPulse 1.5s infinite'}:{})}} onClick={()=>{ if(p&&!p.seenHub){ p.seenHub=true; E.save&&E.save(p); } setModal('activities'); }} title="כל הפעילויות">🎮</button>
@@ -11497,12 +11608,12 @@ function App(){
       })()}
 
       {/* COMBAT LOG */}
-      <div className="clog">
+      <div className="clog" {...moveProps("combatLog")}>
         {G.log.slice(-7).map((l,i)=><div key={i} className={l.cls}>{l.msg}</div>)}
       </div>
 
       {/* TOP MENU BUTTONS */}
-      <div className="btm">
+      <div className="btm" {...moveProps("bottomBar")}>
         <div className="btn-bar">
           <button className="mini-btn" onClick={()=>setModal('inventory')}>🎒 תיק</button>
           <button className="mini-btn" onClick={()=>setModal('equip')}>🛡️ ציוד</button>
@@ -11552,8 +11663,10 @@ function App(){
 
       {/* JOYSTICK */}
       <div className="joy-base" ref={joyRef}
-        onTouchStart={e=>{ if(window.SOUND){window.SOUND.resume();window.SOUND.startAmbient();} onJoyStart(e); }} onTouchMove={onJoyMove} onTouchEnd={onJoyEnd} onTouchCancel={onJoyEnd}
-        onMouseDown={onJoyStart}>
+        style={{transform:`translate(${hudOff('joystick').x}px, ${hudOff('joystick').y}px)`, ...(hudEdit?{outline:'2px dashed #ffd24a',outlineOffset:2,zIndex:120}:{})}}
+        data-hudkey="joystick"
+        onTouchStart={e=>{ if(hudEdit){ const t=e.touches[0]; e.preventDefault(); e.stopPropagation(); hudDrag.current={key:'joystick',sx:t.clientX,sy:t.clientY,ox:hudOff('joystick').x,oy:hudOff('joystick').y}; return; } if(window.SOUND){window.SOUND.resume();window.SOUND.startAmbient();} onJoyStart(e); }} onTouchMove={e=>{ if(!hudEdit) onJoyMove(e); }} onTouchEnd={e=>{ if(!hudEdit) onJoyEnd(e); }} onTouchCancel={e=>{ if(!hudEdit) onJoyEnd(e); }}
+        onMouseDown={e=>{ if(hudEdit){ e.preventDefault(); e.stopPropagation(); hudDrag.current={key:'joystick',sx:e.clientX,sy:e.clientY,ox:hudOff('joystick').x,oy:hudOff('joystick').y}; return; } onJoyStart(e); }}>
         <div className="joy-stick"></div>
       </div>
 
@@ -11599,9 +11712,10 @@ function App(){
         const dragEnd = ()=>{ if(!wheelDrag.current) return; wheelDrag.current=null; setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP))); };
         const page = (dir)=>{ setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP + dir*STEP*2))); };
         return (
-        <div className="atk-zone" style={{width:zoneW, height:zoneH, display:'block', touchAction:'none'}}
-          onPointerDown={dragStart} onPointerMove={dragMove} onPointerUp={dragEnd} onPointerCancel={dragEnd} onPointerLeave={dragEnd}
-          onWheel={e=>{ e.preventDefault(); setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP + (e.deltaY>0?STEP:-STEP)))); }}>
+        <div className="atk-zone" style={{width:zoneW, height:zoneH, display:'block', touchAction:'none', transform:`translate(${hudOff('skillWheel').x}px, ${hudOff('skillWheel').y}px)`, ...(hudEdit?{outline:'2px dashed #ffd24a',outlineOffset:2,zIndex:120}:{})}}
+          data-hudkey="skillWheel"
+          onPointerDown={e=>{ if(hudEdit){ e.preventDefault(); e.stopPropagation(); hudDrag.current={key:'skillWheel',sx:e.clientX,sy:e.clientY,ox:hudOff('skillWheel').x,oy:hudOff('skillWheel').y}; return; } dragStart(e); }} onPointerMove={e=>{ if(!hudEdit) dragMove(e); }} onPointerUp={e=>{ if(!hudEdit) dragEnd(e); }} onPointerCancel={e=>{ if(!hudEdit) dragEnd(e); }} onPointerLeave={e=>{ if(!hudEdit) dragEnd(e); }}
+          onWheel={e=>{ if(hudEdit) return; e.preventDefault(); setWheelRot(rr=>Math.max(0, Math.min(maxRot, Math.round(rr/STEP)*STEP + (e.deltaY>0?STEP:-STEP)))); }}>
           {/* faint guide arc so the wheel reads as a wheel */}
           {N>0 && <svg width={zoneW} height={zoneH} style={{position:'absolute',inset:0,pointerEvents:'none',opacity:0.35}}>
             <path d={(()=>{ const p1=pos(A0-8), p2=pos(A0+SPAN+8); return `M ${p1.x} ${p1.y} A ${R} ${R} 0 0 ${xSign>0?0:1} ${p2.x} ${p2.y}`; })()}
@@ -12562,6 +12676,7 @@ function HelpPanel(){
       '🎮 הכפתור למעלה פותח את כל הפעילויות במשחק במקום אחד — כולל שירותי עיר עם השתגרות בלחיצה.',
       '👴 סיפור העולם: דבר עם הזקן המספר בעיר (👴) לסצנת דיאלוג קולנועית בסגנון Dragon Nest — 12 פרקים עד רמה 250, כל פרק עם פרס עצום שמקדם את העלילה.',
       '🌀 העיר היא עולם-על לטיול: כל אזורי הקרב הם פורטלים זוהרים ◆ סביב העיר — פשוט לך אליהם והיכנס! החץ הצהוב מצביע על הפורטל הבא שלך, והמפה המוגדלת מאפשרת להקיש על פורטל כדי לטוס אליו ישירות.',
+      '🎛️ עיצוב המסך: בהגדרות ⚙️ → "ערוך פריסה" אפשר לגרור כל חלק במסך (מתקפות, מכה רגילה, ג׳ויסטיק, מפה, לוג ועוד) לאן שנוח לך. הפריסה נשמרת אוטומטית, ואפשר לאפס בכל רגע.',
       '👹 בוס העולם: ענק אדיר שמופיע כל יום ב-20:00 בזירה העגולה הייעודית (👹 בעיר). יש לו מיליוני חיים — צריך קבוצה גדולה (5+ שחקנים עם ציוד קצה או 20-30 רגילים) כדי להפילו! הוא נשאר עד שמישהו יהרוג אותו, וטיימר בצד המסך סופר לקראת ההופעה הבאה.',
       '🎭 לכל מחלקה מהלכים משלה: רק לוחם קופץ לירח! פלאדין מוריד פטיש מהשמיים, מתנקש מטלפט וחותך, רוכב צולל בלהבות. גם הריצות שונות: הסתערות כתף / גלגול רוח / בליק / משב כנפיים / צעד צל.',
       '⚡ באפים (סגנון Dragon Nest): לכל מחלקה עמדה ייחודית — זעם (לוחם), האצת זמן (קוסם), ריכוז צלף (קשת), מגן אלוהי (פלאדין), מעטה צללים (מתנקש), דם הדרקון (רוכב, גניבת חיים!).',
