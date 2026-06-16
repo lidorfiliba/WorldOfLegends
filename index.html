@@ -570,10 +570,31 @@ const CLASSES = [
     startSkills:['dragon_claw','dragon_breath'],
     hpBase:115, mpBase:95,
   },
+  {
+    id:'roseking', name:'מלך הוורדים', emoji:'🌹',
+    color:'#e23a6e', glow:'#ff6a9a',
+    desc:'אדון הוורדים והקוצים. מפזר עלי כותרת קטלניים, פורח בקרב ומתפוצץ בוורד ענק — יפהפה וקטלני.',
+    base:{str:9, agi:10, int:12, vit:9},
+    growth:{str:1.6, agi:2.0, int:2.6, vit:1.8},
+    startSkills:['thorn_lash','petal_burst'],
+    hpBase:95, mpBase:100,
+  },
 ];
 
 // ── SKILLS (lots of them, buyable) ──
 const SKILLS = {
+  // ── 🌹 ROSE KING — petals, blooms, thorns and a giant rose explosion ──
+  thorn_lash:     {name:'שוט קוצים', emoji:'🥀', dmg:1.8, mp:7, cd:650, type:'melee', range:108, fx:'thornwhip', color:'#e23a5e', desc:'שוט קוצים מהיר שחותך לרוחב', cls:'roseking', price:0, reqLv:1},
+  petal_burst:    {name:'מטח עלי כותרת', emoji:'🌸', dmg:2.3, mp:15, cd:1400, type:'proj', speed:430, fx:'rosebolt', aoe:80, color:'#ff5a8a', desc:'יורה מטח עלי כותרת חדים שמתפוצץ', cls:'roseking', price:0, reqLv:1},
+  rose_bloom:     {name:'פריחת ורד', emoji:'🌹', dmg:3.4, mp:26, cd:3400, type:'aoe', range:150, fx:'rosebloom', color:'#e6325e', desc:'ורד ענק פורח ומתפוצץ בעלי כותרת', cls:'roseking', price:900, reqLv:8},
+  thorn_vines:    {name:'שורשי קוצים', emoji:'🌿', dmg:2.6, mp:34, cd:4200, type:'aoe', range:175, fx:'thornring', cc:'stagger', color:'#3a8a4e', desc:'קוצים פורצים מהאדמה ואוחזים אויבים', cls:'roseking', price:1800, reqLv:14},
+  crimson_dance:  {name:'ריקוד הארגמן', emoji:'💃', dmg:4.4, mp:40, cd:4800, type:'dash', range:230, fx:'petaltrail', color:'#ff2e6e', desc:'ריקוד מהיר דרך האויבים, מותיר שובל עלי כותרת חותכים', cls:'roseking', price:4000, reqLv:22},
+  white_rose:     {name:'הוורד הלבן', emoji:'🤍', dmg:0, mp:45, cd:14000, type:'buff', buffStats:{def:0.25, lifesteal:0.12}, buffDur:9000, fx:'buff', color:'#fff0f5', desc:'ורד לבן עוטף אותך: +25% הגנה ו-12% גניבת חיים ל-9 שניות', cls:'roseking', price:6000, reqLv:32},
+  petal_storm:    {name:'סופת עלי כותרת', emoji:'🌸', dmg:5.0, mp:52, cd:5200, type:'aoe', range:200, fx:'petalstorm', color:'#ff4a86', desc:'מערבולת עלי כותרת חדים שטוחנת את הסביבה', cls:'roseking', price:9000, reqLv:45},
+  rose_garden:    {name:'גן הוורדים', emoji:'🌷', dmg:6.5, mp:64, cd:8000, type:'aoe', range:240, fx:'rosegarden', burn:3500, color:'#e6325e', desc:'גן ורדים קוצני פורח ופוגע לאורך זמן', cls:'roseking', price:18000, reqLv:55},
+  bleeding_rose:  {name:'ורד מדמם', emoji:'🥀', dmg:5.6, mp:55, cd:5000, type:'proj', speed:400, fx:'rosebolt', aoe:120, burn:3000, color:'#c01a3a', desc:'ורד ארגמן ענק שמתפוצץ ומדמם אויבים', cls:'roseking', price:14000, reqLv:60},
+  thorn_crown:    {name:'כתר הקוצים', emoji:'👑', dmg:24.0, mp:130, cd:45000, type:'aoe', range:330, fx:'rosenova', burn:5000, color:'#ff2e6e', cc:'knock', desc:'אולטימטיבי: ורד ענק פורח ומתפוצץ בסופה של עלי כותרת וקוצים שמכלה הכל', cls:'roseking', price:-1, reqLv:70, ultimate:true},
+  rose_apocalypse:{name:'אחרית הוורדים', emoji:'🌹', dmg:16.0, mp:105, cd:10000, type:'aoe', range:285, fx:'rosenova', burn:5000, color:'#ff3a6e', desc:'פריחה אחרונה: ורד אדיר מתפוצץ בגל הרסני של עלי כותרת', cls:'roseking', price:28000, reqLv:100},
   // WARRIOR
   slash:       {name:'חיתוך', emoji:'⚔️', dmg:1.6, mp:8,  cd:800,  type:'melee', range:90,  fx:'slash',   color:'#ff5b5b', desc:'מכת חרב מהירה', cls:'warrior', price:0,    reqLv:1},
   heavy_blow:  {name:'מכה כבדה', emoji:'🔨', dmg:2.8, mp:18, cd:2600, type:'melee', range:100, fx:'smash',   color:'#ff8800', cc:'stagger', desc:'מכה עוצמתית — מסחררת', cls:'warrior', price:0, reqLv:1},
@@ -720,7 +741,7 @@ const SKILLS = {
   dragon_god:    {name:'זעם הדרקון הקדמון', emoji:'🐉', dmg:24.0, mp:130, cd:45000, type:'aoe', range:320, fx:'cometfall', burn:6000, color:'#ff5a1a', cc:'knock', desc:'אולטימטיבי: הדרקון הקדמון מתרסק בלהבות שמכלות הכל', cls:'dragonrider', price:-1, reqLv:70, ultimate:true},
   dragon_apocalypse:{name:'אחרית הדרקון', emoji:'☀️', dmg:16.0, mp:105, cd:10000, type:'aoe', range:270, fx:'sunbreak', burn:5000, color:'#ff7a1a', desc:'מנפץ גרם שמימי לגשם של אש דרקונית', cls:'dragonrider', price:28000, reqLv:100},
 };
-const ULT_BY_CLASS = { warrior:'ult_warrior', mage:'ult_mage', archer:'ult_archer', paladin:'ult_paladin', assassin:'death_dance', dragonrider:'dragon_god' };
+const ULT_BY_CLASS = { warrior:'ult_warrior', mage:'ult_mage', archer:'ult_archer', paladin:'ult_paladin', assassin:'death_dance', dragonrider:'dragon_god', roseking:'thorn_crown' };
 
 // ══════════════ ELEMENT SYSTEM (Dragon-Nest style) ══════════════
 // Each skill has an element. Elements have a weakness chart (deal +35% vs weak,
@@ -759,6 +780,12 @@ function skillElement(sk){
 
 // Each stage: new name, upgraded colors/look, stat multipliers, and an auto-granted skill.
 const EVOLUTIONS = {
+  roseking: [
+    {lv:50,  name:'אביר הוורדים',   color:'#ff5a8a', glow:'#ffb0cc', skill:'rose_bloom',  hpMul:1.24, atkMul:1.28, spdMul:1.14, aura:'#ff5a8a'},
+    {lv:110, name:'לורד הקוצים',    color:'#e6325e', glow:'#ff88aa', skill:'petal_storm', hpMul:1.40, atkMul:1.50, spdMul:1.18, aura:'#ff3a6e'},
+    {lv:180, name:'מלך הגן הארגמני', color:'#d01a4e', glow:'#ff6699', skill:'rose_garden', hpMul:1.55, atkMul:1.82, spdMul:1.15, aura:'#ff2e6e'},
+    {lv:220, name:'אל הוורדים',      color:'#ff1a5e', glow:'#ffaacc', skill:'thorn_crown', hpMul:1.85, atkMul:2.15, spdMul:1.14, aura:'#ff3a6e', branch:true},
+  ],
   warrior: [
     {lv:50,  name:'אלוף קרב',    color:'#ff7a2a', glow:'#ffaa55', skill:'blade_storm', hpMul:1.25, atkMul:1.2,  spdMul:1.1,  aura:'#ff7a2a'},
     {lv:110, name:'לורד מלחמה',  color:'#ff4400', glow:'#ffcc44', skill:'titan_smash', hpMul:1.45, atkMul:1.4,  spdMul:1.15, aura:'#ffcc00'},
@@ -808,6 +835,56 @@ const EVOLUTIONS = {
 // ══════════════════════════════════════════════════════════════════════
 const _TIER_LV = [50, 110, 180, 220];
 const _EVO_BRANCH_DEFS = {
+  roseking: [
+    [ {id:'rk_crimson', name:'אדון הארגמן', title:'אדון הארגמן', aura:'#ff2e6e', atk:0.10, sk:[
+        {n:'מטח קוצים',e:'🥀',t:'proj',d:3.2,m:16,cd:1100,f:'rosebolt',x:{speed:460,aoe:80}},
+        {n:'פריחה כפולה',e:'🌹',t:'aoe',d:3.8,m:34,cd:3600,f:'rosebloom',x:{range:155}},
+        {n:'ריקוד עלי כותרת',e:'💃',t:'dash',d:3.4,m:24,cd:3500,f:'petaltrail',x:{range:225}},
+        {n:'נשיקת הקוץ',e:'🩸',t:'melee',d:3.2,m:22,cd:3000,f:'thornwhip',x:{range:108,dot:true}},
+        {n:'מערבולת עלים',e:'🌸',t:'aoe',d:4.2,m:42,cd:4500,f:'petalstorm',x:{range:175}} ]},
+      {id:'rk_white', name:'הוורד הלבן', title:'הוורד הלבן', aura:'#fff0f5', hp:0.16, sk:[
+        {n:'מגן עלי כותרת',e:'🤍',t:'buff',d:0,m:30,cd:9000,f:'shield',x:{shield:true,shieldDur:6000}},
+        {n:'קוצים אוחזים',e:'🌿',t:'aoe',d:3.4,m:36,cd:4000,f:'thornring',x:{range:170,cc:'stagger'}},
+        {n:'פריחה מרפאת',e:'🌷',t:'buff',d:0,m:34,cd:10000,f:'buff',x:{buffAtk:0.3,buffDur:6000}},
+        {n:'דחיפת ורד',e:'💨',t:'dash',d:3.2,m:26,cd:3800,f:'petaltrail',x:{range:210}},
+        {n:'גן שלווה',e:'🌼',t:'aoe',d:3.8,m:44,cd:4800,f:'rosegarden',x:{range:180,cc:'stagger'}} ]} ],
+    [ {id:'rk_bloodrose', name:'ורד הדמים', title:'ורד הדמים', aura:'#c01a3a', atk:0.12, sk:[
+        {n:'סופת קוצים',e:'🥀',t:'aoe',d:5.6,m:52,cd:4500,f:'petalstorm',x:{range:185}},
+        {n:'נעיצת ארגמן',e:'🌹',t:'proj',d:5.0,m:44,cd:3000,f:'rosebolt',x:{speed:480,aoe:110,dot:true}},
+        {n:'פריחה מתפוצצת',e:'💥',t:'aoe',d:6.0,m:60,cd:5500,f:'rosebloom',x:{range:200}},
+        {n:'ריקוד הקוצים',e:'💃',t:'dash',d:5.4,m:50,cd:4000,f:'petaltrail',x:{range:235}},
+        {n:'קציר עלי כותרת',e:'🌸',t:'aoe',d:6.5,m:70,cd:6500,f:'rosegarden',x:{range:215,dot:true}} ]},
+      {id:'rk_purewhite', name:'הוורד הטהור', title:'הוורד הטהור', aura:'#ffe0ec', hp:0.14, atk:0.05, sk:[
+        {n:'הילת עלי כותרת',e:'🤍',t:'buff',d:0,m:50,cd:11000,f:'buff',x:{buffAtk:0.4,buffDur:7000}},
+        {n:'חומת קוצים',e:'🌿',t:'aoe',d:5.5,m:55,cd:4500,f:'thornring',x:{range:190,cc:'stun',stun:1000}},
+        {n:'פריחת מגן',e:'🛡️',t:'buff',d:0,m:55,cd:12000,f:'shield',x:{shield:true,shieldDur:7000}},
+        {n:'מטר ורדים',e:'🌹',t:'aoe',d:6.0,m:62,cd:5500,f:'petalstorm',x:{range:200}},
+        {n:'גן הריפוי',e:'🌷',t:'aoe',d:5.8,m:65,cd:6000,f:'rosegarden',x:{range:210}} ]} ],
+    [ {id:'rk_thornlord', name:'אדון הקוצים', title:'אדון הקוצים', aura:'#ff2e6e', atk:0.10, hp:0.12, sk:[
+        {n:'התפרצות ורד',e:'🌹',t:'aoe',d:11,m:90,cd:8000,f:'rosenova',x:{range:250,cc:'stun',stun:1500}},
+        {n:'דקירת ענק',e:'🥀',t:'proj',d:10,m:70,cd:5000,f:'rosebolt',x:{speed:520,aoe:130,dot:true}},
+        {n:'סופת ארגמן',e:'🌸',t:'aoe',d:9.5,m:80,cd:6000,f:'petalstorm',x:{range:230}},
+        {n:'גן קוצני',e:'🌿',t:'aoe',d:9,m:75,cd:5500,f:'rosegarden',x:{range:230,cc:'knock'}},
+        {n:'פריחה אדירה',e:'💥',t:'aoe',d:12,m:100,cd:8500,f:'rosenova',x:{range:260,cc:'stun',stun:1300}} ]},
+      {id:'rk_seraph', name:'שרף הוורדים', title:'שרף הוורדים', aura:'#fff0f5', atk:0.14, sk:[
+        {n:'סופת עלי כותרת אינסופית',e:'🌸',t:'aoe',d:11,m:85,cd:7000,f:'petalstorm',x:{range:215}},
+        {n:'ריקוד ממדי',e:'💃',t:'dash',d:12,m:80,cd:6000,f:'petaltrail',x:{range:255}},
+        {n:'נשיקת קוץ כפולה',e:'🥀',t:'melee',d:10,m:65,cd:4000,f:'thornwhip',x:{range:120,dot:true}},
+        {n:'מטר ורדים ענק',e:'🌹',t:'aoe',d:10.5,m:90,cd:7000,f:'rosegarden',x:{range:235}},
+        {n:'פריחת רעם',e:'⚡',t:'aoe',d:13,m:100,cd:8500,f:'rosenova',x:{range:250,cc:'stun',stun:1400}} ]} ],
+    [ {id:'rk_god', name:'אל הוורדים', title:'אל הוורדים', aura:'#ff1a5e', atk:0.18, hp:0.10, sk:[
+        {n:'אחרית הגן',e:'🌹',t:'aoe',d:18,m:120,cd:9000,f:'rosenova',x:{range:300,cc:'knock'}},
+        {n:'קוץ הקץ',e:'🥀',t:'proj',d:16,m:100,cd:6000,f:'rosebolt',x:{speed:560,aoe:150,dot:true}},
+        {n:'סופה ארגמנית אחרונה',e:'🌸',t:'aoe',d:17,m:110,cd:8000,f:'petalstorm',x:{range:275}},
+        {n:'פריחת היקום',e:'💥',t:'aoe',d:18,m:120,cd:9000,f:'rosenova',x:{range:290,cc:'stun',stun:1800}},
+        {n:'מלכות הוורדים',e:'👑',t:'aoe',d:20,m:140,cd:10000,f:'rosenova',x:{range:320,cc:'stun',stun:1600}} ]},
+      {id:'rk_eternal', name:'הוורד הנצחי', title:'הוורד הנצחי', aura:'#ffd6e6', hp:0.25, atk:0.08, sk:[
+        {n:'מגן עלי הנצח',e:'🛡️',t:'buff',d:0,m:60,cd:12000,f:'shield',x:{shield:true,shieldDur:7000}},
+        {n:'גן אלמותי',e:'🌷',t:'aoe',d:17,m:110,cd:8000,f:'rosegarden',x:{range:280,cc:'knock'}},
+        {n:'קוץ המשמר',e:'🥀',t:'melee',d:15,m:95,cd:5000,f:'thornwhip',x:{range:120}},
+        {n:'הילת מלכות',e:'💗',t:'buff',d:0,m:70,cd:11000,f:'buff',x:{buffAtk:0.45,buffDur:8000}},
+        {n:'פריחה נצחית',e:'🌹',t:'aoe',d:19,m:130,cd:9500,f:'rosenova',x:{range:300,cc:'stun',stun:1500}} ]} ],
+  ],
   warrior: [
     [ {id:'w_blade', name:'אמן הלהב', title:'אמן הלהב', aura:'#ff9a3a', atk:0.10, sk:[
         {n:'חיתוך כפול',e:'⚔️',t:'melee',d:3.0,m:12,cd:900,f:'slash',x:{range:100}},
@@ -1319,6 +1396,10 @@ const ITEM_BASES = [
   {base:'שרביט', emoji:'⚚', slot:'weapon', stat:'matk', class:'int', wtype:'staff', reqStat:{int:20}, baseVal:13},
   // WEAPONS — dragon rider (str/int hybrid → lance)
   {base:'כידון דרקון', emoji:'🔱', slot:'weapon', stat:'atk', class:'str', wtype:'lance', reqStat:{str:12,int:8}, baseVal:12},
+  // ── 🌹 ROSE KING signature gear (int) ──
+  {base:'שרביט הוורדים', emoji:'🌹', slot:'weapon', stat:'matk', class:'int', wtype:'staff', reqStat:{int:18}, baseVal:14},
+  {base:'גלימת עלי הכותרת', emoji:'🌸', slot:'chest', stat:'def', class:'int', reqStat:{int:16}, baseVal:6},
+  {base:'כתר הוורדים', emoji:'👑', slot:'helm', stat:'def', class:'int', reqStat:{int:14}, baseVal:5},
   // ARMOR — chest
   {base:'שריון עור', emoji:'🦺', slot:'chest', stat:'def', class:'agi', reqStat:{agi:8}, baseVal:6},
   {base:'שריון לוחות', emoji:'🛡️', slot:'chest', stat:'def', class:'str', reqStat:{str:16}, baseVal:11},
@@ -2148,12 +2229,12 @@ function canEquip(player, item){
   // repair legacy items on the fly (restores class/wtype + clamps reqStat)
   restoreItemIdentity(item);
   // the stat family each class belongs to (drives armor + legacy-weapon restriction)
-  const FAMILY = { warrior:'str', paladin:'str', dragonrider:'str', archer:'agi', assassin:'agi', mage:'int' };
+  const FAMILY = { warrior:'str', paladin:'str', dragonrider:'str', archer:'agi', assassin:'agi', mage:'int', roseking:'int' };
   // CLASS WEAPON RESTRICTION: each class wields only its own weapon TYPE.
   //   warrior/paladin → sword family · archer → bow · assassin → dagger ·
   //   mage → staff · dragonrider → lance.
   if(item.slot==='weapon'){
-    const ALLOWED = { warrior:['sword'], paladin:['sword'], archer:['bow'], mage:['staff'], assassin:['dagger'], dragonrider:['lance'] };
+    const ALLOWED = { warrior:['sword'], paladin:['sword'], archer:['bow'], mage:['staff'], assassin:['dagger'], dragonrider:['lance'], roseking:['staff'] };
     const allow = ALLOWED[player.classId] || [];
     if(item.wtype){
       if(allow.length && !allow.includes(item.wtype)){
@@ -2611,6 +2692,7 @@ const CRAFT_WEAPON_VARIANTS = {
   assassin:   {wtype:'dagger', emoji:'🔪', stat:'atk',  prefix:'פגיון '},
   mage:       {wtype:'staff',  emoji:'🪄', stat:'matk', prefix:'מטה '},
   dragonrider:{wtype:'lance',  emoji:'🔱', stat:'atk',  prefix:'כידון '},
+  roseking:   {wtype:'staff',  emoji:'🌹', stat:'matk', prefix:'ורד '},
 };
 function craftUnique(recipe, playerLevel, classId){
   if(recipe.wings){ // wings-ladder recipes craft real wing items
@@ -2633,7 +2715,7 @@ function craftUnique(recipe, playerLevel, classId){
     const v = CRAFT_WEAPON_VARIANTS[classId];
     wtype = v.wtype; emoji = v.emoji;
     slotStat = (recipe.stat==='atk'||recipe.stat==='matk') ? v.stat : recipe.stat;
-    wclass = ({warrior:'str',paladin:'str',dragonrider:'str',archer:'agi',assassin:'agi',mage:'int'})[classId];
+    wclass = ({warrior:'str',paladin:'str',dragonrider:'str',archer:'agi',assassin:'agi',mage:'int',roseking:'int'})[classId];
     name = v.prefix ? (v.prefix + recipe.name) : recipe.name;
   }
   const stats = { [slotStat]: mainVal };
@@ -3190,6 +3272,7 @@ function drawPlayer(ctx, sx, sy, classId, moving, t, facing, evoStage, wings, co
     paladin:{armor:'#c8a020',armor2:'#e8c030',skin:'#e8c098',hair:'#6a4a20',trim:'#ffffff'},
     assassin:{armor:'#2a2438',armor2:'#4a3a6a',skin:'#d8b89a',hair:'#1a1020',trim:'#b58aff'},
     dragonrider:{armor:'#7a2a16',armor2:'#d1542a',skin:'#e8b488',hair:'#2a1408',trim:'#ffb24a'},
+    roseking:{armor:'#7a1a3a',armor2:'#e6325e',skin:'#f0d0c8',hair:'#2a0a18',trim:'#ffb0cc'},
   }[classId];
   const pal = {...basePal};
   // upgrade armor colors per evolution stage
@@ -4436,7 +4519,7 @@ window.MUSIC = (function(){
 //      Each class has its OWN voice (pitch/rate), each attack speaks its own word. ════
 window.VOICE = (function(){
   const TONE={ warrior:{p:0.6,r:1.15}, paladin:{p:0.78,r:1.0}, mage:{p:1.12,r:0.95},
-               archer:{p:1.3,r:1.2}, assassin:{p:0.9,r:1.35}, dragonrider:{p:0.5,r:1.05} };
+               archer:{p:1.3,r:1.2}, assassin:{p:0.9,r:1.35}, dragonrider:{p:0.5,r:1.05}, roseking:{p:1.08,r:1.05} };
   let last=0, enabled=true;
   return {
     set enabled(v){ enabled=v; }, get enabled(){ return enabled; },
@@ -7685,6 +7768,15 @@ function App(){
       hitPeers(range, 0.42);
       G.effects.push({type:'slash', x:p.x, y:p.y, dir:G.facing, life:0.26, t:0, color:'#ff7a3a', big:true, cls:'dragonrider'});
       clsBurst(p.x + G.facing*55, p.y, 'dragonrider', 6, 110);
+    } else if(cls==='roseking'){
+      // rose king: sweeping petal cut with tossed petals (mid reach)
+      const lvSpeed = Math.min(150, p.level*1.5);
+      G.atkCd = now + Math.round(Math.max(420, 720 - cs.tAgi*2.2 - lvSpeed)/_aspd);
+      const range = 120;
+      allM.forEach(m=>{ if(m.hp>0&&!m._dying && Math.hypot(m.x-p.x,m.y-p.y)<range+m.size*0.5){ hitMonster(m,0.42,0,true); } });
+      hitPeers(range, 0.42);
+      G.effects.push({type:'slash', x:p.x, y:p.y, dir:G.facing, life:0.24, t:0, color:'#ff5a8a', big:true, cls:'roseking'});
+      for(let i=0;i<5;i++){ const a=(G.facing>0?0:Math.PI)+(Math.random()-0.5)*1.2; G.effects.push({type:'petal', x:p.x+G.facing*30, y:p.y-10, vx:Math.cos(a)*120+G.facing*60, vy:Math.sin(a)*120-40, size:6+Math.random()*4, rot:Math.random()*6, color:i%2?'#ff5a8a':'#fff0f5', life:0.7, t:0}); }
     } else {
       // warrior: short heavy melee — brutal ember cleave
       const lvSpeed = Math.min(150, p.level*1.5);
@@ -7781,6 +7873,12 @@ function App(){
     if(window.WOLNet && window.WOLNet.isOnline()){
       const _scol = sk.color || (CLASS_VFX[p.classId]||CLASS_VFX.warrior).color;
       window.WOLNet.action(sk.ultimate?'ult':'skill', G.facing, _scol, { sk: sk.type||'proj', el: _el, range: sk.range||0 });
+    }
+    // 🌹 rose king scatters petals across the screen on every skill
+    if(p.classId==='roseking'){
+      const _pc = sk.color||'#ff5a8a', _n = sk.ultimate?16:8;
+      for(let i=0;i<_n;i++){ const a=Math.random()*Math.PI*2, sp=80+Math.random()*140;
+        G.effects.push({type:'petal', x:p.x, y:p.y-8, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-30, size:6+Math.random()*5, rot:Math.random()*6, color:i%3?_pc:'#fff0f5', life:0.8+Math.random()*0.5, t:0}); }
     }
     // ── SOUND: themed cast sound per skill + an occasional player effort grunt ──
     if(window.SOUND){
@@ -9975,6 +10073,10 @@ function App(){
         ctx.fillStyle='#ffcc33';
         for(let e=0;e<6;e++){ const a=now/90+e*1.05; const rr=pr.size*(1.6+Math.sin(now/80+e)*0.5); ctx.globalAlpha=0.7; ctx.beginPath(); ctx.arc(ix+Math.cos(a)*rr, iy+Math.sin(a)*rr, pr.size*0.4,0,Math.PI*2); ctx.fill(); }
         ctx.globalAlpha=1;
+      } else if(pr.fx==='rosebolt'||pr.fx==='petal'){
+        ctx.shadowColor=pr.color||'#ff5a8a'; ctx.shadowBlur=20;
+        drawRose(ctx, ix, iy, (pr.size||6)*1.7, now/110, pr.color||'#ff5a8a', '#fff0f5');
+        ctx.shadowColor='transparent'; ctx.shadowBlur=0;
       } else if(pr.fx==='frost'){
         ctx.shadowColor='#33ccff'; ctx.shadowBlur=18; ctx.translate(ix,iy); ctx.rotate(ang);
         ctx.fillStyle='#aaeeff'; ctx.beginPath();
@@ -10715,6 +10817,14 @@ function App(){
       const fx = ef.fx;
       ctx.save();
 
+      // ── 🌹 ROSE KING: drifting petals + blooming roses + giant rose explosion ──
+      if(ef.type==='petal'){
+        const t=ef.t, dx=(ef.vx||0)*t, dy=(ef.vy||0)*t + 60*t*t;
+        ctx.globalAlpha=fade; drawRosePetal(ctx, ix+dx, iy+dy, ef.size||7, (ef.rot||0)+t*5, ef.color||'#ff5a8a');
+        ctx.restore(); return;
+      }
+      if(fx==='rosenova'||fx==='rosebloom'||fx==='petalstorm'||fx==='rosegarden'){ drawRoseFx(ctx, ix, iy, ef, now, prog, fade); ctx.restore(); return; }
+
       // ── COMBO FINISHER blast: expanding shockwave + bright flash ──
       if(ef.type==='combo_blast'){
         const r = Math.max(2, ef.maxR * (ef.t/ef.life));
@@ -11081,6 +11191,7 @@ function App(){
     paladin: {int:0.42, str:0.40, vit:0.18},  // hybrid holy: INT (spell power+MP) + STR (melee)
     assassin:{agi:0.74, vit:0.18, int:0.08},  // AGI = burst + crit + speed
     dragonrider:{str:0.52, int:0.28, vit:0.20}, // hybrid: STR melee + INT (lance reqs both + MP)
+    roseking:{int:0.52, agi:0.30, vit:0.18}, // hybrid: INT (petal magic + MP) + AGI (speed/crit)
   };
   const autoFillStats = ()=>{
     const p = G.player;
@@ -13943,6 +14054,51 @@ function _pshape(ctx,x,y,shape,s){
   else { ctx.arc(x,y,s,0,Math.PI*2); ctx.fill(); }
 }
 // draws the unique signature overlay for a skill burst effect
+function drawRosePetal(ctx,x,y,size,rot,color){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(rot); ctx.fillStyle=color;
+  ctx.beginPath(); ctx.moveTo(0,-size);
+  ctx.quadraticCurveTo(size*0.72,-size*0.5, size*0.5,0);
+  ctx.quadraticCurveTo(size*0.32,size*0.5, 0,size*0.42);
+  ctx.quadraticCurveTo(-size*0.32,size*0.5, -size*0.5,0);
+  ctx.quadraticCurveTo(-size*0.72,-size*0.5, 0,-size);
+  ctx.fill(); ctx.restore();
+}
+function drawRose(ctx,x,y,r,rot,outer,inner){
+  for(let ring=3; ring>=1; ring--){
+    const rr=r*ring/3, nn=ring*5, sz=rr*0.58, col=(ring===1?inner:outer);
+    for(let i=0;i<nn;i++){ const a=rot*(ring%2?1:-1)+i*(Math.PI*2/nn); drawRosePetal(ctx, x+Math.cos(a)*rr*0.55, y+Math.sin(a)*rr*0.55, sz, a+Math.PI/2, col); }
+  }
+  ctx.fillStyle=inner; ctx.beginPath(); ctx.arc(x,y,r*0.16,0,Math.PI*2); ctx.fill();
+}
+function drawRoseFx(ctx,ix,iy,ef,now,prog,fade){
+  const col=ef.color||'#ff3a6e', white='#fff0f5';
+  if(ef.fx==='rosenova'){
+    const R=(ef.maxR||ef.range||300), r=R*Math.min(1,prog*1.2);
+    ctx.globalAlpha=fade; ctx.strokeStyle=col; ctx.lineWidth=10*fade+2; ctx.shadowColor=col; ctx.shadowBlur=30;
+    ctx.beginPath(); ctx.arc(ix,iy,r,0,Math.PI*2); ctx.stroke();
+    ctx.shadowBlur=24; drawRose(ctx,ix,iy,Math.min(R*0.5,28+prog*R*0.5),now/400,col,white);
+    ctx.globalAlpha=fade*0.9; const np=18;
+    for(let i=0;i<np;i++){ const a=i*(Math.PI*2/np)+now/600, p2=r*0.9; drawRosePetal(ctx, ix+Math.cos(a)*p2, iy+Math.sin(a)*p2, 9*fade+3, a, i%3?col:white); }
+    return;
+  }
+  if(ef.fx==='rosebloom'){
+    const R=(ef.range||140);
+    drawRose(ctx,ix,iy,Math.min(R*0.6,16+prog*R*0.5),now/300,col,white);
+    ctx.globalAlpha=fade*0.8; ctx.strokeStyle=col; ctx.lineWidth=4*fade+1; ctx.shadowColor=col; ctx.shadowBlur=18;
+    ctx.beginPath(); ctx.arc(ix,iy,R*prog,0,Math.PI*2); ctx.stroke(); return;
+  }
+  if(ef.fx==='petalstorm'){
+    const R=(ef.range||190); ctx.globalAlpha=fade; const np=22;
+    for(let i=0;i<np;i++){ const a=i*(Math.PI*2/np)+now/200*(i%2?1:-1), rr=R*(0.3+0.7*((prog+i/np)%1)); drawRosePetal(ctx, ix+Math.cos(a)*rr, iy+Math.sin(a)*rr, 8, a+now/150, i%4?col:white); }
+    return;
+  }
+  if(ef.fx==='rosegarden'){
+    const R=(ef.range||230); ctx.globalAlpha=fade*0.9; const nr=8;
+    for(let i=0;i<nr;i++){ const a=i*(Math.PI*2/nr)+now/900, rr=R*0.7; drawRose(ctx, ix+Math.cos(a)*rr, iy+Math.sin(a)*rr, 14, now/300+i, col, white); }
+    ctx.strokeStyle=col; ctx.lineWidth=3*fade+1; ctx.shadowColor=col; ctx.shadowBlur=14; ctx.globalAlpha=fade*0.5;
+    ctx.beginPath(); ctx.arc(ix,iy,R*0.7,0,Math.PI*2); ctx.stroke(); return;
+  }
+}
 function drawSkillSignature(ctx,ix,iy,ef,now){
   const col=ef.color||'#fff';
   const sig=_fxSig(col+'|'+(ef.fx||''), ef.fx);
@@ -14000,7 +14156,8 @@ const CLASS_VFX = {
   archer:     {color:'#3affb0', edge:'#dcffe9', slash:'wind',    part:'leaf',   grav:60},
   paladin:    {color:'#ffd83a', edge:'#fffbe2', slash:'radiant', part:'glint',  grav:40},
   assassin:   {color:'#b58aff', edge:'#f0e4ff', slash:'twin',    part:'shadow', grav:20},
-  dragonrider:{color:'#ff7a3a', edge:'#ffe8b0', slash:'claw',    part:'ember',  grav:-70}
+  dragonrider:{color:'#ff7a3a', edge:'#ffe8b0', slash:'claw',    part:'ember',  grav:-70},
+  roseking:   {color:'#ff3a6e', edge:'#ffd6e6', slash:'arcane',  part:'leaf',   grav:50}
 };
 // per-class melee slash silhouettes (called from drawEffects for type==='slash')
 function drawClassSlash(ctx, ix, iy, ef, prog, fade, r, a0, a1, now){
