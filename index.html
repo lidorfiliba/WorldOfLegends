@@ -593,7 +593,6 @@ const SKILLS = {
   petal_storm:    {name:'סופת עלי כותרת', emoji:'🌸', dmg:5.0, mp:52, cd:5200, type:'aoe', range:200, fx:'petalstorm', color:'#ff4a86', desc:'מערבולת עלי כותרת חדים שטוחנת את הסביבה', cls:'roseking', price:9000, reqLv:45},
   rose_garden:    {name:'גן הוורדים', emoji:'🌷', dmg:6.5, mp:64, cd:8000, type:'aoe', range:240, fx:'rosegarden', burn:3500, color:'#e6325e', desc:'גן ורדים קוצני פורח ופוגע לאורך זמן', cls:'roseking', price:18000, reqLv:55},
   bleeding_rose:  {name:'ורד מדמם', emoji:'🥀', dmg:5.6, mp:55, cd:5000, type:'proj', speed:400, fx:'rosebolt', aoe:120, burn:3000, color:'#c01a3a', desc:'ורד ארגמן ענק שמתפוצץ ומדמם אויבים', cls:'roseking', price:14000, reqLv:60},
-  rose_somersault:{name:'סלטת הוורדים', emoji:'🤸', dmg:5.2, mp:48, cd:5000, type:'leap', range:250, fx:'rosenova', cc:'knock', color:'#ff3a6e', desc:'מזנק לאוויר בגלגלונים מסחררים ונוחת בפיצוץ של עשרות ורדים', cls:'roseking', price:7000, reqLv:28},
   thorn_crown:    {name:'כתר הקוצים', emoji:'👑', dmg:24.0, mp:130, cd:45000, type:'aoe', range:330, fx:'rosenova', burn:5000, color:'#ff2e6e', cc:'knock', desc:'אולטימטיבי: ורד ענק פורח ומתפוצץ בסופה של עלי כותרת וקוצים שמכלה הכל', cls:'roseking', price:-1, reqLv:70, ultimate:true},
   rose_apocalypse:{name:'אחרית הוורדים', emoji:'🌹', dmg:16.0, mp:105, cd:10000, type:'aoe', range:285, fx:'rosenova', burn:5000, color:'#ff3a6e', desc:'פריחה אחרונה: ורד אדיר מתפוצץ בגל הרסני של עלי כותרת', cls:'roseking', price:28000, reqLv:100},
   // WARRIOR
@@ -8186,13 +8185,6 @@ function App(){
         G.effects.push({type:'cine', kind:'leapup', x:p.x, y:p.y, maxR:36, color:'#ff7a3a', life:0.3, t:0});
         window.SOUND && (window.SOUND.play('whoosh'), window.SOUND.play('voice'));
         log(`🔥 ${sk.name} — צלילת דרקון!`, 'lg-dmg');
-      } else if(p.classId==='roseking'){
-        // 🌹 ROSE SOMERSAULT: leap high with spinning flips, land in a burst of dozens of roses
-        G.leap = { t:0, dur:0.7, ox:p.x, oy:p.y, tx, ty, sk, el:_el, landed:false, kind:'rosespin', lift:155, spins:3, hits:[] };
-        G.effects.push({type:'cine', kind:'leapup', x:p.x, y:p.y, maxR:44, color:sk.color, life:0.4, t:0});
-        for(let i=0;i<8;i++){ const a=Math.random()*Math.PI*2; G.effects.push({type:'petal', x:p.x, y:p.y-8, vx:Math.cos(a)*100, vy:Math.sin(a)*100-40, size:6+Math.random()*5, rot:Math.random()*6, color:i%2?sk.color:'#fff0f5', life:0.9, t:0}); }
-        window.SOUND && (window.SOUND.play('whoosh'), window.SOUND.playChain(['cry_roseking','voice']));
-        log(`🤸 ${sk.name} — סלטת ורדים!`, 'lg-dmg');
       } else {
         // 🌙 MOON LEAP (warrior's signature): jump into the air and crash down with an AoE slam
         G.leap = { t:0, dur:0.6, ox:p.x, oy:p.y, tx, ty, sk, el:_el, landed:false, lift:128 };
@@ -8386,12 +8378,6 @@ function App(){
         else { burst(p.x, p.y, sk.color, 50, 420); if(sk.burn) spawnBurn(p.x, p.y, r, sk, _el); }
         G.shake = Math.max(G.shake||0, isDive?14:18);
         window.SOUND && (window.SOUND.play('thud'), window.SOUND.play('big'));
-        if(L.kind==='rosespin'){
-          // 🌹 land in a GIANT rose explosion with dozens of petals bursting outward
-          G.effects.push({type:'aoe', fx:'rosenova', x:p.x, y:p.y, maxR:rr, range:rr, color:sk.color, life:0.85, t:0});
-          for(let i=0;i<42;i++){ const a=Math.random()*Math.PI*2, sp=120+Math.random()*260; G.effects.push({type:'petal', x:p.x, y:p.y-6, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-60, size:7+Math.random()*7, rot:Math.random()*6, color:i%3?sk.color:'#fff0f5', life:1.0+Math.random()*0.6, t:0}); }
-          window.SOUND && window.SOUND.playChain(['cry_roseking','voiceBig'], {rate:0.9});
-        }
         G.leap = null;
       }
     }
@@ -10260,10 +10246,7 @@ function App(){
       ctx.save(); ctx.globalAlpha=0.35*(1-Math.sin(u*Math.PI)*0.7); ctx.fillStyle='#000';
       ctx.beginPath(); ctx.ellipse(p.x-cam.x+lungeX, p.y-cam.y+14, 22*(1-Math.sin(u*Math.PI)*0.5), 8*(1-Math.sin(u*Math.PI)*0.5), 0, 0, Math.PI*2); ctx.fill(); ctx.restore();
     }
-    const _rspin = (G.leap && G.leap.kind==='rosespin');
-    if(_rspin){ const u=Math.min(1, G.leap.t/G.leap.dur); const cx=p.x-cam.x+lungeX, cy=p.y-cam.y+leapLift; ctx.save(); ctx.translate(cx,cy); ctx.rotate(u*Math.PI*2*(G.leap.spins||3)*G.facing); ctx.translate(-cx,-cy); }
     SP.drawPlayer(ctx, p.x-cam.x+lungeX, p.y-cam.y+leapLift, p.classId, G._moving, now, G.facing, p.evoStage||0, (p.equipped&&p.equipped.wings)||null, (p.cosmetic&&D.cosmeticById(p.cosmetic))||null, !!(G.faceBack && G._moving));
-    if(_rspin){ ctx.restore(); }
     if(G._myBubble && now < G._myBubble.until){ drawChatBubble(ctx, p.x-cam.x, p.y-cam.y-52, G._myBubble.txt); }
     // shield ring
     if(G.shield){
