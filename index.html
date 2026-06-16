@@ -4670,6 +4670,7 @@ window.WOLNet = (function(){
           break;
         }
         case 'guildError': if(window.showToastGlobal) window.showToastGlobal('🛡️ '+(m.reason||'שגיאת גילדה'), '#ff5a5a'); break;
+        case 'authError': if(window.showToastGlobal) window.showToastGlobal('🔒 '+(m.reason||'אימות נכשל')+' — ההתקדמות לא תישמר עד התחברות מחדש', '#ff7a5a'); break;
         case 'guildMissionDone': {
           // the guild completed a hard mission — a week-long guild-wide buff is now active
           const rw = m.reward||{};
@@ -5249,6 +5250,7 @@ function App(){
     setForgotStep('request'); setResetCode(''); setLoginMode('login');
   };
   const doLogin = async ()=>{
+    try{ window._authPwHash = E.hashPw(loginPw); }catch(e){} // remember this session's verified hash for the server
     let uname, admin, account;
     // Try cloud first if configured
     if(window.WOLCloud && window.WOLCloud.on){
@@ -5992,7 +5994,8 @@ function App(){
       const prof={ name:p.name, cls:p.classId, level:p.level, evoStage:p.evoStage||0,
         world:netWorld, x:Math.round(p.x), y:Math.round(p.y), hp:Math.round(p.hp), maxHp:Math.round(G.cs.maxHp), worldTier:wtier,
         worldW:WW, worldH:WH,
-        account:p.account||'', slot:p.charSlot||0, gold:Math.round(p.gold||0), title:D.titleText(p)||'', guild:p.guild||'' };
+        account:p.account||'', slot:p.charSlot||0, gold:Math.round(p.gold||0), title:D.titleText(p)||'', guild:p.guild||'',
+        pwHash: window._authPwHash || (E.loadAccounts()[p.account]||{}).pw || '' };
       if(window.WOLNet){
         if(!window.WOLNet.connected && !window.WOLNet.ws){ window.WOLNet.connect(prof); }
         else if(window.WOLNet.connected){ window.WOLNet.changeWorld(netWorld, Math.round(p.x), Math.round(p.y), wtier, WW, WH); }
